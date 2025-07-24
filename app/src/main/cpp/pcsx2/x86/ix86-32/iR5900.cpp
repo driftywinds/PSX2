@@ -652,12 +652,14 @@ static void recResetRaw()
 
 	EE::Profiler.Reset();
 
+    // recVTLB => iR5900LoadStore
+    vtlb_DynGenDispatchers();
+
 //	xSetPtr(SysMemory::GetEERec());
     armSetAsmPtr(recPtr, recPtrEnd - recPtr, nullptr);
     armStartBlock();
 
 	_DynGen_Dispatchers();
-//	vtlb_DynGenDispatchers();
 
 //	recPtr = xGetPtr();
     recPtr = armEndBlock();

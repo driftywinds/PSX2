@@ -928,7 +928,7 @@ namespace Dynarec {
 namespace OpcodeImpl {
 void recCOP2() { recCOP2t[_Rs_](); }
 
-#if defined(LOADSTORE_RECOMPILE2) && defined(CP2_RECOMPILE)
+#if defined(LOADSTORE_RECOMPILE) && defined(CP2_RECOMPILE)
 
 /*********************************************************
 * Load and store for COP2 (VU0 unit)                     *
@@ -958,11 +958,15 @@ void recLQC2()
 	else
 	{
 		_eeMoveGPRtoR(arg1regd, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
-		xAND(arg1regd, ~0xF);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
+//		xAND(arg1regd, ~0xF);
+        armAsm->And(ECX, ECX, ~0xF);
 
-		xmmreg = vtlb_DynGenReadQuad(128, arg1regd.GetId(), alloc_cb);
+//		xmmreg = vtlb_DynGenReadQuad(128, arg1regd.GetId(), alloc_cb);
+        xmmreg = vtlb_DynGenReadQuad(128, ECX.GetCode(), alloc_cb);
 	}
 
 	// toss away if loading to vf00
@@ -983,8 +987,10 @@ void recSQC2()
 
 	// vf00 has to be special cased here, because of the microvu temps...
 	const int ftreg = _Rt_ ? _allocVFtoXMMreg(_Rt_, MODE_READ) : _allocTempXMMreg(XMMT_FPS);
-	if (!_Rt_)
-		xMOVAPS(xRegisterSSE(ftreg), ptr128[&vu0Regs.VF[0].F]);
+	if (!_Rt_) {
+//        xMOVAPS(xRegisterSSE(ftreg), ptr128[&vu0Regs.VF[0].F]);
+        armAsm->Ldr(a64::QRegister(ftreg).Q(), armMemOperandPtr(&vu0Regs.VF[0].F));
+    }
 
 	if (GPR_IS_CONST1(_Rs_))
 	{
@@ -994,11 +1000,15 @@ void recSQC2()
 	else
 	{
 		_eeMoveGPRtoR(arg1regd, _Rs_);
-		if (_Imm_ != 0)
-			xADD(arg1regd, _Imm_);
-		xAND(arg1regd, ~0xF);
+		if (_Imm_ != 0) {
+//            xADD(arg1regd, _Imm_);
+            armAsm->Add(ECX, ECX, _Imm_);
+        }
+//		xAND(arg1regd, ~0xF);
+        armAsm->And(ECX, ECX, ~0xF);
 
-		vtlb_DynGenWrite(128, true, arg1regd.GetId(), ftreg);
+//		vtlb_DynGenWrite(128, true, arg1regd.GetId(), ftreg);
+        vtlb_DynGenWrite(128, true, ECX.GetCode(), ftreg);
 	}
 
 	if (!_Rt_)

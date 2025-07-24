@@ -13,10 +13,6 @@
 
 namespace a64 = vixl::aarch64;
 
-#define RWRET a64::w0
-#define RXRET a64::x0
-#define RQRET a64::q0
-
 #define RWARG1 a64::w0
 #define RWARG2 a64::w1
 #define RWARG3 a64::w2
@@ -40,29 +36,17 @@ namespace a64 = vixl::aarch64;
 #define RDSCRATCH3 a64::d29
 #define RSSCRATCH3 a64::s29
 
-#define RQSCRATCHI a64::VRegister(30, 128, 16)
-#define RQSCRATCHF a64::VRegister(30, 128, 4)
-#define RQSCRATCHD a64::VRegister(30, 128, 2)
-
-#define RQSCRATCH2I a64::VRegister(31, 128, 16)
-#define RQSCRATCH2F a64::VRegister(31, 128, 4)
-#define RQSCRATCH2D a64::VRegister(31, 128, 2)
-
 #define EAX a64::w0
 #define ECX a64::w1
 #define EDX a64::w2
 #define EBX a64::w3
 #define EEX a64::w4
-#define E5X a64::w5
-#define E8X a64::w8
 
 #define RAX a64::x0
 #define RCX a64::x1
 #define RDX a64::x2
 #define RBX a64::x3
 #define REX a64::x4
-#define R5X a64::x5
-#define R8X a64::x8
 
 #define RSTATE_x19 a64::x19
 #define RSTATE_x20 a64::x20
@@ -71,6 +55,7 @@ namespace a64 = vixl::aarch64;
 #define RSTATE_x23 a64::x23
 #define RSTATE_x24 a64::x24
 #define RFASTMEMBASE a64::x25
+#define RSTATE_x26 a64::x26
 #define RSTATE_FPU a64::x27
 #define RSTATE_PSX a64::x28
 #define RSTATE_CPU a64::x29

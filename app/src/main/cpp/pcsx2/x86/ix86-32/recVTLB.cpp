@@ -261,7 +261,6 @@ namespace vtlb_private
 
 static constexpr u32 INDIRECT_DISPATCHER_SIZE = 96;
 static constexpr u32 INDIRECT_DISPATCHERS_SIZE = 2 * 5 * 2 * INDIRECT_DISPATCHER_SIZE;
-//static u8* m_IndirectDispatchers = nullptr;
 alignas(__pagesize) static u8 m_IndirectDispatchers[__pagesize];
 
 // ------------------------------------------------------------------------
@@ -302,14 +301,14 @@ static void DynGen_HandlerTest(const GenDirectFn& gen_direct, int mode, int bits
     a64::Label done;
     armAsm->B(&done);
 //	to_handler.SetTarget();
-    armAsm->Bind(&to_handler);
+    armBind(&to_handler);
+
 //	xFastCall(GetIndirectDispatcherPtr(mode, szidx, sign));
-    armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<uint64_t>(GetIndirectDispatcherPtr(mode, szidx, sign)));
+    armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<uintptr_t>(GetIndirectDispatcherPtr(mode, szidx, sign)));
     armAsm->Blr(RXVIXLSCRATCH);
+
 //	done.SetTarget();
-    if(done.IsLinked()) {
-        armAsm->Bind(&done);
-    }
+    armBind(&done);
 }
 
 // ------------------------------------------------------------------------
@@ -323,7 +322,7 @@ static void DynGen_IndirectTlbDispatcher(int mode, int bits, bool sign)
 	xSUB(rsp, 32 + 8);
 #else
 //	xSUB(rsp, 8);
-    armAsm->Sub(a64::sp, a64::sp, 48);
+//    armAsm->Sub(a64::sp, a64::sp, 48);
 #endif
 
 //	xMOVZX(eax, al);
@@ -335,34 +334,20 @@ static void DynGen_IndirectTlbDispatcher(int mode, int bits, bool sign)
 //	xSUB(arg1regd, eax);
     armAsm->Sub(ECX, ECX, EEX);
 
+	// jump to the indirect handler, which is a C++ function.
+	// [ecx is address, edx is data]
+//	sptr table = (sptr)vtlbdata.RWFT[bits][mode];
+//  xFastCall(ptrNative[(rax * wordsize) + table], arg1reg, arg2reg);
+
+    armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<intptr_t>(vtlbdata.RWFT[bits][mode]));
+    armAsm->Ldr(REX, a64::MemOperand(RXVIXLSCRATCH, REX, a64::LSL, 3));
+
     armAsm->Mov(RAX, RCX);
     armAsm->Mov(RCX, RDX);
 
-	// jump to the indirect handler, which is a C++ function.
-	// [ecx is address, edx is data]
-	sptr table = (sptr)vtlbdata.RWFT[bits][mode];
-	if (table == (s32)table)
-	{
-//		xFastCall(ptrNative[(rax * wordsize) + table], arg1reg, arg2reg);
-        armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<sptr>(table));
-        armAsm->Ldr(REX, a64::MemOperand(RXVIXLSCRATCH, REX, a64::LSL, 3));
-	}
-	else
-	{
-//		xLEA(arg3reg, ptr[(void*)table]);
-        armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<sptr>(table));
-//		xFastCall(ptrNative[(rax * wordsize) + arg3reg], arg1reg, arg2reg);
-        armAsm->Ldr(REX, a64::MemOperand(RXVIXLSCRATCH, REX, a64::LSL, 3));
-	}
-
-    const a64::Register old_stack_pointer = armAsm->StackPointer();
-    armAsm->SetStackPointer(a64::sp);
-    armAsm->Stp(a64::lr, a64::x3, a64::MemOperand(a64::sp, 16));
-
+    armAsm->Push(a64::xzr, a64::lr);
     armAsm->Blr(REX);
-
-    armAsm->Ldp(a64::lr, a64::x3, a64::MemOperand(a64::sp, 16));
-    armAsm->SetStackPointer(old_stack_pointer);
+    armAsm->Pop(a64::lr, a64::xzr);
 
 	if (!mode)
 	{
@@ -401,40 +386,12 @@ static void DynGen_IndirectTlbDispatcher(int mode, int bits, bool sign)
 	xADD(rsp, 32 + 8);
 #else
 //	xADD(rsp, 8);
-    armAsm->Add(a64::sp, a64::sp, 48);
+//    armAsm->Add(a64::sp, a64::sp, 48);
 #endif
 
 //	xRET();
     armAsm->Ret();
 }
-
-// One-time initialization procedure.  Multiple subsequent calls during the lifespan of the
-// process will be ignored.
-//
-//void vtlb_DynGenDispatchers()
-//{
-//	m_IndirectDispatchers = xGetAlignedCallTarget();
-//
-//	// clear the buffer to 0xcc (easier debugging).
-//	std::memset(m_IndirectDispatchers, 0xcc, INDIRECT_DISPATCHERS_SIZE);
-//
-//	for (int mode = 0; mode < 2; ++mode)
-//	{
-//		for (int bits = 0; bits < 5; ++bits)
-//		{
-//			for (int sign = 0; sign < (!mode && bits < 3 ? 2 : 1); sign++)
-//			{
-//				xSetPtr(GetIndirectDispatcherPtr(mode, bits, !!sign));
-//
-//				DynGen_IndirectTlbDispatcher(mode, bits, !!sign);
-//			}
-//		}
-//	}
-//
-//	Perf::any.Register(m_IndirectDispatchers, INDIRECT_DISPATCHERS_SIZE, "TLB Dispatcher");
-//
-//	xSetPtr(m_IndirectDispatchers + INDIRECT_DISPATCHERS_SIZE);
-//}
 
 void vtlb_DynGenDispatchers()
 {
@@ -452,7 +409,7 @@ void vtlb_DynGenDispatchers()
     {
         for (int bits = 0; bits < 5; ++bits)
         {
-            for (int sign = 0; sign < (!mode && bits < 3 ? 2 : 1); sign++)
+            for (int sign = 0; sign < (!mode && bits < 3 ? 2 : 1); ++sign)
             {
                 armSetAsmPtr(GetIndirectDispatcherPtr(mode, bits, !!sign), INDIRECT_DISPATCHERS_SIZE, nullptr);
                 armStartBlock();
@@ -476,10 +433,89 @@ void vtlb_DynGenDispatchers()
 //   Returns read value in eax.
 int vtlb_DynGenReadNonQuad(u32 bits, bool sign, bool xmm, int addr_reg, vtlb_ReadRegAllocCallback dest_reg_alloc)
 {
-	pxAssume(bits <= 64);
+    pxAssume(bits <= 64);
 
+    int x86_dest_reg;
+    if (!CHECK_FASTMEM || vtlb_IsFaultingPC(pc))
+    {
+        iFlushCall(FLUSH_FULLVTLB);
 
-	return 0;
+        DynGen_PrepRegs(addr_reg, -1, bits, xmm);
+        DynGen_HandlerTest([bits, sign]() { DynGen_DirectRead(bits, sign); }, 0, bits, sign && bits < 64);
+
+        if (!xmm)
+        {
+//			x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(eax), eax.GetId());
+            x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(EAX), EAX.GetCode());
+//			xMOV(xRegister64(x86_dest_reg), rax);
+            armAsm->Mov(a64::XRegister(x86_dest_reg), RAX);
+        }
+        else
+        {
+            // we shouldn't be loading any FPRs which aren't 32bit..
+            // we use MOVD here despite it being floating-point data, because we're going int->float reinterpret.
+            pxAssert(bits == 32);
+            x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeXMMreg(0), 0);
+//			xMOVDZX(xRegisterSSE(x86_dest_reg), eax);
+            armAsm->Fmov(a64::QRegister(x86_dest_reg).S(), EAX);
+        }
+
+        return x86_dest_reg;
+    }
+
+    const u8* codeStart;
+//	const xAddressReg x86addr(addr_reg);
+    a64::MemOperand baseAddr = a64::MemOperand(RFASTMEMBASE, a64::XRegister(addr_reg));
+
+    if (!xmm)
+    {
+//		x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(eax), eax.GetId());
+        x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(EAX), EAX.GetCode());
+//		codeStart = x86Ptr;
+        codeStart = armGetCurrentCodePointer();
+//		const xRegister64 x86reg(x86_dest_reg);
+
+        switch (bits)
+        {
+            case 8:
+//			    sign ? xMOVSX(x86reg, ptr8[RFASTMEMBASE + x86addr]) : xMOVZX(xRegister32(x86reg), ptr8[RFASTMEMBASE + x86addr]);
+                sign ? armAsm->Ldrsb(a64::XRegister(x86_dest_reg), baseAddr) : armAsm->Ldrb(a64::WRegister(x86_dest_reg), baseAddr);
+                break;
+            case 16:
+//			    sign ? xMOVSX(x86reg, ptr16[RFASTMEMBASE + x86addr]) : xMOVZX(xRegister32(x86reg), ptr16[RFASTMEMBASE + x86addr]);
+                sign ? armAsm->Ldrsh(a64::XRegister(x86_dest_reg), baseAddr) : armAsm->Ldrh(a64::WRegister(x86_dest_reg), baseAddr);
+                break;
+            case 32:
+//			    sign ? xMOVSX(x86reg, ptr32[RFASTMEMBASE + x86addr]) : xMOV(xRegister32(x86reg), ptr32[RFASTMEMBASE + x86addr]);
+                sign ? armAsm->Ldrsw(a64::XRegister(x86_dest_reg), baseAddr) : armAsm->Ldr(a64::WRegister(x86_dest_reg), baseAddr);
+                break;
+            case 64:
+//			    xMOV(x86reg, ptr64[RFASTMEMBASE + x86addr]);
+                armAsm->Ldr(a64::XRegister(x86_dest_reg), baseAddr);
+                break;
+
+            jNO_DEFAULT
+        }
+    }
+    else
+    {
+        pxAssert(bits == 32);
+        x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeXMMreg(0), 0);
+//		codeStart = x86Ptr;
+        codeStart = armGetCurrentCodePointer();
+//		const xRegisterSSE xmmreg(x86_dest_reg);
+        const a64::QRegister xmmreg(x86_dest_reg);
+//		xMOVSSZX(xmmreg, ptr32[RFASTMEMBASE + x86addr]);
+        armAsm->Ldr(xmmreg.S(), baseAddr);
+    }
+
+//	vtlb_AddLoadStoreInfo((uptr)codeStart, static_cast<u32>(x86Ptr - codeStart),
+    vtlb_AddLoadStoreInfo((uptr)codeStart, static_cast<u32>(armGetCurrentCodePointer() - codeStart),
+                          pc, GetAllocatedGPRBitmask(), GetAllocatedXMMBitmask(),
+                          static_cast<u8>(addr_reg), static_cast<u8>(x86_dest_reg),
+                          static_cast<u8>(bits), sign, true, xmm);
+
+    return x86_dest_reg;
 }
 
 // ------------------------------------------------------------------------
@@ -492,10 +528,127 @@ int vtlb_DynGenReadNonQuad(u32 bits, bool sign, bool xmm, int addr_reg, vtlb_Rea
 //
 int vtlb_DynGenReadNonQuad_Const(u32 bits, bool sign, bool xmm, u32 addr_const, vtlb_ReadRegAllocCallback dest_reg_alloc)
 {
-	EE::Profiler.EmitConstMem(addr_const);
+    int x86_dest_reg;
+    auto vmv = vtlbdata.vmap[addr_const >> VTLB_PAGE_BITS];
+    if (!vmv.isHandler(addr_const))
+    {
+        auto ppf = vmv.assumePtr(addr_const);
+        if (!xmm)
+        {
+//			x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(eax), eax.GetId());
+            x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(EAX), EAX.GetCode());
+            switch (bits)
+            {
+                case 8:
+//				sign ? xMOVSX(xRegister64(x86_dest_reg), ptr8[(u8*)ppf]) : xMOVZX(xRegister32(x86_dest_reg), ptr8[(u8*)ppf]);
+                    sign ? armAsm->Ldrsb(a64::XRegister(x86_dest_reg), armMemOperandPtr((u8*)ppf)) : armAsm->Ldrb(a64::WRegister(x86_dest_reg), armMemOperandPtr((u8*)ppf));
+                    break;
 
+                case 16:
+//				sign ? xMOVSX(xRegister64(x86_dest_reg), ptr16[(u16*)ppf]) : xMOVZX(xRegister32(x86_dest_reg), ptr16[(u16*)ppf]);
+                    sign ? armAsm->Ldrsh(a64::XRegister(x86_dest_reg), armMemOperandPtr((u16*)ppf)) : armAsm->Ldrh(a64::WRegister(x86_dest_reg), armMemOperandPtr((u16*)ppf));
+                    break;
 
-	return 0;
+                case 32:
+//				sign ? xMOVSX(xRegister64(x86_dest_reg), ptr32[(u32*)ppf]) : xMOV(xRegister32(x86_dest_reg), ptr32[(u32*)ppf]);
+                    sign ? armAsm->Ldrsw(a64::XRegister(x86_dest_reg), armMemOperandPtr((u32*)ppf)) : armAsm->Ldr(a64::WRegister(x86_dest_reg), armMemOperandPtr((u32*)ppf));
+                    break;
+
+                case 64:
+//				xMOV(xRegister64(x86_dest_reg), ptr64[(u64*)ppf]);
+                    armAsm->Ldr(a64::XRegister(x86_dest_reg), armMemOperandPtr((u64*)ppf));
+                    break;
+            }
+        }
+        else
+        {
+            x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeXMMreg(0), 0);
+//			xMOVSSZX(xRegisterSSE(x86_dest_reg), ptr32[(float*)ppf]);
+            armAsm->Ldr(a64::QRegister(x86_dest_reg).S(), armMemOperandPtr((float*)ppf));
+        }
+    }
+    else
+    {
+        // has to: translate, find function, call function
+        u32 paddr = vmv.assumeHandlerGetPAddr(addr_const);
+
+        int szidx = 0;
+        switch (bits)
+        {
+            case  8: szidx = 0; break;
+            case 16: szidx = 1; break;
+            case 32: szidx = 2; break;
+            case 64: szidx = 3; break;
+        }
+
+        // Shortcut for the INTC_STAT register, which many games like to spin on heavily.
+        if ((bits == 32) && !EmuConfig.Speedhacks.IntcStat && (paddr == INTC_STAT))
+        {
+//			x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(eax), eax.GetId());
+            x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(EAX), EAX.GetCode());
+            if (!xmm)
+            {
+                if (sign) {
+//                    xMOVSX(xRegister64(x86_dest_reg), ptr32[&psHu32(INTC_STAT)]);
+                    armAsm->Ldrsw(a64::XRegister(x86_dest_reg), armMemOperandPtr(&psHu32(INTC_STAT)));
+                }
+                else {
+//                    xMOV(xRegister32(x86_dest_reg), ptr32[&psHu32(INTC_STAT)]);
+                    armAsm->Ldr(a64::WRegister(x86_dest_reg), armMemOperandPtr(&psHu32(INTC_STAT)));
+                }
+            }
+            else
+            {
+//				xMOVDZX(xRegisterSSE(x86_dest_reg), ptr32[&psHu32(INTC_STAT)]);
+                armAsm->Ldr(a64::QRegister(x86_dest_reg).S(), armMemOperandPtr(&psHu32(INTC_STAT)));
+            }
+        }
+        else
+        {
+            iFlushCall(FLUSH_FULLVTLB);
+//			xFastCall(vmv.assumeHandlerGetRaw(szidx, false), paddr);
+
+            armAsm->Mov(EAX, paddr);
+            armEmitCall(vmv.assumeHandlerGetRaw(szidx, false)); // read
+
+            if (!xmm)
+            {
+//				x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(eax), eax.GetId());
+                x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(EAX), EAX.GetCode());
+                switch (bits)
+                {
+                    // save REX prefix by using 32bit dest for zext
+                    case 8:
+//					sign ? xMOVSX(xRegister64(x86_dest_reg), al) : xMOVZX(xRegister32(x86_dest_reg), al);
+                        sign ? armAsm->Sxtb(a64::XRegister(x86_dest_reg), EAX) : armAsm->Uxtb(a64::WRegister(x86_dest_reg), EAX);
+                        break;
+
+                    case 16:
+//					sign ? xMOVSX(xRegister64(x86_dest_reg), ax) : xMOVZX(xRegister32(x86_dest_reg), ax);
+                        sign ? armAsm->Sxth(a64::XRegister(x86_dest_reg), EAX) : armAsm->Uxth(a64::WRegister(x86_dest_reg), EAX);
+                        break;
+
+                    case 32:
+//					sign ? xMOVSX(xRegister64(x86_dest_reg), eax) : xMOV(xRegister32(x86_dest_reg), eax);
+                        sign ? armAsm->Sxtw(a64::XRegister(x86_dest_reg), EAX) : armAsm->Mov(a64::WRegister(x86_dest_reg), EAX);
+                        break;
+
+                    case 64:
+//					xMOV(xRegister64(x86_dest_reg), rax);
+                        armAsm->Mov(a64::XRegister(x86_dest_reg) , RAX);
+                        break;
+                }
+            }
+            else
+            {
+                x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeXMMreg(0), 0);
+//				xMOVDZX(xRegisterSSE(x86_dest_reg), eax);
+                armAsm->Fmov(a64::QRegister(x86_dest_reg).S(), EAX);
+            }
+        }
+    }
+
+    return x86_dest_reg;
 }
 
 int vtlb_DynGenReadQuad(u32 bits, int addr_reg, vtlb_ReadRegAllocCallback dest_reg_alloc)
@@ -523,7 +676,7 @@ int vtlb_DynGenReadQuad(u32 bits, int addr_reg, vtlb_ReadRegAllocCallback dest_r
 	const u8* codeStart = armGetCurrentCodePointer();
 
 //	xMOVAPS(xRegisterSSE(reg), ptr128[RFASTMEMBASE + arg1reg]);
-//    armAsm->Ldr(a64::QRegister(reg).Q(), a64::MemOperand(RFASTMEMBASE, RCX));
+    armAsm->Ldr(a64::QRegister(reg).Q(), a64::MemOperand(RFASTMEMBASE, RCX));
 
 	vtlb_AddLoadStoreInfo((uptr)codeStart, static_cast<u32>(armGetCurrentCodePointer() - codeStart),
 		pc, GetAllocatedGPRBitmask(), GetAllocatedXMMBitmask(),
@@ -561,6 +714,7 @@ int vtlb_DynGenReadQuad_Const(u32 bits, u32 addr_const, vtlb_ReadRegAllocCallbac
 
 		const int szidx = 4;
 		iFlushCall(FLUSH_FULLVTLB);
+
 //		xFastCall(vmv.assumeHandlerGetRaw(szidx, 0), paddr);
         armAsm->Mov(EAX, paddr);
         armEmitCall(vmv.assumeHandlerGetRaw(szidx, 0));
@@ -644,7 +798,49 @@ void vtlb_DynGenWrite(u32 sz, bool xmm, int addr_reg, int value_reg)
 	const u8* codeStart = armGetCurrentCodePointer();
 
 //	const xAddressReg vaddr_reg(addr_reg);
+    a64::MemOperand mop = a64::MemOperand(RFASTMEMBASE, a64::XRegister(addr_reg));
 
+    if (!xmm)
+    {
+        switch (sz)
+        {
+            case 8:
+//			    xMOV(ptr8[RFASTMEMBASE + vaddr_reg], xRegister8(xRegister32(value_reg)));
+                armAsm->Strb(a64::WRegister(value_reg), mop);
+                break;
+            case 16:
+//			    xMOV(ptr16[RFASTMEMBASE + vaddr_reg], xRegister16(value_reg));
+                armAsm->Strh(a64::WRegister(value_reg), mop);
+                break;
+            case 32:
+//			    xMOV(ptr32[RFASTMEMBASE + vaddr_reg], xRegister32(value_reg));
+                armAsm->Str(a64::WRegister(value_reg), mop);
+                break;
+            case 64:
+//			    xMOV(ptr64[RFASTMEMBASE + vaddr_reg], xRegister64(value_reg));
+                armAsm->Str(a64::XRegister(value_reg), mop);
+                break;
+
+            jNO_DEFAULT
+        }
+    }
+    else
+    {
+        pxAssert(sz == 32 || sz == 128);
+        switch (sz)
+        {
+            case 32:
+//			    xMOVSS(ptr32[RFASTMEMBASE + vaddr_reg], xRegisterSSE(value_reg));
+                armAsm->Str(a64::QRegister(value_reg).S(), mop);
+                break;
+            case 128:
+//			    xMOVAPS(ptr128[RFASTMEMBASE + vaddr_reg], xRegisterSSE(value_reg));
+                armAsm->Str(a64::QRegister(value_reg).Q(), mop);
+                break;
+
+            jNO_DEFAULT
+        }
+    }
 
 	vtlb_AddLoadStoreInfo((uptr)codeStart, static_cast<u32>(armGetCurrentCodePointer() - codeStart),
 		pc, GetAllocatedGPRBitmask(), GetAllocatedXMMBitmask(),
@@ -719,28 +915,29 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
 	if (!vmv.isHandler(addr_const))
 	{
 		auto ppf = vmv.assumePtr(addr_const);
+        a64::MemOperand mop = armMemOperandPtr((void*)ppf);
 		if (!xmm)
 		{
 			switch (bits)
 			{
 				case 8:
 //					xMOV(ptr[(void*)ppf], xRegister8(xRegister32(value_reg)));
-                    armAsm->Strb(a64::WRegister(value_reg), armMemOperandPtr((void*)ppf));
+                    armAsm->Strb(a64::WRegister(value_reg), mop);
 					break;
 
 				case 16:
 //					xMOV(ptr[(void*)ppf], xRegister16(value_reg));
-                    armAsm->Strh(a64::WRegister(value_reg), armMemOperandPtr((void*)ppf));
+                    armAsm->Strh(a64::WRegister(value_reg), mop);
 					break;
 
 				case 32:
 //					xMOV(ptr[(void*)ppf], xRegister32(value_reg));
-                    armAsm->Str(a64::WRegister(value_reg), armMemOperandPtr((void*)ppf));
+                    armAsm->Str(a64::WRegister(value_reg), mop);
 					break;
 
 				case 64:
 //					xMOV(ptr64[(void*)ppf], xRegister64(value_reg));
-                    armAsm->Str(a64::XRegister(value_reg), armMemOperandPtr((void*)ppf));
+                    armAsm->Str(a64::XRegister(value_reg), mop);
 					break;
 
 					jNO_DEFAULT
@@ -752,12 +949,12 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
 			{
 				case 32:
 //					xMOVSS(ptr[(void*)ppf], xRegisterSSE(value_reg));
-                    armAsm->Str(a64::QRegister(value_reg).S(), armMemOperandPtr((void*)ppf));
+                    armAsm->Str(a64::QRegister(value_reg).S(), mop);
 					break;
 
 				case 128:
 //					xMOVAPS(ptr128[(void*)ppf], xRegisterSSE(value_reg));
-                    armAsm->Str(a64::QRegister(value_reg).Q(), armMemOperandPtr((void*)ppf));
+                    armAsm->Str(a64::QRegister(value_reg).Q(), mop);
 					break;
 
 					jNO_DEFAULT
@@ -793,8 +990,10 @@ void vtlb_DynGenWrite_Const(u32 bits, bool xmm, u32 addr_const, int value_reg)
 
 //		_freeX86reg(arg1regd);
         _freeX86reg(ECX.GetCode());
+
 //		xMOV(arg1regd, paddr);
         armAsm->Mov(ECX, paddr);
+
 		if (bits == 128)
 		{
 			pxAssert(xmm);
@@ -843,7 +1042,7 @@ void vtlb_DynV2P()
 
 //	xSHR(eax, VTLB_PAGE_BITS);
     armAsm->Lsr(EAX, EAX, VTLB_PAGE_BITS);
-//	xMOV(eax, ptr[xComplexAddress(rdx, vtlbdata.ppmap, rax * 4)]); // vtlbdata.ppmap[vaddr >> VTLB_PAGE_BITS];
+//	xMOV(eax, ptr[xComplexAddress(rdx, vtlbdata.ppmap, rax * 4)]);
     armMoveAddressToReg(RDX, vtlbdata.ppmap);
     armAsm->Ldr(EAX, a64::MemOperand(RDX, RAX, a64::LSL, 2));
 
@@ -875,14 +1074,8 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 	u32 num_gprs = 0;
 	u32 num_fprs = 0;
 
-//	const u32 rbxid = static_cast<u32>(RBX.GetCode());
-//	const u32 arg1id = static_cast<u32>(RCX.GetCode());
-//	const u32 arg2id = static_cast<u32>(RDX.GetCode());
-//	const u32 arg3id = static_cast<u32>(R8X.GetCode());
-
 	for (u32 i = 0; i < iREGCNT_GPR; i++)
 	{
-//		if ((gpr_bitmask & (1u << i)) && (i == rbxid || i == arg1id || i == arg2id || armIsCallerSaved(i)) && (!is_load || is_xmm || data_register != i))
         if ((gpr_bitmask & (1u << i)) && armIsCallerSaved(i) && (!is_load || is_xmm || data_register != i))
 			num_gprs++;
 	}
@@ -893,11 +1086,6 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 	}
 
 	const u32 stack_size = (((num_gprs + 1) & ~1u) * GPR_SIZE) + (num_fprs * XMM_SIZE) + SHADOW_SIZE;
-
-//    const a64::Register old_stack_pointer = armAsm->StackPointer();
-//    armAsm->SetStackPointer(a64::sp);
-//    armAsm->Str(a64::lr, a64::MemOperand(a64::sp, 8));
-
 	if (stack_size > 0)
 	{
 //		xSUB(rsp, stack_size);
@@ -916,7 +1104,6 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 
 		for (u32 i = 0; i < iREGCNT_GPR; i++)
 		{
-//			if ((gpr_bitmask & (1u << i)) && (i == arg1id || i == arg2id || i == arg3id || armIsCallerSaved(i)) && (!is_load || is_xmm || data_register != i))
             if ((gpr_bitmask & (1u << i)) && armIsCallerSaved(i) && (!is_load || is_xmm || data_register != i))
 			{
 //				xMOV(ptr64[rsp + stack_offset], xRegister64(i));
@@ -1006,7 +1193,6 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 
 		for (u32 i = 0; i < iREGCNT_GPR; i++)
 		{
-//			if ((gpr_bitmask & (1u << i)) && (i == arg1id || i == arg2id || i == arg3id || armIsCallerSaved(i)) && (!is_load || is_xmm || data_register != i))
             if ((gpr_bitmask & (1u << i)) && armIsCallerSaved(i) && (!is_load || is_xmm || data_register != i))
 			{
 //				xMOV(xRegister64(i), ptr64[rsp + stack_offset]);
@@ -1019,9 +1205,6 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
         armAsm->Add(a64::sp, a64::sp, stack_size);
 	}
 
-//    armAsm->Ldr(a64::lr, a64::MemOperand(a64::sp, 8));
-//    armAsm->SetStackPointer(old_stack_pointer);
-
 //	xJMP((void*)(code_address + code_size));
     armEmitJmp(reinterpret_cast<const void*>(code_address + code_size), true);
 
@@ -1030,17 +1213,5 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 	// backpatch to a jump to the slowmem handler
 //	x86Ptr = (u8*)code_address;
 //	xJMP(thunk);
-
     armEmitJmpPtr((void*)code_address, thunk, true);
-
-//    const s64 displacement = GetPCDisplacement((void*)code_address, thunk);
-//    a64::MacroAssembler masm((u8*)code_address, 4);
-//    a64::SingleEmissionCheckScope guard(&masm);
-//    masm.b(displacement);
-//    masm.FinalizeCode();
-
-//	// fill the rest of it with nops, if any
-//	pxAssertRel(static_cast<u32>((uptr)x86Ptr - code_address) <= code_size, "Overflowed when backpatching");
-//	for (u32 i = static_cast<u32>((uptr)x86Ptr - code_address); i < code_size; i++)
-//		xNOP();
 }

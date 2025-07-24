@@ -333,6 +333,7 @@ bool armIsCalleeSavedRegister(int reg)
 bool armIsCallerSaved(int id)
 {
 #if defined(__ANDROID__)
+    // gpr registers callee saved => r19 ~ r28
     // 0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15
     return (id <= 15);
 #else
@@ -349,9 +350,9 @@ bool armIsCallerSaved(int id)
 bool armIsCallerSavedXmm(int id)
 {
 #if defined(__ANDROID__)
-    // v9,v10,v11,v12,v13,v14,v15
+    // vector registers callee saved => d8 ~ d15
+    // d9,d10,d11,d12,d13,d14,d15
     return (id < 9);
-//    return true;
 #else
     #ifdef _WIN32
     // XMM6 through XMM15 are saved. Upper 128 bits is always volatile.
