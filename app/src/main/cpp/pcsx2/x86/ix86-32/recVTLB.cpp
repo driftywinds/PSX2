@@ -1068,21 +1068,28 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 		is_load ? "load" : "store", (void*)code_address, code_size, guest_pc, guest_addr, gpr_bitmask, fpr_bitmask,
 		address_register, data_register, size_in_bits, is_signed, is_load);
 
+    std::bitset<iREGCNT_GPR> stack_gpr;
+    std::bitset<iREGCNT_XMM> stack_xmm;
+
 	u8* thunk = recBeginThunk();
 
 	// save regs
-	u32 num_gprs = 0;
-	u32 num_fprs = 0;
+	u32 i, stack_offset;
+    u32 num_gprs = 0, num_fprs = 0;
 
-	for (u32 i = 0; i < iREGCNT_GPR; i++)
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
-        if ((gpr_bitmask & (1u << i)) && armIsCallerSaved(i) && (!is_load || is_xmm || data_register != i))
-			num_gprs++;
+        if ((gpr_bitmask & (1u << i)) && armIsCallerSaved(i) && (!is_load || is_xmm || data_register != i)) {
+            num_gprs++;
+            stack_gpr.set(i);
+        }
 	}
-	for (u32 i = 0; i < iREGCNT_XMM; i++)
+	for (i = 0; i < iREGCNT_XMM; ++i)
 	{
-		if (fpr_bitmask & (1u << i) && armIsCallerSavedXmm(i) && (!is_load || !is_xmm || data_register != i))
-			num_fprs++;
+		if (fpr_bitmask & (1u << i) && armIsCallerSavedXmm(i) && (!is_load || !is_xmm || data_register != i)) {
+            num_fprs++;
+            stack_xmm.set(i);
+        }
 	}
 
 	const u32 stack_size = (((num_gprs + 1) & ~1u) * GPR_SIZE) + (num_fprs * XMM_SIZE) + SHADOW_SIZE;
@@ -1091,26 +1098,26 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 //		xSUB(rsp, stack_size);
         armAsm->Sub(a64::sp, a64::sp, stack_size);
 
-		u32 stack_offset = SHADOW_SIZE;
-		for (u32 i = 0; i < iREGCNT_XMM; i++)
-		{
-			if (fpr_bitmask & (1u << i) && armIsCallerSavedXmm(i) && (!is_load || !is_xmm || data_register != i))
-			{
+		stack_offset = SHADOW_SIZE;
+        for (i = 0; i < iREGCNT_XMM; ++i)
+        {
+            if(stack_xmm[i])
+            {
 //				xMOVAPS(ptr128[rsp + stack_offset], xRegisterSSE(i));
-                armAsm->Str(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
-				stack_offset += XMM_SIZE;
-			}
-		}
-
-		for (u32 i = 0; i < iREGCNT_GPR; i++)
-		{
-            if ((gpr_bitmask & (1u << i)) && armIsCallerSaved(i) && (!is_load || is_xmm || data_register != i))
-			{
+                armAsm->Str(a64::DRegister(i), a64::MemOperand(a64::sp, stack_offset));
+                stack_offset += XMM_SIZE;
+            }
+        }
+        ////
+        for (i = 0; i < iREGCNT_GPR; ++i)
+        {
+            if(stack_gpr[i])
+            {
 //				xMOV(ptr64[rsp + stack_offset], xRegister64(i));
                 armAsm->Str(a64::XRegister(i), a64::MemOperand(a64::sp, stack_offset));
-				stack_offset += GPR_SIZE;
-			}
-		}
+                stack_offset += GPR_SIZE;
+            }
+        }
 	}
 
 	if (is_load)
@@ -1180,20 +1187,20 @@ void vtlb_DynBackpatchLoadStore(uptr code_address, u32 code_size, u32 guest_pc, 
 	// restore regs
 	if (stack_size > 0)
 	{
-		u32 stack_offset = SHADOW_SIZE;
-		for (u32 i = 0; i < iREGCNT_XMM; i++)
+		stack_offset = SHADOW_SIZE;
+		for (i = 0; i < iREGCNT_XMM; ++i)
 		{
-			if (fpr_bitmask & (1u << i) && armIsCallerSavedXmm(i) && (!is_load || !is_xmm || data_register != i))
+            if(stack_xmm[i])
 			{
 //				xMOVAPS(xRegisterSSE(i), ptr128[rsp + stack_offset]);
-                armAsm->Ldr(a64::QRegister(i).Q(), a64::MemOperand(a64::sp, stack_offset));
+                armAsm->Ldr(a64::DRegister(i), a64::MemOperand(a64::sp, stack_offset));
 				stack_offset += XMM_SIZE;
 			}
 		}
-
-		for (u32 i = 0; i < iREGCNT_GPR; i++)
+        ////
+		for (i = 0; i < iREGCNT_GPR; ++i)
 		{
-            if ((gpr_bitmask & (1u << i)) && armIsCallerSaved(i) && (!is_load || is_xmm || data_register != i))
+            if(stack_gpr[i])
 			{
 //				xMOV(xRegister64(i), ptr64[rsp + stack_offset]);
                 armAsm->Ldr(a64::XRegister(i), a64::MemOperand(a64::sp, stack_offset));

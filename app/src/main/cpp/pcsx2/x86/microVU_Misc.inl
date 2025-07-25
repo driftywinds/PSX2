@@ -255,8 +255,8 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
 {
     if (toMemory)
     {
-        int i;
-        for (i = 0; i < static_cast<int>(iREGCNT_GPR); ++i)
+        int i, e = iREGCNT_GPR;
+        for (i = 0; i < e; ++i)
         {
             if (!armIsCallerSaved(i) || i == 4)
                 continue;
@@ -268,7 +268,8 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
 
         ////
 
-        for (i = 0; i < static_cast<int>(iREGCNT_XMM); ++i)
+        e = iREGCNT_XMM;
+        for (i = 0; i < e; ++i)
         {
             if (!armIsCallerSavedXmm(i))
                 continue;
@@ -292,8 +293,8 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
 {
     if (fromMemory)
     {
-        int i;
-        for (i = static_cast<int>(iREGCNT_XMM - 1); i >= 0; --i)
+        int i, e = iREGCNT_XMM - 1;
+        for (i = e; i >= 0; --i)
         {
             if (!armIsCallerSavedXmm(i))
                 continue;
@@ -303,7 +304,10 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
             }
         }
 
-        for (i = static_cast<int>(iREGCNT_GPR - 1); i >= 0; --i)
+        ////
+
+        e = iREGCNT_GPR - 1;
+        for (i = e; i >= 0; --i)
         {
             if (!armIsCallerSaved(i)  || i == 4)
                 continue;
