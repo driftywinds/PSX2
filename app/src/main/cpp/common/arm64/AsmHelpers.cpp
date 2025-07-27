@@ -526,8 +526,8 @@ u32 armEmitJmpPtr(void* code, const void* dst, bool flush_icache)
 
 a64::Register armLoadPtr(const void* addr)
 {
-    armAsm->Ldr(a64::w4, armMemOperandPtr(addr));
-    return a64::w4;
+    armAsm->Ldr(EEX, armMemOperandPtr(addr));
+    return EEX;
 }
 
 a64::Register armLoadPtr64(const void* addr)
@@ -538,14 +538,20 @@ a64::Register armLoadPtr64(const void* addr)
 
 a64::Register armLdrh(const void* addr)
 {
-    armAsm->Ldrh(a64::w4, armMemOperandPtr(addr));
-    return a64::w4;
+    armAsm->Ldrh(EEX, armMemOperandPtr(addr));
+    return EEX;
 }
 
 a64::Register armLdrsh(const void* addr)
 {
-    armAsm->Ldrsh(a64::w4, armMemOperandPtr(addr));
-    return a64::w4;
+    armAsm->Ldrsh(EEX, armMemOperandPtr(addr));
+    return EEX;
+}
+
+a64::Register armLoadPtr(const a64::MemOperand offset)
+{
+    armAsm->Ldr(EEX, offset);
+    return EEX;
 }
 
 void armLoadPtr(const a64::CPURegister& reg, const void* addr, int64_t offset)
@@ -609,6 +615,16 @@ void armStorePtr(uint64_t imm, const void* addr, const a64::Register& reg)
     } else {
         armAsm->Mov(reg, imm);
         armAsm->Str(reg, armMemOperandPtr(addr));
+    }
+}
+
+void armStorePtr(uint64_t imm, a64::MemOperand offset, const a64::Register& reg)
+{
+    if(imm == 0) {
+        armAsm->Str(a64::xzr, offset);
+    } else {
+        armAsm->Mov(reg, imm);
+        armAsm->Str(reg, offset);
     }
 }
 

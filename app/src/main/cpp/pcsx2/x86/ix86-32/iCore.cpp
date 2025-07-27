@@ -131,7 +131,8 @@ void _flushConstRegs(bool delete_const)
 {
 	int zero_reg_count = 0;
 	int minusone_reg_count = 0;
-	for (u32 i = 0; i < 32; i++)
+    u32 i;
+	for (i = 0; i < 32; ++i)
 	{
 		if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 			continue;
@@ -148,7 +149,7 @@ void _flushConstRegs(bool delete_const)
 	{
 //		xXOR(eax, eax);
         armAsm->Eor(EAX, EAX, EAX);
-		for (u32 i = 0; i < 32; i++)
+		for (i = 0; i < 32; ++i)
 		{
 			if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 				continue;
@@ -175,7 +176,7 @@ void _flushConstRegs(bool delete_const)
             armAsm->Mvn(RAX, RAX);
         }
 
-		for (u32 i = 0; i < 32; i++)
+		for (i = 0; i < 32; ++i)
 		{
 			if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 				continue;
@@ -192,7 +193,7 @@ void _flushConstRegs(bool delete_const)
 	}
 
 	// and whatever's left over..
-	for (u32 i = 0; i < 32; i++)
+	for (i = 0; i < 32; ++i)
 	{
 		if (!GPR_IS_CONST1(i) || g_cpuFlushedConstReg & (1u << i))
 			continue;
@@ -257,7 +258,8 @@ int _allocX86reg(int type, int reg, int mode)
 	int hostXMMreg = (type == X86TYPE_GPR) ? _checkXMMreg(XMMTYPE_GPRREG, reg, 0) : -1;
 	if (type != X86TYPE_TEMP)
 	{
-		for (int i = 0; i < static_cast<int>(iREGCNT_GPR); i++)
+        int i, e = static_cast<int>(iREGCNT_GPR);
+		for (i = 0; i < e; ++i)
 		{
 			if (!x86regs[i].inuse || x86regs[i].type != type || x86regs[i].reg != reg)
 				continue;
@@ -417,7 +419,7 @@ int _allocX86reg(int type, int reg, int mode)
 			{
 				RALOG("Loading guest VI reg %d to GPR %d", reg, regnum);
 //				xMOVZX(xRegister32(regnum), ptr16[&VU0.VI[reg].US[0]]);
-                armAsm->Ldrh(a64::WRegister(regnum), armMemOperandPtr(&VU0.VI[reg].US[0]));
+                armAsm->Ldrh(a64::WRegister(regnum), PTR_VUR(VI[reg].US[0]));
 			}
 			break;
 
@@ -473,7 +475,7 @@ void _writebackX86Reg(int x86reg)
 		case X86TYPE_VIREG:
 			RALOG("Writing back VI reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
 //			xMOV(ptr16[&VU0.VI[x86regs[x86reg].reg].UL], xRegister16(x86reg));
-            armAsm->Strh(a64::WRegister(x86reg), armMemOperandPtr(&VU0.VI[x86regs[x86reg].reg].UL));
+            armAsm->Strh(a64::WRegister(x86reg), PTR_VUR(VI[x86regs[x86reg].reg].UL));
 			break;
 
 		case X86TYPE_PCWRITEBACK:
@@ -502,12 +504,11 @@ void _writebackX86Reg(int x86reg)
 
 int _checkX86reg(int type, int reg, int mode)
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].inuse && x86regs[i].reg == reg && x86regs[i].type == type)
 		{
-            int n1 = GPR_IS_DIRTY_CONST(reg);
-            int n2 = PSX_IS_DIRTY_CONST(reg);
 			// shouldn't have dirty constants...
 			pxAssert((type != X86TYPE_GPR || !GPR_IS_DIRTY_CONST(reg)) &&
 					 (type != X86TYPE_PSX || !PSX_IS_DIRTY_CONST(reg)));
@@ -542,7 +543,8 @@ int _checkX86reg(int type, int reg, int mode)
 
 void _addNeededX86reg(int type, int reg)
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (!x86regs[i].inuse || x86regs[i].reg != reg || x86regs[i].type != type)
 			continue;
@@ -554,7 +556,8 @@ void _addNeededX86reg(int type, int reg)
 
 void _clearNeededX86regs()
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].needed)
 		{
@@ -606,14 +609,17 @@ void _freeX86regWithoutWriteback(int x86reg)
 
 void _freeX86regs()
 {
-	for (uint i = 0; i < iREGCNT_GPR; i++) {
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
+    {
         _freeX86reg(i);
     }
 }
 
 void _flushX86regs()
 {
-	for (u32 i = 0; i < iREGCNT_GPR; ++i)
+    u32 i;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].inuse && x86regs[i].mode & MODE_WRITE)
 		{

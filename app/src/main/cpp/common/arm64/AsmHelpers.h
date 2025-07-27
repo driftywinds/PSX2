@@ -54,15 +54,25 @@ namespace a64 = vixl::aarch64;
 #define RSTATE_x22 a64::x22
 #define RSTATE_x23 a64::x23
 #define RSTATE_x24 a64::x24
+
 #define RFASTMEMBASE a64::x25
-#define RSTATE_x26 a64::x26
+
+// microVU
+#define RSTATE_MVU a64::x27
+#define RSTATE_VU1 a64::x28
+#define RSTATE_VUR a64::x26
+#define PTR_MVU(field) a64::MemOperand(RSTATE_MVU, offsetof(microVU, field))
+#define PTR_VU1(field) a64::MemOperand(RSTATE_VU1, offsetof(VURegs, field))
+#define PTR_VUR(field) a64::MemOperand(RSTATE_VUR, offsetof(VURegs, field))
+
+// CPU(iR5900), PSX(iR3000A), FPU(iFPU, iFPUd)
 #define RSTATE_FPU a64::x27
 #define RSTATE_PSX a64::x28
 #define RSTATE_CPU a64::x29
-
 #define PTR_FPU(field) a64::MemOperand(RSTATE_FPU, offsetof(fpuRegisters, field))
 #define PTR_PSX(field) a64::MemOperand(RSTATE_PSX, offsetof(psxRegisters, field))
 #define PTR_CPU(field) a64::MemOperand(RSTATE_CPU, offsetof(cpuRegisters, field))
+
 
 static inline s64 GetPCDisplacement(const void* current, const void* target)
 {
@@ -175,6 +185,7 @@ a64::Register armLoadPtr(const void* addr);
 a64::Register armLoadPtr64(const void* addr);
 a64::Register armLdrh(const void* addr);
 a64::Register armLdrsh(const void* addr);
+a64::Register armLoadPtr(const a64::MemOperand offset);
 void armLoadPtr(const a64::CPURegister& reg, const void* addr, int64_t offset);
 a64::Register armLoadPtr(a64::Register regRs, int64_t offset);
 void armLoadPtr(const a64::CPURegister& regRt, a64::Register regRs, int64_t offset);
@@ -185,6 +196,7 @@ a64::VRegister armLoadPtrM(a64::Register regRs, int64_t offset=0);
 void armStorePtr(const a64::CPURegister& reg, const void* addr, int64_t offset);
 void armStorePtr(const a64::CPURegister& regRt, a64::Register regRs, int64_t offset);
 void armStorePtr(uint64_t imm, const void* addr, const a64::Register& reg=EEX);
+void armStorePtr(uint64_t imm, a64::MemOperand offset, const a64::Register& reg=EEX);
 void armStorePtr(uint64_t imm, a64::Register regRs, int64_t offset, const a64::Register& regRt=EEX);
 a64::MemOperand armMemOperandPtr(const void* addr);
 

@@ -20,8 +20,8 @@ using namespace x86Emitter;
 
 static u32 GetAllocatedGPRBitmask()
 {
-	u32 mask = 0;
-	for (u32 i = 0; i < iREGCNT_GPR; i++)
+	u32 i, mask = 0;
+	for (i = 0; i < iREGCNT_GPR; ++i)
 	{
 		if (x86regs[i].inuse)
 			mask |= (1u << i);
@@ -31,8 +31,8 @@ static u32 GetAllocatedGPRBitmask()
 
 static u32 GetAllocatedXMMBitmask()
 {
-	u32 mask = 0;
-	for (u32 i = 0; i < iREGCNT_XMM; i++)
+	u32 i, mask = 0;
+	for (i = 0; i < iREGCNT_XMM; ++i)
 	{
 		if (xmmregs[i].inuse)
 			mask |= (1u << i);
@@ -405,11 +405,12 @@ void vtlb_DynGenDispatchers()
     // clear the buffer to 0xcc (easier debugging).
     std::memset(m_IndirectDispatchers, 0xcc, __pagesize);
 
-    for (int mode = 0; mode < 2; ++mode)
+    int mode, bits, sign;
+    for (mode = 0; mode < 2; ++mode)
     {
-        for (int bits = 0; bits < 5; ++bits)
+        for (bits = 0; bits < 5; ++bits)
         {
-            for (int sign = 0; sign < (!mode && bits < 3 ? 2 : 1); ++sign)
+            for (sign = 0; sign < (!mode && bits < 3 ? 2 : 1); ++sign)
             {
                 armSetAsmPtr(GetIndirectDispatcherPtr(mode, bits, !!sign), INDIRECT_DISPATCHERS_SIZE, nullptr);
                 armStartBlock();

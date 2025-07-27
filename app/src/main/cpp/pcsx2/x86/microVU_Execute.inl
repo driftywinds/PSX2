@@ -28,6 +28,11 @@ void mVUdispatcherAB(mV)
 //		xScopedStackFrame frame(false, true);
         armBeginStackFrame();
 
+        // From memory to registry
+        armMoveAddressToReg(RSTATE_MVU, &mVU);
+        armMoveAddressToReg(RSTATE_VU1, &VU1);
+        armMoveAddressToReg(RSTATE_VUR, &mVU.regs());
+
 		// = The caller has already put the needed parameters in ecx/edx:
         if (!isVU1) {
 //            xFastCall((void*)mVUexecuteVU0, arg1reg, arg2reg);
@@ -48,11 +53,11 @@ void mVUdispatcherAB(mV)
 
         // Load Regs
 //		xMOVAPS (xmmT1, ptr128[&mVU.regs().VI[REG_P].UL]);
-        armAsm->Ldr(xmmT1, armMemOperandPtr(&mVU.regs().VI[REG_P].UL));
+        armAsm->Ldr(xmmT1, PTR_VUR(VI[REG_P].UL));
 //		xMOVAPS (xmmPQ, ptr128[&mVU.regs().VI[REG_Q].UL]);
-        armAsm->Ldr(xmmPQ, armMemOperandPtr(&mVU.regs().VI[REG_Q].UL));
+        armAsm->Ldr(xmmPQ, PTR_VUR(VI[REG_Q].UL));
 //		xMOVDZX (xmmT2, ptr32[&mVU.regs().pending_q]);
-        armAsm->Ldr(xmmT2, armMemOperandPtr(&mVU.regs().pending_q));
+        armAsm->Ldr(xmmT2, PTR_VUR(pending_q));
 //		xSHUF.PS(xmmPQ, xmmT1, 0); // wzyx = PPQQ
         armSHUFPS(xmmPQ, xmmT1, 0);
         //Load in other Q instance
@@ -67,7 +72,7 @@ void mVUdispatcherAB(mV)
         {
             //Load in other P instance
 //			xMOVDZX(xmmT2, ptr32[&mVU.regs().pending_p]);
-            armAsm->Ldr(xmmT2, armMemOperandPtr(&mVU.regs().pending_p));
+            armAsm->Ldr(xmmT2, PTR_VUR(pending_p));
 //			xPSHUF.D(xmmPQ, xmmPQ, 0x1B);
             armPSHUFD(xmmPQ, xmmPQ, 0x1B);
 //			xMOVSS(xmmPQ, xmmT2);
@@ -77,23 +82,23 @@ void mVUdispatcherAB(mV)
         }
 
 //		xMOVAPS(xmmT1, ptr128[&mVU.regs().micro_macflags]);
-        armAsm->Ldr(xmmT1.Q(), armMemOperandPtr(&mVU.regs().micro_macflags));
+        armAsm->Ldr(xmmT1.Q(), PTR_VUR(micro_macflags));
 //		xMOVAPS(ptr128[mVU.macFlag], xmmT1);
-        armAsm->Str(xmmT1.Q(), armMemOperandPtr(mVU.macFlag));
+        armAsm->Str(xmmT1.Q(), PTR_MVU(macFlag));
 
 //		xMOVAPS(xmmT1, ptr128[&mVU.regs().micro_clipflags]);
-        armAsm->Ldr(xmmT1.Q(), armMemOperandPtr(&mVU.regs().micro_clipflags));
+        armAsm->Ldr(xmmT1.Q(), PTR_VUR(micro_clipflags));
 //		xMOVAPS(ptr128[mVU.clipFlag], xmmT1);
-        armAsm->Str(xmmT1.Q(), armMemOperandPtr(mVU.clipFlag));
+        armAsm->Str(xmmT1.Q(), PTR_MVU(clipFlag));
 
 //		xMOV(gprF0, ptr32[&mVU.regs().micro_statusflags[0]]);
-        armAsm->Ldr(gprF0, armMemOperandPtr(&mVU.regs().micro_statusflags[0]));
+        armAsm->Ldr(gprF0, PTR_VUR(micro_statusflags[0]));
 //		xMOV(gprF1, ptr32[&mVU.regs().micro_statusflags[1]]);
-        armAsm->Ldr(gprF1, armMemOperandPtr(&mVU.regs().micro_statusflags[1]));
+        armAsm->Ldr(gprF1, PTR_VUR(micro_statusflags[1]));
 //		xMOV(gprF2, ptr32[&mVU.regs().micro_statusflags[2]]);
-        armAsm->Ldr(gprF2, armMemOperandPtr(&mVU.regs().micro_statusflags[2]));
+        armAsm->Ldr(gprF2, PTR_VUR(micro_statusflags[2]));
 //		xMOV(gprF3, ptr32[&mVU.regs().micro_statusflags[3]]);
-        armAsm->Ldr(gprF3, armMemOperandPtr(&mVU.regs().micro_statusflags[3]));
+        armAsm->Ldr(gprF3, PTR_VUR(micro_statusflags[3]));
 
 		// Jump to Recompiled Code Block
 //		xJMP(rax);
@@ -149,13 +154,13 @@ void mVUdispatcherCD(mV)
 
         mVUrestoreRegs(mVU);
 //		xMOV(gprF0, ptr32[&mVU.regs().micro_statusflags[0]]);
-        armAsm->Ldr(gprF0, armMemOperandPtr(&mVU.regs().micro_statusflags[0]));
+        armAsm->Ldr(gprF0, PTR_VUR(micro_statusflags[0]));
 //		xMOV(gprF1, ptr32[&mVU.regs().micro_statusflags[1]]);
-        armAsm->Ldr(gprF1, armMemOperandPtr(&mVU.regs().micro_statusflags[1]));
+        armAsm->Ldr(gprF1, PTR_VUR(micro_statusflags[1]));
 //		xMOV(gprF2, ptr32[&mVU.regs().micro_statusflags[2]]);
-        armAsm->Ldr(gprF2, armMemOperandPtr(&mVU.regs().micro_statusflags[2]));
+        armAsm->Ldr(gprF2, PTR_VUR(micro_statusflags[2]));
 //		xMOV(gprF3, ptr32[&mVU.regs().micro_statusflags[3]]);
-        armAsm->Ldr(gprF3, armMemOperandPtr(&mVU.regs().micro_statusflags[3]));
+        armAsm->Ldr(gprF3, PTR_VUR(micro_statusflags[3]));
 
         // Jump to Recompiled Code Block
 //		xJMP(ptrNative[&mVU.resumePtrXG]);
@@ -165,13 +170,13 @@ void mVUdispatcherCD(mV)
 
         // Backup Status Flag (other regs were backed up on xgkick)
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[0]], gprF0);
-        armAsm->Str(gprF0, armMemOperandPtr(&mVU.regs().micro_statusflags[0]));
+        armAsm->Str(gprF0, PTR_VUR(micro_statusflags[0]));
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[1]], gprF1);
-        armAsm->Str(gprF1, armMemOperandPtr(&mVU.regs().micro_statusflags[1]));
+        armAsm->Str(gprF1, PTR_VUR(micro_statusflags[1]));
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[2]], gprF2);
-        armAsm->Str(gprF2, armMemOperandPtr(&mVU.regs().micro_statusflags[2]));
+        armAsm->Str(gprF2, PTR_VUR(micro_statusflags[2]));
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[3]], gprF3);
-        armAsm->Str(gprF3, armMemOperandPtr(&mVU.regs().micro_statusflags[3]));
+        armAsm->Str(gprF3, PTR_VUR(micro_statusflags[3]));
 
         // Load EE's MXCSR state
         if (mvuNeedsFPCRUpdate(mVU)) {
@@ -271,18 +276,20 @@ static void mVUGenerateCopyPipelineState(mV)
 //		xMOVAPS(xmm5, ptr[rax + 80u]);
         armAsm->Ldr(xmm5, a64::MemOperand(RAX, 80u));
 
+        a64::MemOperand mop = PTR_MVU(prog.lpState);
+
 //		xMOVUPS(ptr[reinterpret_cast<u8*>(&mVU.prog.lpState)], xmm0);
-        armAsm->Str(xmm0, armMemOperandPtr(reinterpret_cast<u8*>(&mVU.prog.lpState)));
+        armAsm->Str(xmm0, mop);
 //		xMOVUPS(ptr[reinterpret_cast<u8*>(&mVU.prog.lpState) + 16u], xmm1);
-        armAsm->Str(xmm1, armMemOperandPtr(reinterpret_cast<u8*>(&mVU.prog.lpState) + 16u));
+        armAsm->Str(xmm1, armOffsetMemOperand(mop, 16u));
 //		xMOVUPS(ptr[reinterpret_cast<u8*>(&mVU.prog.lpState) + 32u], xmm2);
-        armAsm->Str(xmm2, armMemOperandPtr(reinterpret_cast<u8*>(&mVU.prog.lpState) + 32u));
+        armAsm->Str(xmm2, armOffsetMemOperand(mop, 32u));
 //		xMOVUPS(ptr[reinterpret_cast<u8*>(&mVU.prog.lpState) + 48u], xmm3);
-        armAsm->Str(xmm3, armMemOperandPtr(reinterpret_cast<u8*>(&mVU.prog.lpState) + 48u));
+        armAsm->Str(xmm3, armOffsetMemOperand(mop, 48u));
 //		xMOVUPS(ptr[reinterpret_cast<u8*>(&mVU.prog.lpState) + 64u], xmm4);
-        armAsm->Str(xmm4, armMemOperandPtr(reinterpret_cast<u8*>(&mVU.prog.lpState) + 64u));
+        armAsm->Str(xmm4, armOffsetMemOperand(mop, 64u));
 //		xMOVUPS(ptr[reinterpret_cast<u8*>(&mVU.prog.lpState) + 80u], xmm5);
-        armAsm->Str(xmm5, armMemOperandPtr(reinterpret_cast<u8*>(&mVU.prog.lpState) + 80u));
+        armAsm->Str(xmm5, armOffsetMemOperand(mop, 80u));
     }
 
 //	xRET();
@@ -375,7 +382,6 @@ static void mVUGenerateCompareState(mV)
 // Executes for number of cycles
 _mVUt void* mVUexecute(u32 startPC, u32 cycles)
 {
-
 	microVU& mVU = mVUx;
 	u32 vuLimit = vuIndex ? 0x3ff8 : 0xff8;
 	if (startPC > vuLimit + 7)

@@ -499,9 +499,11 @@ static const void* _DynGen_EnterRecompiledCode()
 //    armAsm->Sub(a64::sp, a64::sp, stack_size);
 #endif
 
+    // From memory to registry
     armMoveAddressToReg(RSTATE_FPU, &fpuRegs);
     armMoveAddressToReg(RSTATE_PSX, &psxRegs);
     armMoveAddressToReg(RSTATE_CPU, &cpuRegs);
+    armMoveAddressToReg(RSTATE_VUR, &VU0);
 
 	if (CHECK_FASTMEM) {
 //        xMOV(RFASTMEMBASE, ptrNative[&vtlb_private::vtlbdata.fastmem_base]);

@@ -237,7 +237,8 @@ void mVUmergeRegs(const xmm& dest, const xmm& src, int xyzw, bool modXYZW)
             }
 
             // xyzw
-            for (u32 i = 0; i < 4; i++)
+            u32 i;
+            for (i = 0; i < 4; ++i)
             {
                 if (xyzw & (1u << i))
                     armAsm->Mov(dest.V4S(), i, src.V4S(), i);
@@ -284,7 +285,7 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
         // TODO(Stenzek): get rid of xmmbackup
         mVU.regAlloc->flushAll(); // Flush Regalloc
 //		xMOVAPS(ptr128[&mVU.xmmBackup[xmmPQ.GetCode()][0]], xmmPQ);
-        armAsm->Str(xmmPQ.Q(), armMemOperandPtr(&mVU.xmmBackup[xmmPQ.GetCode()][0]));
+        armAsm->Str(xmmPQ.Q(), PTR_MVU(xmmBackup[xmmPQ.GetCode()][0]));
     }
 }
 
@@ -320,7 +321,7 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
     else
     {
 //		xMOVAPS(xmmPQ, ptr128[&mVU.xmmBackup[xmmPQ.GetCode()][0]]);
-        armAsm->Ldr(xmmPQ.Q(), armMemOperandPtr(&mVU.xmmBackup[xmmPQ.GetCode()][0]));
+        armAsm->Ldr(xmmPQ.Q(), PTR_MVU(xmmBackup[xmmPQ.GetCode()][0]));
     }
 }
 
@@ -347,7 +348,8 @@ static void mVUEBit()
 static inline u32 branchAddr(const mV)
 {
 	pxAssumeMsg(islowerOP, "MicroVU: Expected Lower OP code for valid branch addr.");
-	return ((((iPC + 2) + (_Imm11_ * 2)) & mVU.progMemMask) * 4);
+    // return ((((iPC + 2) + (_Imm11_ * 2)) & mVU.progMemMask) * 4)
+	return ((((iPC + 2) + (_Imm11_ << 1)) & mVU.progMemMask) << 2);
 }
 
 static void mVUwaitMTVU()
@@ -414,8 +416,9 @@ __fi std::optional<a64::MemOperand> mVUoptimizeConstantAddr(mV, u32 srcreg, s32 
 	if (srcreg != 0)
 		return std::nullopt;
 
-    armMoveAddressToReg(REX, mVU.regs().Mem);
-    
+//    armMoveAddressToReg(REX, mVU.regs().Mem);
+    armAsm->Ldr(REX, PTR_VUR(Mem));
+
 	const s32 addr = 0 + offset;
 	if (isVU1)
 	{
