@@ -148,7 +148,7 @@ bool mVUIsReservedCOP2(int hostreg)
 	void recV##f() \
 	{ \
 		iFlushCall(FLUSH_FOR_POSSIBLE_MICRO_EXEC); \
-		armAdd(PTR_CPU(cycle), scaleblockcycles_clear()); \
+		armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear()); \
 		recCall(V##f); \
 	}
 
@@ -360,7 +360,7 @@ static void COP2_Interlock(bool mBitSync)
 //			xMOV(eax, ptr32[&cpuRegs.cycle]);
 //			xADD(eax, scaleblockcycles_clear());
 //			xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-            armAdd(EAX, PTR_CPU(cycle), scaleblockcycles_clear());
+            armAdd(EAX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 
 //			xTEST(ptr32[&VU0.VI[REG_VPU_STAT].UL], 0x1);
             armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_VPU_STAT].UL)), 0x1);
@@ -413,7 +413,7 @@ static void mVUSyncVU0()
 //	xMOV(eax, ptr32[&cpuRegs.cycle]);
 //	xADD(eax, scaleblockcycles_clear());
 //	xMOV(ptr32[&cpuRegs.cycle], eax); // update cycles
-    armAdd(EAX, PTR_CPU(cycle), scaleblockcycles_clear());
+    armAdd(EAX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 
 //	xTEST(ptr32[&VU0.VI[REG_VPU_STAT].UL], 0x1);
     armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_VPU_STAT].UL)), 0x1);
@@ -679,7 +679,7 @@ static void recCTC2()
 						else
 						{
 //							xMOVZX(xRegister32(vireg), ptr16[&cpuRegs.GPR.r[_Rt_].US[0]]);
-                            armLoadh(reg32, PTR_CPU(GPR.r[_Rt_].US[0]));
+                            armLoadh(reg32, PTR_CPU(cpuRegs.GPR.r[_Rt_].US[0]));
 						}
 					}
 				}
@@ -743,7 +743,7 @@ static void recCTC2()
                             }
 							else {
 //                                xMOVSSZX(xRegisterSSE(xmmreg), ptr32[&cpuRegs.GPR.r[_Rt_].SD[0]]);
-                                armLoad(regQ.S(), PTR_CPU(GPR.r[_Rt_].SD[0]));
+                                armLoad(regQ.S(), PTR_CPU(cpuRegs.GPR.r[_Rt_].SD[0]));
                             }
 //							xSHUF.PS(xRegisterSSE(xmmreg), xRegisterSSE(xmmreg), 0);
                             armSHUFPS(regQ, regQ, 0);
@@ -794,7 +794,7 @@ static void recQMFC2()
         }
 		else {
 //            xMOVAPS(ptr128[&cpuRegs.GPR.r[_Rt_].UQ], xRegisterSSE(ftreg));
-            armStore(PTR_CPU(GPR.r[_Rt_].UQ), a64::QRegister(ftreg).Q());
+            armStore(PTR_CPU(cpuRegs.GPR.r[_Rt_].UQ), a64::QRegister(ftreg).Q());
         }
 
 		// don't cache vf00, microvu doesn't like it
@@ -852,7 +852,7 @@ static void recQMTC2()
             }
 			else {
 //                xMOVAPS(xRegisterSSE(vfreg), ptr128[&cpuRegs.GPR.r[_Rt_].UQ]);
-                armLoad(a64::QRegister(vfreg).Q(), PTR_CPU(GPR.r[_Rt_].UQ));
+                armLoad(a64::QRegister(vfreg).Q(), PTR_CPU(cpuRegs.GPR.r[_Rt_].UQ));
             }
 		}
 	}

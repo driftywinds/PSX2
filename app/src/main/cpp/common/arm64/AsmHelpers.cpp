@@ -532,8 +532,8 @@ a64::Register armLoadPtr(const void* addr)
 
 a64::Register armLoadPtr64(const void* addr)
 {
-    armAsm->Ldr(a64::x4, armMemOperandPtr(addr));
-    return a64::x4;
+    armAsm->Ldr(REX, armMemOperandPtr(addr));
+    return REX;
 }
 
 a64::Register armLdrh(const void* addr)

@@ -253,7 +253,7 @@ int _allocFPtoXMMreg(int fpreg, int mode)
 		if (!(xmmregs[i].mode & MODE_READ) && (mode & MODE_READ))
 		{
 //			xMOVSSZX(xRegisterSSE(i), ptr[&fpuRegs.fpr[fpreg].f]);
-            armLoad(a64::QRegister(i).S(), PTR_FPU(fpr[fpreg].f));
+            armLoad(a64::QRegister(i).S(), PTR_CPU(fpuRegs.fpr[fpreg].f));
 			xmmregs[i].mode |= MODE_READ;
 		}
 
@@ -276,7 +276,7 @@ int _allocFPtoXMMreg(int fpreg, int mode)
 
 	if (mode & MODE_READ) {
 //        xMOVSSZX(xRegisterSSE(xmmreg), ptr[&fpuRegs.fpr[fpreg].f]);
-        armLoad(a64::QRegister(xmmreg).S(), PTR_FPU(fpr[fpreg].f));
+        armLoad(a64::QRegister(xmmreg).S(), PTR_CPU(fpuRegs.fpr[fpreg].f));
     }
 
 	return xmmreg;
@@ -351,7 +351,7 @@ int _allocGPRtoXMMreg(int gprreg, int mode)
 
 				// load lower+upper, replace lower
 //				xMOVDQA(xRegisterSSE(xmmreg), ptr128[&cpuRegs.GPR.r[gprreg].UQ]);
-                armLoad(a64::QRegister(xmmreg).Q(), PTR_CPU(GPR.r[gprreg].UQ));
+                armLoad(a64::QRegister(xmmreg).Q(), PTR_CPU(cpuRegs.GPR.r[gprreg].UQ));
 //				xMOV64(rax, g_cpuConstRegs[gprreg].SD[0]);
                 armAsm->Mov(RAX, g_cpuConstRegs[gprreg].SD[0]);
 //				xPINSR.Q(xRegisterSSE(xmmreg), rax, 0);
@@ -372,7 +372,7 @@ int _allocGPRtoXMMreg(int gprreg, int mode)
 
 				// load lower+upper, replace lower if dirty
 //				xMOVDQA(xRegisterSSE(xmmreg), ptr128[&cpuRegs.GPR.r[gprreg].UQ]);
-                armLoad(a64::QRegister(xmmreg).Q(), PTR_CPU(GPR.r[gprreg].UQ));
+                armLoad(a64::QRegister(xmmreg).Q(), PTR_CPU(cpuRegs.GPR.r[gprreg].UQ));
 
 				// if the gpr was written to (dirty), we need to invalidate it
 				if (x86regs[hostx86reg].mode & MODE_WRITE)
@@ -389,7 +389,7 @@ int _allocGPRtoXMMreg(int gprreg, int mode)
 				// not loaded
 				RALOG("Loading guest reg %d to host FPR %d\n", gprreg, xmmreg);
 //				xMOVDQA(xRegisterSSE(xmmreg), ptr128[&cpuRegs.GPR.r[gprreg].UQ]);
-                armLoad(a64::QRegister(xmmreg).Q(), PTR_CPU(GPR.r[gprreg].UQ));
+                armLoad(a64::QRegister(xmmreg).Q(), PTR_CPU(cpuRegs.GPR.r[gprreg].UQ));
 			}
 		}
 	}
@@ -424,7 +424,7 @@ int _allocFPACCtoXMMreg(int mode)
 		if (!(xmmregs[i].mode & MODE_READ) && (mode & MODE_READ))
 		{
 //			xMOVSSZX(xRegisterSSE(i), ptr[&fpuRegs.ACC.f]);
-            armLoad(a64::QRegister(i).S(), PTR_FPU(ACC.f));
+            armLoad(a64::QRegister(i).S(), PTR_CPU(fpuRegs.ACC.f));
 			xmmregs[i].mode |= MODE_READ;
 		}
 
@@ -448,7 +448,7 @@ int _allocFPACCtoXMMreg(int mode)
 	if (mode & MODE_READ)
 	{
 //		xMOVSSZX(xRegisterSSE(xmmreg), ptr[&fpuRegs.ACC.f]);
-        armLoad(a64::QRegister(xmmreg).S(), PTR_FPU(ACC.f));
+        armLoad(a64::QRegister(xmmreg).S(), PTR_CPU(fpuRegs.ACC.f));
 	}
 
 	return xmmreg;
@@ -561,21 +561,22 @@ void _addNeededFPACCtoXMMreg()
 // Written register will set MODE_READ (aka data is valid, no need to load it)
 void _clearNeededXMMregs()
 {
-	for (auto & xmmreg : xmmregs)
-	{
-		if (xmmreg.needed)
-		{
-			// setup read to any just written regs
-			if (xmmreg.inuse && (xmmreg.mode & MODE_WRITE))
-				xmmreg.mode |= MODE_READ;
-			xmmreg.needed = 0;
-		}
+    u32 i;
+    for (i = 0; i < iREGCNT_XMM; ++i)
+    {
+        if (xmmregs[i].needed)
+        {
+            // setup read to any just written regs
+            if (xmmregs[i].inuse && (xmmregs[i].mode & MODE_WRITE))
+                xmmregs[i].mode |= MODE_READ;
+            xmmregs[i].needed = 0;
+        }
 
-		if (xmmreg.inuse)
-		{
-			pxAssert(xmmregs[i].type != XMMTYPE_TEMP);
-		}
-	}
+        if (xmmregs[i].inuse)
+        {
+            pxAssert(xmmregs[i].type != XMMTYPE_TEMP);
+        }
+    }
 }
 
 // Flush is 0: _freeXMMreg. Flush in memory if MODE_WRITE. Clear inuse
@@ -600,7 +601,7 @@ void _deleteGPRtoX86reg(int reg, int flush)
 					{
 						pxAssert(reg != 0);
 //						xMOV(ptr64[&cpuRegs.GPR.r[reg].UL[0]], xRegister64(i));
-                        armStore(PTR_CPU(GPR.r[reg].UL[0]), a64::XRegister(i));
+                        armStore(PTR_CPU(cpuRegs.GPR.r[reg].UL[0]), a64::XRegister(i));
 
 						// get rid of MODE_WRITE since don't want to flush again
 						x86regs[i].mode &= ~MODE_WRITE;
@@ -682,7 +683,7 @@ void _deleteGPRtoXMMreg(int reg, int flush)
 
 						//pxAssert( g_xmmtypes[i] == XMMT_INT );
 //						xMOVDQA(ptr[&cpuRegs.GPR.r[reg].UL[0]], xRegisterSSE(i));
-                        armStore(PTR_CPU(GPR.r[reg].UL[0]), a64::QRegister(i).Q());
+                        armStore(PTR_CPU(cpuRegs.GPR.r[reg].UL[0]), a64::QRegister(i).Q());
 
 						// get rid of MODE_WRITE since don't want to flush again
 						xmmregs[i].mode &= ~MODE_WRITE;
@@ -724,7 +725,7 @@ void _deleteFPtoXMMreg(int reg, int flush)
 					if (xmmregs[i].mode & MODE_WRITE)
 					{
 //						xMOVSS(ptr[&fpuRegs.fpr[reg].UL], xRegisterSSE(i));
-                        armStore(PTR_FPU(fpr[reg].UL), a64::QRegister(i).S());
+                        armStore(PTR_CPU(fpuRegs.fpr[reg].UL), a64::QRegister(i).S());
 						// get rid of MODE_WRITE since don't want to flush again
 						xmmregs[i].mode &= ~MODE_WRITE;
 						xmmregs[i].mode |= MODE_READ;
@@ -763,17 +764,17 @@ void _writebackXMMreg(int xmmreg)
 		case XMMTYPE_GPRREG:
 			pxAssert(xmmregs[xmmreg].reg != 0);
 //			xMOVDQA(ptr[&cpuRegs.GPR.r[xmmregs[xmmreg].reg].UL[0]], xRegisterSSE(xmmreg));
-            armStore(PTR_CPU(GPR.r[xmmregs[xmmreg].reg].UL[0]), a64::QRegister(xmmreg).Q());
+            armStore(PTR_CPU(cpuRegs.GPR.r[xmmregs[xmmreg].reg].UL[0]), a64::QRegister(xmmreg).Q());
 			break;
 
 		case XMMTYPE_FPREG:
 //			xMOVSS(ptr[&fpuRegs.fpr[xmmregs[xmmreg].reg]], xRegisterSSE(xmmreg));
-            armStore(PTR_FPU(fpr[xmmregs[xmmreg].reg]), a64::QRegister(xmmreg).S());
+            armStore(PTR_CPU(fpuRegs.fpr[xmmregs[xmmreg].reg]), a64::QRegister(xmmreg).S());
 			break;
 
 		case XMMTYPE_FPACC:
 //			xMOVSS(ptr[&fpuRegs.ACC.f], xRegisterSSE(xmmreg));
-            armStore(PTR_FPU(ACC.f), a64::QRegister(xmmreg).S());
+            armStore(PTR_CPU(fpuRegs.ACC.f), a64::QRegister(xmmreg).S());
 			break;
 
 		default:

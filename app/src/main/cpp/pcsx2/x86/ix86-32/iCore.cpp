@@ -120,7 +120,7 @@ void _flushConstReg(int reg)
 	if (GPR_IS_CONST1(reg) && !(g_cpuFlushedConstReg & (1 << reg)))
 	{
 //		xWriteImm64ToMem(&cpuRegs.GPR.r[reg].UD[0], rax, g_cpuConstRegs[reg].SD[0]);
-        armStore64(PTR_CPU(GPR.r[reg].UD[0]), g_cpuConstRegs[reg].SD[0]);
+        armStore64(PTR_CPU(cpuRegs.GPR.r[reg].UD[0]), g_cpuConstRegs[reg].SD[0]);
 		g_cpuFlushedConstReg |= (1 << reg);
 		if (reg == 0)
 			DevCon.Warning("Flushing r0!");
@@ -157,7 +157,7 @@ void _flushConstRegs(bool delete_const)
 			if (g_cpuConstRegs[i].SD[0] == 0)
 			{
 //				xMOV(ptr64[&cpuRegs.GPR.r[i].UD[0]], rax);
-                armStore(PTR_CPU(GPR.r[i].UD[0]), RAX);
+                armStore(PTR_CPU(cpuRegs.GPR.r[i].UD[0]), RAX);
 				g_cpuFlushedConstReg |= 1u << i;
 				if (delete_const)
 					g_cpuHasConstReg &= ~(1u << i);
@@ -184,7 +184,7 @@ void _flushConstRegs(bool delete_const)
 			if (g_cpuConstRegs[i].SD[0] == -1)
 			{
 //				xMOV(ptr64[&cpuRegs.GPR.r[i].UD[0]], rax);
-                armStore(PTR_CPU(GPR.r[i].UD[0]), RAX);
+                armStore(PTR_CPU(cpuRegs.GPR.r[i].UD[0]), RAX);
 				g_cpuFlushedConstReg |= 1u << i;
 				if (delete_const)
 					g_cpuHasConstReg &= ~(1u << i);
@@ -199,7 +199,7 @@ void _flushConstRegs(bool delete_const)
 			continue;
 
 //		xWriteImm64ToMem(&cpuRegs.GPR.r[i].UD[0], rax, g_cpuConstRegs[i].UD[0]);
-        armStore64(PTR_CPU(GPR.r[i].UD[0]), g_cpuConstRegs[i].UD[0]);
+        armStore64(PTR_CPU(cpuRegs.GPR.r[i].UD[0]), g_cpuConstRegs[i].UD[0]);
 		g_cpuFlushedConstReg |= 1u << i;
 		if (delete_const)
 			g_cpuHasConstReg &= ~(1u << i);
@@ -373,7 +373,7 @@ int _allocX86reg(int type, int reg, int mode)
 						// not loaded
 						RALOG("Loading guest reg %d to GPR %d\n", reg, regnum);
 //						xMOV(new_reg, ptr64[&cpuRegs.GPR.r[reg].UD[0]]);
-                        armLoad(new_reg, PTR_CPU(GPR.r[reg].UD[0]));
+                        armLoad(new_reg, PTR_CPU(cpuRegs.GPR.r[reg].UD[0]));
 					}
 				}
 			}
@@ -382,7 +382,7 @@ int _allocX86reg(int type, int reg, int mode)
 			case X86TYPE_FPRC:
 				RALOG("Loading guest reg FPCR %d to GPR %d\n", reg, regnum);
 //				xMOV(xRegister32(regnum), ptr32[&fpuRegs.fprc[reg]]);
-                armLoad(a64::WRegister(regnum), PTR_FPU(fprc[reg]));
+                armLoad(a64::WRegister(regnum), PTR_CPU(fpuRegs.fprc[reg]));
 				break;
 
 			case X86TYPE_PSX:
@@ -463,13 +463,13 @@ void _writebackX86Reg(int x86reg)
 		case X86TYPE_GPR:
 			RALOG("Writing back GPR reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
 //			xMOV(ptr64[&cpuRegs.GPR.r[x86regs[x86reg].reg].UD[0]], xRegister64(x86reg));
-            armStore(PTR_CPU(GPR.r[x86regs[x86reg].reg].UD[0]), a64::XRegister(x86reg));
+            armStore(PTR_CPU(cpuRegs.GPR.r[x86regs[x86reg].reg].UD[0]), a64::XRegister(x86reg));
 			break;
 
 		case X86TYPE_FPRC:
 			RALOG("Writing back GPR reg %d for guest reg FPCR %d P2\n", x86reg, x86regs[x86reg].reg);
 //			xMOV(ptr32[&fpuRegs.fprc[x86regs[x86reg].reg]], xRegister32(x86reg));
-            armStore(PTR_FPU(fprc[x86regs[x86reg].reg]), a64::WRegister(x86reg));
+            armStore(PTR_CPU(fpuRegs.fprc[x86regs[x86reg].reg]), a64::WRegister(x86reg));
 			break;
 
 		case X86TYPE_VIREG:
@@ -481,7 +481,7 @@ void _writebackX86Reg(int x86reg)
 		case X86TYPE_PCWRITEBACK:
 			RALOG("Writing back PC writeback in host reg %d\n", x86reg);
 //			xMOV(ptr32[&cpuRegs.pcWriteback], xRegister32(x86reg));
-            armStore(PTR_CPU(pcWriteback), a64::WRegister(x86reg));
+            armStore(PTR_CPU(cpuRegs.pcWriteback), a64::WRegister(x86reg));
 			break;
 
 		case X86TYPE_PSX:
