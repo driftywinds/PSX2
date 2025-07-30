@@ -285,7 +285,7 @@ __fi void mVUbackupRegs(microVU& mVU, bool toMemory = false, bool onlyNeeded = f
         // TODO(Stenzek): get rid of xmmbackup
         mVU.regAlloc->flushAll(); // Flush Regalloc
 //		xMOVAPS(ptr128[&mVU.xmmBackup[xmmPQ.GetCode()][0]], xmmPQ);
-        armAsm->Str(xmmPQ.Q(), PTR_MVU(xmmBackup[xmmPQ.GetCode()][0]));
+        armAsm->Str(xmmPQ.Q(), PTR_MVU(microVU[mVU.index].xmmBackup[xmmPQ.GetCode()][0]));
     }
 }
 
@@ -321,7 +321,7 @@ __fi void mVUrestoreRegs(microVU& mVU, bool fromMemory = false, bool onlyNeeded 
     else
     {
 //		xMOVAPS(xmmPQ, ptr128[&mVU.xmmBackup[xmmPQ.GetCode()][0]]);
-        armAsm->Ldr(xmmPQ.Q(), PTR_MVU(xmmBackup[xmmPQ.GetCode()][0]));
+        armAsm->Ldr(xmmPQ.Q(), PTR_MVU(microVU[mVU.index].xmmBackup[xmmPQ.GetCode()][0]));
     }
 }
 
@@ -417,7 +417,7 @@ __fi std::optional<a64::MemOperand> mVUoptimizeConstantAddr(mV, u32 srcreg, s32 
 		return std::nullopt;
 
 //    armMoveAddressToReg(REX, mVU.regs().Mem);
-    armAsm->Ldr(REX, PTR_VUR(Mem));
+    armAsm->Ldr(REX, PTR_CPU(vuRegs[mVU.index].Mem));
 
 	const s32 addr = 0 + offset;
 	if (isVU1)

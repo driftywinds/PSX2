@@ -139,7 +139,7 @@ void doIbit(mV)
 //			xMOV(gprT1, ptr32[&curI]);
             armAsm->Ldr(gprT1, armMemOperandPtr(&curI));
 //			xMOV(ptr32[&mVU.getVI(REG_I)], gprT1);
-            armAsm->Str(gprT1, PTR_VUR(VI[REG_I]));
+            armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_I]));
 		}
 		else
 		{
@@ -153,7 +153,7 @@ void doIbit(mV)
 				tempI = curI;
 
 //			xMOV(ptr32[&mVU.getVI(REG_I)], tempI);
-            armStorePtr(tempI, PTR_VUR(VI[REG_I]));
+            armStorePtr(tempI, PTR_CPU(vuRegs[mVU.index].VI[REG_I]));
 		}
 		incPC(1);
 	}
@@ -500,7 +500,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
 		}
 	}
 //	xMOV(eax, ptr32[&mVU.cycles]);
-    armAsm->Ldrsw(EAX, PTR_MVU(cycles));
+    armAsm->Ldrsw(EAX, PTR_MVU(microVU[mVU.index].cycles));
 	if (EmuConfig.Gamefixes.VUSyncHack) {
 //        xSUB(eax, mVUcycles); // Running behind, make sure we have time to run the block
         armAsm->Subs(EAX, EAX, mVUcycles);
@@ -521,7 +521,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
 
 	if (EmuConfig.Gamefixes.VUSyncHack || EmuConfig.Gamefixes.FullVU0SyncHack) {
 //        xMOV(ptr32[&mVU.regs().nextBlockCycles], mVUcycles);
-        armStorePtr(mVUcycles, PTR_VUR(nextBlockCycles));
+        armStorePtr(mVUcycles, PTR_CPU(vuRegs[mVU.index].nextBlockCycles));
     }
 	mVUendProgram(mVU, &mFC, 0);
 
@@ -529,7 +529,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
     armBind(&skip);
 
 //	xSUB(ptr32[&mVU.cycles], mVUcycles);
-    armSub(PTR_MVU(cycles), mVUcycles);
+    armSub(PTR_MVU(microVU[mVU.index].cycles), mVUcycles);
 }
 
 //------------------------------------------------------------------
@@ -601,7 +601,7 @@ void mVUDoDBit(microVU& mVU, microFlagCycles* mFC)
     }
 	else {
 //        xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x400 : 0x4));
-        armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_FBRST].UL)), (isVU1 ? 0x400 : 0x4));
+        armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x400 : 0x4));
     }
 //	xForwardJump32 eJMP(Jcc_Zero);
     a64::Label eJMP;
@@ -609,9 +609,9 @@ void mVUDoDBit(microVU& mVU, microFlagCycles* mFC)
 	if (!isVU1 || !THREAD_VU1)
 	{
 //		xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x200 : 0x2));
-        armOrr(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? 0x200 : 0x2));
+        armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x200 : 0x2));
 //		xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-        armOrr(PTR_VUR(flags), VUFLAG_INTCINTERRUPT);
+        armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 	}
 	incPC(1);
 	mVUDTendProgram(mVU, mFC, 1);
@@ -628,7 +628,7 @@ void mVUDoTBit(microVU& mVU, microFlagCycles* mFC)
     }
 	else {
 //        xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x800 : 0x8));
-        armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_FBRST].UL)), (isVU1 ? 0x800 : 0x8));
+        armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x800 : 0x8));
     }
 //	xForwardJump32 eJMP(Jcc_Zero);
     a64::Label eJMP;
@@ -636,9 +636,9 @@ void mVUDoTBit(microVU& mVU, microFlagCycles* mFC)
 	if (!isVU1 || !THREAD_VU1)
 	{
 //		xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x400 : 0x4));
-        armOrr(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? 0x400 : 0x4));
+        armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x400 : 0x4));
 //		xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-        armOrr(PTR_VUR(flags), VUFLAG_INTCINTERRUPT);
+        armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 	}
 	incPC(1);
 	mVUDTendProgram(mVU, mFC, 1);
@@ -947,7 +947,7 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 		if (mVUup.mBit)
 		{
 //			xOR(ptr32[&mVU.regs().flags], VUFLAG_MFLAGSET);
-            armOrr(PTR_VUR(flags), VUFLAG_MFLAGSET);
+            armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_MFLAGSET);
 		}
 
 		if (isVU1 && mVUlow.kickcycles && CHECK_XGKICKHACK)
@@ -985,7 +985,7 @@ void* mVUcompile(microVU& mVU, u32 startPC, uptr pState)
 				mVUsetupRange(mVU, xPC, false);
 				if (EmuConfig.Gamefixes.VUSyncHack || EmuConfig.Gamefixes.FullVU0SyncHack) {
 //                    xMOV(ptr32[&mVU.regs().nextBlockCycles], 0);
-                    armStorePtr(0, PTR_VUR(nextBlockCycles));
+                    armStorePtr(0, PTR_CPU(vuRegs[mVU.index].nextBlockCycles));
                 }
 				mVUendProgram(mVU, &mFC, 0);
 				normBranchCompile(mVU, xPC);

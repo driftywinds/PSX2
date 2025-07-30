@@ -16,7 +16,7 @@ __fi void mVUdivSet(mV)
 //		xAND(getFlagReg(sFLAG.write), 0xfff3ffff);
         armAsm->And(reg32, reg32, 0xfff3ffff);
 //		xOR(getFlagReg(sFLAG.write), ptr32[&mVU.divFlag]);
-        armAsm->Orr(reg32, reg32, armLoadPtr(PTR_MVU(divFlag)));
+        armAsm->Orr(reg32, reg32, armLoadPtr(PTR_MVU(microVU[mVU.index].divFlag)));
 	}
 }
 
@@ -352,11 +352,11 @@ __fi void mVUsetupFlags(mV, microFlagCycles& mFC)
 		int bMac[4];
 		sortFlag(mFC.xMac, bMac, mFC.cycles);
 //		xMOVAPS(xmmT1, ptr128[mVU.macFlag]);
-        armAsm->Ldr(xmmT1.Q(), armMemOperandPtr(mVU.macFlag));
+        armAsm->Ldr(xmmT1.Q(), PTR_MVU(microVU[mVU.index].macFlag));
 //		xSHUF.PS(xmmT1, xmmT1, shuffleMac);
         armSHUFPS(xmmT1, xmmT1, shuffleMac);
 //		xMOVAPS(ptr128[mVU.macFlag], xmmT1);
-        armAsm->Str(xmmT1.Q(), armMemOperandPtr(mVU.macFlag));
+        armAsm->Str(xmmT1.Q(), PTR_MVU(microVU[mVU.index].macFlag));
 	}
 
 	if (doCFlagInsts && __Clip)
@@ -366,11 +366,11 @@ __fi void mVUsetupFlags(mV, microFlagCycles& mFC)
 		int bClip[4];
 		sortFlag(mFC.xClip, bClip, mFC.cycles);
 //		xMOVAPS(xmmT2, ptr128[mVU.clipFlag]);
-        armAsm->Ldr(xmmT2.Q(), armMemOperandPtr(mVU.clipFlag));
+        armAsm->Ldr(xmmT2.Q(), PTR_MVU(microVU[mVU.index].clipFlag));
 //		xSHUF.PS(xmmT2, xmmT2, shuffleClip);
         armSHUFPS(xmmT2, xmmT2, shuffleClip);
 //		xMOVAPS(ptr128[mVU.clipFlag], xmmT2);
-        armAsm->Str(xmmT2.Q(), armMemOperandPtr(mVU.clipFlag));
+        armAsm->Str(xmmT2.Q(), PTR_MVU(microVU[mVU.index].clipFlag));
 	}
 }
 

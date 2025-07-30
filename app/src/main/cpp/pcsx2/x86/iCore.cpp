@@ -640,7 +640,7 @@ void _deletePSXtoX86reg(int reg, int flush)
 					{
 						pxAssert(reg != 0);
 //						xMOV(ptr32[&psxRegs.GPR.r[reg]], xRegister32(i));
-                        armStore(PTR_PSX(GPR.r[reg]), a64::WRegister(i));
+                        armStore(PTR_CPU(psxRegs.GPR.r[reg]), a64::WRegister(i));
 
 						// get rid of MODE_WRITE since don't want to flush again
 						x86regs[i].mode &= ~MODE_WRITE;
@@ -748,15 +748,15 @@ void _writebackXMMreg(int xmmreg)
 		{
 			if (xmmregs[xmmreg].reg == 33) {
 //                xMOVSS(ptr[&VU0.VI[REG_I].F], xRegisterSSE(xmmreg));
-                armAsm->Str(a64::QRegister(xmmreg).S(), PTR_VUR(VI[REG_I].F));
+                armAsm->Str(a64::QRegister(xmmreg).S(), PTR_CPU(vuRegs[0].VI[REG_I].F));
             }
 			else if (xmmregs[xmmreg].reg == 32) {
 //                xMOVAPS(ptr[VU0.ACC.F], xRegisterSSE(xmmreg));
-                armAsm->Str(a64::QRegister(xmmreg).Q(), PTR_VUR(ACC.F));
+                armAsm->Str(a64::QRegister(xmmreg).Q(), PTR_CPU(vuRegs[0].ACC.F));
             }
 			else if (xmmregs[xmmreg].reg > 0) {
 //                xMOVAPS(ptr[VU0.VF[xmmregs[xmmreg].reg].F], xRegisterSSE(xmmreg));
-                armAsm->Str(a64::QRegister(xmmreg).Q(), PTR_VUR(VF[xmmregs[xmmreg].reg].F));
+                armAsm->Str(a64::QRegister(xmmreg).Q(), PTR_CPU(vuRegs[0].VF[xmmregs[xmmreg].reg].F));
             }
 		}
 		break;
@@ -845,15 +845,15 @@ int _allocVFtoXMMreg(int vfreg, int mode)
 	{
 		if (vfreg == 33) {
 //            xMOVSSZX(xRegisterSSE(xmmreg), ptr[&VU0.VI[REG_I].F]);
-            armAsm->Ldr(a64::QRegister(xmmreg).S(), PTR_VUR(VI[REG_I].F));
+            armAsm->Ldr(a64::QRegister(xmmreg).S(), PTR_CPU(vuRegs[0].VI[REG_I].F));
         }
 		else if (vfreg == 32) {
 //            xMOVAPS(xRegisterSSE(xmmreg), ptr[VU0.ACC.F]);
-            armAsm->Ldr(a64::QRegister(xmmreg).Q(), PTR_VUR(ACC.F));
+            armAsm->Ldr(a64::QRegister(xmmreg).Q(), PTR_CPU(vuRegs[0].ACC.F));
         }
 		else {
 //            xMOVAPS(xRegisterSSE(xmmreg), ptr[VU0.VF[xmmregs[xmmreg].reg].F]);
-            armAsm->Ldr(a64::QRegister(xmmreg).Q(), PTR_VUR(VF[xmmregs[xmmreg].reg].F));
+            armAsm->Ldr(a64::QRegister(xmmreg).Q(), PTR_CPU(vuRegs[0].VF[xmmregs[xmmreg].reg].F));
         }
 	}
 

@@ -244,7 +244,7 @@ protected:
 	bool        regAllocCOP2;    // Local COP2 check
 
 	// Helper functions to get VU regs
-//	VURegs& regs() const { return ::vuRegs[index]; }
+//	VURegs& regs() const { return ::g_cpuRegistersPack.vuRegs[index]; }
 //	__fi REG_VI& getVI(uint reg) const { return regs().VI[reg]; }
 //	__fi VECTOR& getVF(uint reg) const { return regs().VF[reg]; }
 
@@ -266,7 +266,7 @@ protected:
 		}
 
 //		xMOVSSZX(reg, ptr32[&getVI(REG_I)]);
-        armAsm->Ldr(reg.S(), PTR_VUR(VI[REG_I]));
+        armAsm->Ldr(reg.S(), PTR_CPU(vuRegs[index].VI[REG_I]));
         if (!_XYZWss(xyzw)) {
 //            xSHUF.PS(reg, reg, 0);
             armSHUFPS(reg, reg, 0);
@@ -596,15 +596,15 @@ public:
 			{
 				if (mapX.VFreg == 33) {
 //                    xMOVSS(ptr32[&getVI(REG_I)], xmm(i));
-                    armAsm->Str(xmm(i).S(), PTR_VUR(VI[REG_I]));
+                    armAsm->Str(xmm(i).S(), PTR_CPU(vuRegs[index].VI[REG_I]));
                 }
 				else if (mapX.VFreg == 32) {
 //                    mVUsaveReg(xmm(i), ptr[&regs().ACC], mapX.xyzw, 1);
-                    mVUsaveReg(xmm(i), PTR_VUR(ACC), mapX.xyzw, 1);
+                    mVUsaveReg(xmm(i), PTR_CPU(vuRegs[index].ACC), mapX.xyzw, 1);
                 }
 				else {
 //                    mVUsaveReg(xmm(i), ptr[&getVF(mapX.VFreg)], mapX.xyzw, 1);
-                    mVUsaveReg(xmm(i), PTR_VUR(VF[mapX.VFreg]), mapX.xyzw, 1);
+                    mVUsaveReg(xmm(i), PTR_CPU(vuRegs[index].VF[mapX.VFreg]), mapX.xyzw, 1);
                 }
 			}
 		}
@@ -691,15 +691,15 @@ public:
 		{
 			if (mapX.VFreg == 33) {
 //                xMOVSS(ptr32[&getVI(REG_I)], reg);
-                armAsm->Str(reg.S(), PTR_VUR(VI[REG_I]));
+                armAsm->Str(reg.S(), PTR_CPU(vuRegs[index].VI[REG_I]));
             }
 			else if (mapX.VFreg == 32) {
 //                mVUsaveReg(reg, ptr[&regs().ACC], mapX.xyzw, true);
-                mVUsaveReg(reg, PTR_VUR(ACC), mapX.xyzw, true);
+                mVUsaveReg(reg, PTR_CPU(vuRegs[index].ACC), mapX.xyzw, true);
             }
 			else {
 //                mVUsaveReg(reg, ptr[&getVF(mapX.VFreg)], mapX.xyzw, true);
-                mVUsaveReg(reg, PTR_VUR(VF[mapX.VFreg]), mapX.xyzw, true);
+                mVUsaveReg(reg, PTR_CPU(vuRegs[index].VF[mapX.VFreg]), mapX.xyzw, true);
             }
 
 			if (invalidateRegs)
@@ -899,11 +899,11 @@ public:
             }
 			else if (vfLoadReg == 32) {
 //                mVUloadReg(xmmX, ptr[&regs().ACC], xyzw);
-                mVUloadReg(xmmX, PTR_VUR(ACC), xyzw);
+                mVUloadReg(xmmX, PTR_CPU(vuRegs[index].ACC), xyzw);
             }
 			else if (vfLoadReg >= 0) {
 //                mVUloadReg(xmmX, ptr[&getVF(vfLoadReg)], xyzw);
-                mVUloadReg(xmmX, PTR_VUR(VF[vfLoadReg]), xyzw);
+                mVUloadReg(xmmX, PTR_CPU(vuRegs[index].VF[vfLoadReg]), xyzw);
             }
 
 			xmmMap[x].VFreg = vfWriteReg;
@@ -916,11 +916,11 @@ public:
             }
 			else if (vfLoadReg == 32) {
 //                xMOVAPS(xmmX, ptr128[&regs().ACC]);
-                armAsm->Ldr(xmmX.Q(), PTR_VUR(ACC));
+                armAsm->Ldr(xmmX.Q(), PTR_CPU(vuRegs[index].ACC));
             }
 			else if (vfLoadReg >= 0) {
 //                xMOVAPS(xmmX, ptr128[&getVF(vfLoadReg)]);
-                armAsm->Ldr(xmmX.Q(), PTR_VUR(VF[vfLoadReg]));
+                armAsm->Ldr(xmmX.Q(), PTR_CPU(vuRegs[index].VF[vfLoadReg]));
             }
 
 			xmmMap[x].VFreg = vfLoadReg;
@@ -984,7 +984,7 @@ public:
 			pxAssert(mapX.VIreg > 0);
 			if (mapX.VIreg < 16) {
 //                xMOV(ptr16[&getVI(mapX.VIreg)], xRegister16(reg));
-                armAsm->Strh(reg, PTR_VUR(VI[mapX.VIreg]));
+                armAsm->Strh(reg, PTR_CPU(vuRegs[index].VI[mapX.VIreg]));
             }
 			if (clearDirty)
 			{
@@ -1105,7 +1105,7 @@ public:
 							if (backup && gprMap[x].VIreg != viWriteReg)
 							{
 //								xMOVZX(gprX, ptr16[&getVI(viWriteReg)]);
-                                armAsm->Ldrh(gprX, PTR_VUR(VI[viWriteReg]));
+                                armAsm->Ldrh(gprX, PTR_CPU(vuRegs[index].VI[viWriteReg]));
 								writeVIBackup(gprX);
 								backup = false;
 							}
@@ -1172,14 +1172,14 @@ public:
 		if (backup && viLoadReg >= 0 && viWriteReg > 0 && viLoadReg != viWriteReg)
 		{
 //			xMOVZX(gprX, ptr16[&getVI(viWriteReg)]);
-            armAsm->Ldrh(gprX, PTR_VUR(VI[viWriteReg]));
+            armAsm->Ldrh(gprX, PTR_CPU(vuRegs[index].VI[viWriteReg]));
 			writeVIBackup(gprX);
 			backup = false;
 		}
 
         if (viLoadReg > 0) {
 //            xMOVZX(gprX, ptr16[&getVI(viLoadReg)]);
-            armAsm->Ldrh(gprX, PTR_VUR(VI[viLoadReg]));
+            armAsm->Ldrh(gprX, PTR_CPU(vuRegs[index].VI[viLoadReg]));
         }
         else if (viLoadReg == 0) {
 //            xXOR(gprX, gprX);
@@ -1198,7 +1198,7 @@ public:
 			{
                 if (viLoadReg < 0 && viWriteReg > 0) {
 //                    xMOVZX(gprX, ptr16[&getVI(viWriteReg)]);
-                    armAsm->Ldrh(gprX, PTR_VUR(VI[viWriteReg]));
+                    armAsm->Ldrh(gprX, PTR_CPU(vuRegs[index].VI[viWriteReg]));
                 }
 
 				writeVIBackup(gprX);

@@ -409,7 +409,7 @@ int _allocX86reg(int type, int reg, int mode)
 					{
 						RALOG("Loading guest PSX reg %d to GPR %d\n", reg, regnum);
 //						xMOV(new_reg32, ptr32[&psxRegs.GPR.r[reg]]);
-                        armLoad(new_reg32, PTR_PSX(GPR.r[reg]));
+                        armLoad(new_reg32, PTR_CPU(psxRegs.GPR.r[reg]));
 					}
 				}
 			}
@@ -419,7 +419,7 @@ int _allocX86reg(int type, int reg, int mode)
 			{
 				RALOG("Loading guest VI reg %d to GPR %d", reg, regnum);
 //				xMOVZX(xRegister32(regnum), ptr16[&VU0.VI[reg].US[0]]);
-                armAsm->Ldrh(a64::WRegister(regnum), PTR_VUR(VI[reg].US[0]));
+                armAsm->Ldrh(a64::WRegister(regnum), PTR_CPU(vuRegs[0].VI[reg].US[0]));
 			}
 			break;
 
@@ -475,7 +475,7 @@ void _writebackX86Reg(int x86reg)
 		case X86TYPE_VIREG:
 			RALOG("Writing back VI reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
 //			xMOV(ptr16[&VU0.VI[x86regs[x86reg].reg].UL], xRegister16(x86reg));
-            armAsm->Strh(a64::WRegister(x86reg), PTR_VUR(VI[x86regs[x86reg].reg].UL));
+            armAsm->Strh(a64::WRegister(x86reg), PTR_CPU(vuRegs[0].VI[x86regs[x86reg].reg].UL));
 			break;
 
 		case X86TYPE_PCWRITEBACK:
@@ -487,13 +487,13 @@ void _writebackX86Reg(int x86reg)
 		case X86TYPE_PSX:
 			RALOG("Writing back PSX GPR reg %d for guest reg %d P2\n", x86reg, x86regs[x86reg].reg);
 //			xMOV(ptr32[&psxRegs.GPR.r[x86regs[x86reg].reg]], xRegister32(x86reg));
-            armStore(PTR_PSX(GPR.r[x86regs[x86reg].reg]), a64::WRegister(x86reg));
+            armStore(PTR_CPU(psxRegs.GPR.r[x86regs[x86reg].reg]), a64::WRegister(x86reg));
 			break;
 
 		case X86TYPE_PSX_PCWRITEBACK:
 			RALOG("Writing back PSX PC writeback in host reg %d\n", x86reg);
 //			xMOV(ptr32[&psxRegs.pcWriteback], xRegister32(x86reg));
-            armStore(PTR_PSX(pcWriteback), a64::WRegister(x86reg));
+            armStore(PTR_CPU(psxRegs.pcWriteback), a64::WRegister(x86reg));
 			break;
 
 		default:

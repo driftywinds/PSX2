@@ -490,7 +490,7 @@ static const void* _DynGen_EnterRecompiledCode()
 	static constexpr u32 stack_size = 32 + 8;
 #else
 	// Stack still needs to be aligned
-//	static constexpr u32 stack_size = 8;
+//	static constexpr u32 stack_size = 16;
 #endif
 
 	// We never return through this function, instead we fastjmp() out.
@@ -501,8 +501,7 @@ static const void* _DynGen_EnterRecompiledCode()
 
     // From memory to registry
     armMoveAddressToReg(RSTATE_PSX, &psxRegs);
-    armMoveAddressToReg(RSTATE_CPU, &_cpuRegistersPack);
-    armMoveAddressToReg(RSTATE_VUR, &VU0);
+    armMoveAddressToReg(RSTATE_CPU, &g_cpuRegistersPack);
 
 	if (CHECK_FASTMEM) {
 //        xMOV(RFASTMEMBASE, ptrNative[&vtlb_private::vtlbdata.fastmem_base]);

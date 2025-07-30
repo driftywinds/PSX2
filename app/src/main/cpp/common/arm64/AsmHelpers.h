@@ -55,21 +55,17 @@ namespace a64 = vixl::aarch64;
 #define RSTATE_x23 a64::x23
 #define RSTATE_x24 a64::x24
 
+// fastmem
 #define RFASTMEMBASE a64::x25
 
-// microVU
-#define RSTATE_MVU a64::x27
-#define RSTATE_VU1 a64::x28
-#define RSTATE_VUR a64::x26
-#define PTR_MVU(field) a64::MemOperand(RSTATE_MVU, offsetof(microVU, field))
-#define PTR_VU1(field) a64::MemOperand(RSTATE_VU1, offsetof(VURegs, field))
-#define PTR_VUR(field) a64::MemOperand(RSTATE_VUR, offsetof(VURegs, field))
-
 // CPU(iR5900), PSX(iR3000A), FPU(iFPU, iFPUd)
+#define RSTATE_CPU a64::x27
 #define RSTATE_PSX a64::x28
-#define RSTATE_CPU a64::x29
-#define PTR_PSX(field) a64::MemOperand(RSTATE_PSX, offsetof(psxRegisters, field))
 #define PTR_CPU(field) a64::MemOperand(RSTATE_CPU, offsetof(cpuRegistersPack, field))
+
+// microVU
+#define RSTATE_MVU a64::x28
+#define PTR_MVU(field) a64::MemOperand(RSTATE_MVU, offsetof(vuRegistersPack, field))
 
 
 static inline s64 GetPCDisplacement(const void* current, const void* target)

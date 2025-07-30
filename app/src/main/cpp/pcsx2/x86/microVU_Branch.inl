@@ -69,11 +69,11 @@ void mVUDTendProgram(mV, microFlagCycles* mFC, int isEbit)
         armPSHUFD(xmmPQ, xmmPQ, 0xe1);
     }
 //	xMOVSS(ptr32[&mVU.regs().VI[REG_Q].UL], xmmPQ);
-    armAsm->Str(xmmPQ.S(), PTR_VUR(VI[REG_Q].UL));
+    armAsm->Str(xmmPQ.S(), PTR_CPU(vuRegs[mVU.index].VI[REG_Q].UL));
 //	xPSHUF.D(xmmPQ, xmmPQ, 0xe1);
     armPSHUFD(xmmPQ, xmmPQ, 0xe1);
 //	xMOVSS(ptr32[&mVU.regs().pending_q], xmmPQ);
-    armAsm->Str(xmmPQ.S(), PTR_VUR(pending_q));
+    armAsm->Str(xmmPQ.S(), PTR_CPU(vuRegs[mVU.index].pending_q));
 //	xPSHUF.D(xmmPQ, xmmPQ, 0xe1);
     armPSHUFD(xmmPQ, xmmPQ, 0xe1);
 
@@ -86,11 +86,11 @@ void mVUDTendProgram(mV, microFlagCycles* mFC, int isEbit)
 //		xPSHUF.D(xmmPQ, xmmPQ, 0xC6); // 3 0 1 2
         armPSHUFD(xmmPQ, xmmPQ, 0xC6);
 //		xMOVSS(ptr32[&mVU.regs().VI[REG_P].UL], xmmPQ);
-        armAsm->Str(xmmPQ.S(), PTR_VUR(VI[REG_P].UL));
+        armAsm->Str(xmmPQ.S(), PTR_CPU(vuRegs[mVU.index].VI[REG_P].UL));
 //		xPSHUF.D(xmmPQ, xmmPQ, 0x87); // 0 2 1 3
         armPSHUFD(xmmPQ, xmmPQ, 0x87);
 //		xMOVSS(ptr32[&mVU.regs().pending_p], xmmPQ);
-        armAsm->Str(xmmPQ.S(), PTR_VUR(pending_p));
+        armAsm->Str(xmmPQ.S(), PTR_CPU(vuRegs[mVU.index].pending_p));
 //		xPSHUF.D(xmmPQ, xmmPQ, 0x27); // 3 2 1 0
         armPSHUFD(xmmPQ, xmmPQ, 0x27);
     }
@@ -98,72 +98,72 @@ void mVUDTendProgram(mV, microFlagCycles* mFC, int isEbit)
     // Save MAC, Status and CLIP Flag Instances
     mVUallocSFLAGc(gprT1, gprT2, fStatus);
 //	xMOV(ptr32[&mVU.regs().VI[REG_STATUS_FLAG].UL], gprT1);
-    armAsm->Str(gprT1, PTR_VUR(VI[REG_STATUS_FLAG].UL));
+    armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_STATUS_FLAG].UL));
     mVUallocMFLAGa(mVU, gprT1, fMac);
     mVUallocCFLAGa(mVU, gprT2, fClip);
 //	xMOV(ptr32[&mVU.regs().VI[REG_MAC_FLAG].UL], gprT1);
-    armAsm->Str(gprT1, PTR_VUR(VI[REG_MAC_FLAG].UL));
+    armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_MAC_FLAG].UL));
 //	xMOV(ptr32[&mVU.regs().VI[REG_CLIP_FLAG].UL], gprT2);
-    armAsm->Str(gprT2, PTR_VUR(VI[REG_CLIP_FLAG].UL));
+    armAsm->Str(gprT2, PTR_CPU(vuRegs[mVU.index].VI[REG_CLIP_FLAG].UL));
 
     if (!isEbit) // Backup flag instances
     {
 //		xMOVAPS(xmmT1, ptr128[mVU.macFlag]);
-        armAsm->Ldr(xmmT1.Q(), PTR_MVU(macFlag));
+        armAsm->Ldr(xmmT1.Q(), PTR_MVU(microVU[mVU.index].macFlag));
 //		xMOVAPS(ptr128[&mVU.regs().micro_macflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_macflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_macflags));
 //		xMOVAPS(xmmT1, ptr128[mVU.clipFlag]);
-        armAsm->Ldr(xmmT1.Q(), PTR_MVU(clipFlag));
+        armAsm->Ldr(xmmT1.Q(), PTR_MVU(microVU[mVU.index].clipFlag));
 //		xMOVAPS(ptr128[&mVU.regs().micro_clipflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_clipflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_clipflags));
 
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[0]], gprF0);
-        armAsm->Str(gprF0, PTR_VUR(micro_statusflags[0]));
+        armAsm->Str(gprF0, PTR_CPU(vuRegs[mVU.index].micro_statusflags[0]));
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[1]], gprF1);
-        armAsm->Str(gprF1, PTR_VUR(micro_statusflags[1]));
+        armAsm->Str(gprF1, PTR_CPU(vuRegs[mVU.index].micro_statusflags[1]));
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[2]], gprF2);
-        armAsm->Str(gprF2, PTR_VUR(micro_statusflags[2]));
+        armAsm->Str(gprF2, PTR_CPU(vuRegs[mVU.index].micro_statusflags[2]));
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[3]], gprF3);
-        armAsm->Str(gprF3, PTR_VUR(micro_statusflags[3]));
+        armAsm->Str(gprF3, PTR_CPU(vuRegs[mVU.index].micro_statusflags[3]));
     }
     else // Flush flag instances
     {
 //		xMOVDZX(xmmT1, ptr32[&mVU.regs().VI[REG_CLIP_FLAG].UL]);
-        armAsm->Ldr(xmmT1, PTR_VUR(VI[REG_CLIP_FLAG].UL));
+        armAsm->Ldr(xmmT1, PTR_CPU(vuRegs[mVU.index].VI[REG_CLIP_FLAG].UL));
 //		xSHUF.PS(xmmT1, xmmT1, 0);
         armSHUFPS(xmmT1, xmmT1, 0);
 //		xMOVAPS(ptr128[&mVU.regs().micro_clipflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_clipflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_clipflags));
 
 //		xMOVDZX(xmmT1, ptr32[&mVU.regs().VI[REG_MAC_FLAG].UL]);
-        armAsm->Ldr(xmmT1, PTR_VUR(VI[REG_MAC_FLAG].UL));
+        armAsm->Ldr(xmmT1, PTR_CPU(vuRegs[mVU.index].VI[REG_MAC_FLAG].UL));
 //		xSHUF.PS(xmmT1, xmmT1, 0);
         armSHUFPS(xmmT1, xmmT1, 0);
 //		xMOVAPS(ptr128[&mVU.regs().micro_macflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_macflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_macflags));
 
 //		xMOVDZX(xmmT1, getFlagReg(fStatus));
         armAsm->Fmov(xmmT1.S(), getFlagReg(fStatus));
 //		xSHUF.PS(xmmT1, xmmT1, 0);
         armSHUFPS(xmmT1, xmmT1, 0);
 //		xMOVAPS(ptr128[&mVU.regs().micro_statusflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_statusflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_statusflags));
     }
 
 	if (EmuConfig.Gamefixes.VUSyncHack || EmuConfig.Gamefixes.FullVU0SyncHack) {
 //        xMOV(ptr32[&mVU.regs().nextBlockCycles], 0);
-        armAsm->Str(a64::wzr, PTR_VUR(nextBlockCycles));
+        armAsm->Str(a64::wzr, PTR_CPU(vuRegs[mVU.index].nextBlockCycles));
     }
 
 //	xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-    armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+    armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
 
 	if (isEbit) // Clear 'is busy' Flags
 	{
 		if (!mVU.index || !THREAD_VU1)
 		{
 //			xAND(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? ~0x100 : ~0x001)); // VBS0/VBS1 flag
-            armAnd(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? ~0x100 : ~0x001));
+            armAnd(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? ~0x100 : ~0x001));
 		}
 	}
 
@@ -235,11 +235,11 @@ void mVUendProgram(mV, microFlagCycles* mFC, int isEbit)
         armPSHUFD(xmmPQ, xmmPQ, 0xe1);
     }
 //	xMOVSS(ptr32[&mVU.regs().VI[REG_Q].UL], xmmPQ);
-    armAsm->Str(xmmPQ.S(), PTR_VUR(VI[REG_Q].UL));
+    armAsm->Str(xmmPQ.S(), PTR_CPU(vuRegs[mVU.index].VI[REG_Q].UL));
 //	xPSHUF.D(xmmPQ, xmmPQ, 0xe1);
     armPSHUFD(xmmPQ, xmmPQ, 0xe1);
 //	xMOVSS(ptr32[&mVU.regs().pending_q], xmmPQ);
-    armAsm->Str(xmmPQ.S(), PTR_VUR(pending_q));
+    armAsm->Str(xmmPQ.S(), PTR_CPU(vuRegs[mVU.index].pending_q));
 //	xPSHUF.D(xmmPQ, xmmPQ, 0xe1);
     armPSHUFD(xmmPQ, xmmPQ, 0xe1);
 
@@ -252,11 +252,11 @@ void mVUendProgram(mV, microFlagCycles* mFC, int isEbit)
 //		xPSHUF.D(xmmPQ, xmmPQ, 0xC6); // 3 0 1 2
         armPSHUFD(xmmPQ, xmmPQ, 0xC6);
 //		xMOVSS(ptr32[&mVU.regs().VI[REG_P].UL], xmmPQ);
-        armAsm->Str(xmmPQ.S(), PTR_VUR(VI[REG_P].UL));
+        armAsm->Str(xmmPQ.S(), PTR_CPU(vuRegs[mVU.index].VI[REG_P].UL));
 //		xPSHUF.D(xmmPQ, xmmPQ, 0x87); // 0 2 1 3
         armPSHUFD(xmmPQ, xmmPQ, 0x87);
 //		xMOVSS(ptr32[&mVU.regs().pending_p], xmmPQ);
-        armAsm->Str(xmmPQ.S(), PTR_VUR(pending_p));
+        armAsm->Str(xmmPQ.S(), PTR_CPU(vuRegs[mVU.index].pending_p));
 //		xPSHUF.D(xmmPQ, xmmPQ, 0x27); // 3 2 1 0
         armPSHUFD(xmmPQ, xmmPQ, 0x27);
     }
@@ -264,78 +264,78 @@ void mVUendProgram(mV, microFlagCycles* mFC, int isEbit)
     // Save MAC, Status and CLIP Flag Instances
     mVUallocSFLAGc(gprT1, gprT2, fStatus);
 //	xMOV(ptr32[&mVU.regs().VI[REG_STATUS_FLAG].UL], gprT1);
-    armAsm->Str(gprT1, PTR_VUR(VI[REG_STATUS_FLAG].UL));
+    armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_STATUS_FLAG].UL));
     mVUallocMFLAGa(mVU, gprT1, fMac);
     mVUallocCFLAGa(mVU, gprT2, fClip);
 //	xMOV(ptr32[&mVU.regs().VI[REG_MAC_FLAG].UL], gprT1);
-    armAsm->Str(gprT1, PTR_VUR(VI[REG_MAC_FLAG].UL));
+    armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_MAC_FLAG].UL));
 //	xMOV(ptr32[&mVU.regs().VI[REG_CLIP_FLAG].UL], gprT2);
-    armAsm->Str(gprT2, PTR_VUR(VI[REG_CLIP_FLAG].UL));
+    armAsm->Str(gprT2, PTR_CPU(vuRegs[mVU.index].VI[REG_CLIP_FLAG].UL));
 
     if (!isEbit || isEbit == 3) // Backup flag instances
     {
 //		xMOVAPS(xmmT1, ptr128[mVU.macFlag]);
-        armAsm->Ldr(xmmT1.Q(), PTR_MVU(macFlag));
+        armAsm->Ldr(xmmT1.Q(), PTR_MVU(microVU[mVU.index].macFlag));
 //		xMOVAPS(ptr128[&mVU.regs().micro_macflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_macflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_macflags));
 //		xMOVAPS(xmmT1, ptr128[mVU.clipFlag]);
-        armAsm->Ldr(xmmT1.Q(), PTR_MVU(clipFlag));
+        armAsm->Ldr(xmmT1.Q(), PTR_MVU(microVU[mVU.index].clipFlag));
 //		xMOVAPS(ptr128[&mVU.regs().micro_clipflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_clipflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_clipflags));
 
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[0]], gprF0);
-        armAsm->Str(gprF0, PTR_VUR(micro_statusflags[0]));
+        armAsm->Str(gprF0, PTR_CPU(vuRegs[mVU.index].micro_statusflags[0]));
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[1]], gprF1);
-        armAsm->Str(gprF1, PTR_VUR(micro_statusflags[1]));
+        armAsm->Str(gprF1, PTR_CPU(vuRegs[mVU.index].micro_statusflags[1]));
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[2]], gprF2);
-        armAsm->Str(gprF2, PTR_VUR(micro_statusflags[2]));
+        armAsm->Str(gprF2, PTR_CPU(vuRegs[mVU.index].micro_statusflags[2]));
 //		xMOV(ptr32[&mVU.regs().micro_statusflags[3]], gprF3);
-        armAsm->Str(gprF3, PTR_VUR(micro_statusflags[3]));
+        armAsm->Str(gprF3, PTR_CPU(vuRegs[mVU.index].micro_statusflags[3]));
     }
     else // Flush flag instances
     {
 //		xMOVDZX(xmmT1, ptr32[&mVU.regs().VI[REG_CLIP_FLAG].UL]);
-        armAsm->Ldr(xmmT1, PTR_VUR(VI[REG_CLIP_FLAG].UL));
+        armAsm->Ldr(xmmT1, PTR_CPU(vuRegs[mVU.index].VI[REG_CLIP_FLAG].UL));
 //		xSHUF.PS(xmmT1, xmmT1, 0);
         armSHUFPS(xmmT1, xmmT1, 0);
 //		xMOVAPS(ptr128[&mVU.regs().micro_clipflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_clipflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_clipflags));
 
 //		xMOVDZX(xmmT1, ptr32[&mVU.regs().VI[REG_MAC_FLAG].UL]);
-        armAsm->Ldr(xmmT1, PTR_VUR(VI[REG_MAC_FLAG].UL));
+        armAsm->Ldr(xmmT1, PTR_CPU(vuRegs[mVU.index].VI[REG_MAC_FLAG].UL));
 //		xSHUF.PS(xmmT1, xmmT1, 0);
         armSHUFPS(xmmT1, xmmT1, 0);
 //		xMOVAPS(ptr128[&mVU.regs().micro_macflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_macflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_macflags));
 
 //		xMOVDZX(xmmT1, getFlagReg(fStatus));
         armAsm->Fmov(xmmT1.S(), getFlagReg(fStatus));
 //		xSHUF.PS(xmmT1, xmmT1, 0);
         armSHUFPS(xmmT1, xmmT1, 0);
 //		xMOVAPS(ptr128[&mVU.regs().micro_statusflags], xmmT1);
-        armAsm->Str(xmmT1.Q(), PTR_VUR(micro_statusflags));
+        armAsm->Str(xmmT1.Q(), PTR_CPU(vuRegs[mVU.index].micro_statusflags));
     }
 
 //	xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-    armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+    armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
 
 	if ((isEbit && isEbit != 3)) // Clear 'is busy' Flags
 	{
 		if (EmuConfig.Gamefixes.VUSyncHack || EmuConfig.Gamefixes.FullVU0SyncHack) {
 //            xMOV(ptr32[&mVU.regs().nextBlockCycles], 0);
-            armStorePtr(0, PTR_VUR(nextBlockCycles));
+            armStorePtr(0, PTR_CPU(vuRegs[mVU.index].nextBlockCycles));
         }
 		if (!mVU.index || !THREAD_VU1)
 		{
 //			xAND(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? ~0x100 : ~0x001)); // VBS0/VBS1 flag
-            armAnd(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? ~0x100 : ~0x001));
+            armAnd(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? ~0x100 : ~0x001));
 		}
 	}
 	else if (isEbit)
 	{
 		if (EmuConfig.Gamefixes.VUSyncHack || EmuConfig.Gamefixes.FullVU0SyncHack) {
 //            xMOV(ptr32[&mVU.regs().nextBlockCycles], 0);
-            armStorePtr(0, PTR_VUR(nextBlockCycles));
+            armStorePtr(0, PTR_CPU(vuRegs[mVU.index].nextBlockCycles));
         }
 	}
 
@@ -395,16 +395,16 @@ void normJumpCompile(mV, microFlagCycles& mFC, bool isEvilJump)
     if (isEvilJump)
     {
 //		xMOV(arg1regd, ptr32[&mVU.evilBranch]);
-        armAsm->Ldr(EAX, PTR_MVU(evilBranch));
+        armAsm->Ldr(EAX, PTR_MVU(microVU[mVU.index].evilBranch));
 //		xMOV(gprT1, ptr32[&mVU.evilevilBranch]);
-        armAsm->Ldr(EEX, PTR_MVU(evilevilBranch));
+        armAsm->Ldr(EEX, PTR_MVU(microVU[mVU.index].evilevilBranch));
 //		xMOV(ptr32[&mVU.evilBranch], gprT1);
-        armAsm->Str(EEX, PTR_MVU(evilBranch));
+        armAsm->Str(EEX, PTR_MVU(microVU[mVU.index].evilBranch));
     }
     else
     {
 //        xMOV(arg1regd, ptr32[&mVU.branch]);
-        armAsm->Ldr(EAX, PTR_MVU(branch));
+        armAsm->Ldr(EAX, PTR_MVU(microVU[mVU.index].branch));
     }
     if (doJumpCaching) {
 //        xLoadFarAddr(arg2reg, mVUpBlock);
@@ -422,7 +422,7 @@ void normJumpCompile(mV, microFlagCycles& mFC, bool isEvilJump)
 		//So if it is taken, you need to end the program, else you get infinite loops.
 		mVUendProgram(mVU, &mFC, 2);
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], arg1regd);
-        armAsm->Str(EAX, PTR_VUR(VI[REG_TPC].UL));
+        armAsm->Str(EAX, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
 		if (mVU.index && THREAD_VU1) {
 //            xFastCall((void *) mVUEBit);
             armEmitCall(reinterpret_cast<void*>(mVUEBit));
@@ -460,7 +460,7 @@ void normBranch(mV, microFlagCycles& mFC)
         }
         else {
 //            xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x400 : 0x4));
-            armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_FBRST].UL)), (isVU1 ? 0x400 : 0x4));
+            armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x400 : 0x4));
         }
 //		xForwardJump32 eJMP(Jcc_Zero);
         a64::Label eJMP;
@@ -468,9 +468,9 @@ void normBranch(mV, microFlagCycles& mFC)
 		if (!mVU.index || !THREAD_VU1)
 		{
 //			xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x200 : 0x2));
-            armOrr(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? 0x200 : 0x2));
+            armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x200 : 0x2));
 //			xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-            armOrr(PTR_VUR(flags), VUFLAG_INTCINTERRUPT);
+            armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 		}
 		iPC = branchAddr(mVU) >> 2; // branchAddr(mVU) / 4
 		mVUDTendProgram(mVU, &mFC, 1);
@@ -490,7 +490,7 @@ void normBranch(mV, microFlagCycles& mFC)
         }
         else {
 //            xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x800 : 0x8));
-            armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_FBRST].UL)), (isVU1 ? 0x800 : 0x8));
+            armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x800 : 0x8));
         }
 //		xForwardJump32 eJMP(Jcc_Zero);
         a64::Label eJMP;
@@ -498,9 +498,9 @@ void normBranch(mV, microFlagCycles& mFC)
 		if (!mVU.index || !THREAD_VU1)
 		{
 //			xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x400 : 0x4));
-            armOrr(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? 0x400 : 0x4));
+            armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x400 : 0x4));
 //			xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-            armOrr(PTR_VUR(flags), VUFLAG_INTCINTERRUPT);
+            armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 		}
 		iPC = branchAddr(mVU) >> 2; // branchAddr(mVU) / 4
 		mVUDTendProgram(mVU, &mFC, 1);
@@ -523,7 +523,7 @@ void normBranch(mV, microFlagCycles& mFC)
 		mVUendProgram(mVU, &mFC, 3);
 		iPC = branchAddr(mVU) >> 2; // branchAddr(mVU) / 4;
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-        armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+        armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
         if (mVU.index && THREAD_VU1) {
 //            xFastCall((void *) mVUEBit);
             armEmitCall(reinterpret_cast<void*>(mVUEBit));
@@ -561,7 +561,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
         }
         else {
 //            xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x800 : 0x8));
-            armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_FBRST].UL)), (isVU1 ? 0x800 : 0x8));
+            armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x800 : 0x8));
         }
 //		xForwardJump32 eJMP(Jcc_Zero);
         a64::Label eJMP;
@@ -569,9 +569,9 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 		if (!mVU.index || !THREAD_VU1)
 		{
 //			xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x400 : 0x4));
-            armOrr(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? 0x400 : 0x4));
+            armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x400 : 0x4));
 //			xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-            armOrr(PTR_VUR(flags), VUFLAG_INTCINTERRUPT);
+            armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 		}
 		mVUDTendProgram(mVU, &mFC, 2);
 //		xCMP(ptr16[&mVU.branch], 0);
@@ -581,7 +581,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
         armAsm->B(&tJMP, a64::InvertCondition(JMPcc));
 			incPC(4); // Set PC to First instruction of Non-Taken Side
 //			xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-            armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+            armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
 			if (mVU.index && THREAD_VU1) {
 //                xFastCall((void *) mVUTBit);
                 armEmitCall(reinterpret_cast<void*>(mVUTBit));
@@ -593,7 +593,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 		incPC(-4); // Go Back to Branch Opcode to get branchAddr
 		iPC = branchAddr(mVU) >> 2; // branchAddr(mVU) / 4
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-        armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+        armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
         if (mVU.index && THREAD_VU1) {
 //            xFastCall((void *) mVUTBit);
             armEmitCall(reinterpret_cast<void*>(mVUTBit));
@@ -613,7 +613,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
         }
         else {
 //            xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x400 : 0x4));
-            armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_FBRST].UL)), (isVU1 ? 0x400 : 0x4));
+            armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x400 : 0x4));
         }
 //		xForwardJump32 eJMP(Jcc_Zero);
         a64::Label eJMP;
@@ -621,9 +621,9 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 		if (!mVU.index || !THREAD_VU1)
 		{
 //			xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x200 : 0x2));
-            armOrr(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? 0x200 : 0x2));
+            armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x200 : 0x2));
 //			xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-            armOrr(PTR_VUR(flags), VUFLAG_INTCINTERRUPT);
+            armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 		}
 		mVUDTendProgram(mVU, &mFC, 2);
 //		xCMP(ptr16[&mVU.branch], 0);
@@ -633,7 +633,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
         armAsm->B(&dJMP, a64::InvertCondition(JMPcc));
 			incPC(4); // Set PC to First instruction of Non-Taken Side
 //			xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-            armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+            armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
 //			xJMP(mVU.exitFunct);
             armEmitJmp(mVU.exitFunct);
 //		dJMP.SetTarget();
@@ -641,7 +641,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 		incPC(-4); // Go Back to Branch Opcode to get branchAddr
 		iPC = branchAddr(mVU) >> 2; // branchAddr(mVU) / 4
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-        armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+        armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
 //		xJMP(mVU.exitFunct);
         armEmitJmp(mVU.exitFunct);
 //		eJMP.SetTarget();
@@ -666,7 +666,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
         armAsm->B(&dJMP, JMPcc);
 		incPC(4); // Set PC to First instruction of Non-Taken Side
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-        armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+        armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
         if (mVU.index && THREAD_VU1) {
 //            xFastCall((void *) mVUEBit);
             armEmitCall(reinterpret_cast<void*>(mVUEBit));
@@ -678,7 +678,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 		incPC(-4); // Go Back to Branch Opcode to get branchAddr
 		iPC = branchAddr(mVU) >> 2; // branchAddr(mVU) / 4
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-        armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+        armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
         if (mVU.index && THREAD_VU1) {
 //            xFastCall((void *) mVUEBit);
             armEmitCall(reinterpret_cast<void*>(mVUEBit));
@@ -702,7 +702,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
         armAsm->B(&eJMP, JMPcc);
 			incPC(1); // Set PC to First instruction of Non-Taken Side
 //			xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-            armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+            armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
             if (mVU.index && THREAD_VU1) {
     //                xFastCall((void *) mVUEBit);
                 armEmitCall(reinterpret_cast<void*>(mVUEBit));
@@ -715,7 +715,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 
 		iPC = branchAddr(mVU) >> 2; // branchAddr(mVU) / 4
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], xPC);
-        armStorePtr(xPC, PTR_VUR(VI[REG_TPC].UL));
+        armStorePtr(xPC, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
         if (mVU.index && THREAD_VU1) {
 //            xFastCall((void *) mVUEBit);
             armEmitCall(reinterpret_cast<void*>(mVUEBit));
@@ -806,7 +806,7 @@ void normJump(mV, microFlagCycles& mFC)
         }
         else {
 //            xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x400 : 0x4));
-            armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_FBRST].UL)), (isVU1 ? 0x400 : 0x4));
+            armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x400 : 0x4));
         }
 //		xForwardJump32 eJMP(Jcc_Zero);
         a64::Label eJMP;
@@ -814,15 +814,15 @@ void normJump(mV, microFlagCycles& mFC)
 		if (!mVU.index || !THREAD_VU1)
 		{
 //			xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x200 : 0x2));
-            armOrr(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? 0x200 : 0x2));
+            armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x200 : 0x2));
 //			xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-            armOrr(PTR_VUR(flags), VUFLAG_INTCINTERRUPT);
+            armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 		}
 		mVUDTendProgram(mVU, &mFC, 2);
 //		xMOV(gprT1, ptr32[&mVU.branch]);
-        armAsm->Ldr(gprT1, PTR_MVU(branch));
+        armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].branch));
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], gprT1);
-        armAsm->Str(gprT1, PTR_VUR(VI[REG_TPC].UL));
+        armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
 //		xJMP(mVU.exitFunct);
         armEmitJmp(mVU.exitFunct);
 //		eJMP.SetTarget();
@@ -839,7 +839,7 @@ void normJump(mV, microFlagCycles& mFC)
         }
         else {
 //            xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x800 : 0x8));
-            armAsm->Tst(armLoadPtr(PTR_VUR(VI[REG_FBRST].UL)), (isVU1 ? 0x800 : 0x8));
+            armAsm->Tst(armLoadPtr(PTR_CPU(vuRegs[0].VI[REG_FBRST].UL)), (isVU1 ? 0x800 : 0x8));
         }
 //		xForwardJump32 eJMP(Jcc_Zero);
         a64::Label eJMP;
@@ -847,15 +847,15 @@ void normJump(mV, microFlagCycles& mFC)
 		if (!mVU.index || !THREAD_VU1)
 		{
 //			xOR(ptr32[&VU0.VI[REG_VPU_STAT].UL], (isVU1 ? 0x400 : 0x4));
-            armOrr(PTR_VUR(VI[REG_VPU_STAT].UL), (isVU1 ? 0x400 : 0x4));
+            armOrr(PTR_CPU(vuRegs[0].VI[REG_VPU_STAT].UL), (isVU1 ? 0x400 : 0x4));
 //			xOR(ptr32[&mVU.regs().flags], VUFLAG_INTCINTERRUPT);
-            armOrr(PTR_VUR(flags), VUFLAG_INTCINTERRUPT);
+            armOrr(PTR_CPU(vuRegs[mVU.index].flags), VUFLAG_INTCINTERRUPT);
 		}
 		mVUDTendProgram(mVU, &mFC, 2);
 //		xMOV(gprT1, ptr32[&mVU.branch]);
-        armAsm->Ldr(gprT1, PTR_MVU(branch));
+        armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].branch));
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], gprT1);
-        armAsm->Str(gprT1, PTR_VUR(VI[REG_TPC].UL));
+        armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
         if (mVU.index && THREAD_VU1) {
 //            xFastCall((void *) mVUTBit);
             armEmitCall(reinterpret_cast<void*>(mVUTBit));
@@ -869,9 +869,9 @@ void normJump(mV, microFlagCycles& mFC)
 	{
 		mVUendProgram(mVU, &mFC, 2);
 //		xMOV(gprT1, ptr32[&mVU.branch]);
-        armAsm->Ldr(gprT1, PTR_MVU(branch));
+        armAsm->Ldr(gprT1, PTR_MVU(microVU[mVU.index].branch));
 //		xMOV(ptr32[&mVU.regs().VI[REG_TPC].UL], gprT1);
-        armAsm->Str(gprT1, PTR_VUR(VI[REG_TPC].UL));
+        armAsm->Str(gprT1, PTR_CPU(vuRegs[mVU.index].VI[REG_TPC].UL));
         if (mVU.index && THREAD_VU1) {
 //            xFastCall((void *) mVUEBit);
             armEmitCall(reinterpret_cast<void*>(mVUEBit));

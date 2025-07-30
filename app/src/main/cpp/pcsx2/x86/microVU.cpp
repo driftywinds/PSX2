@@ -7,6 +7,8 @@
 #include "common/Perf.h"
 #include "common/StringUtil.h"
 
+alignas(16) vuRegistersPack g_vuRegistersPack;
+
 //------------------------------------------------------------------
 // Micro VU - Main Functions
 //------------------------------------------------------------------
@@ -438,7 +440,7 @@ bool SaveStateBase::vuJITFreeze()
 
 void DumpVUState(u32 n, u32 pc)
 {
-	const VURegs& r = vuRegs[n];
+	const VURegs& r = g_cpuRegistersPack.vuRegs[n];
 	const microVU& mVU = (n == 0) ? microVU0 : microVU1;
 	static FILE* fp = nullptr;
 	static bool fp_opened = false;

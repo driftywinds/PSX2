@@ -123,7 +123,8 @@ struct microVU
 	u32 totalCycles;  // Total Cycles that mVU is expected to run for
 	s32 cycles;       // Cycles Counter
 
-	VURegs& regs() const { return ::vuRegs[index]; }
+//	VURegs& regs() const { return ::vuRegs[index]; }
+    VURegs& regs() const { return ::g_cpuRegistersPack.vuRegs[index]; }
 
 	__fi REG_VI& getVI(uint reg) const { return regs().VI[reg]; }
 	__fi VECTOR& getVF(uint reg) const { return regs().VF[reg]; }
@@ -268,8 +269,17 @@ public:
 };
 
 // microVU rec structs
-alignas(16) microVU microVU0;
-alignas(16) microVU microVU1;
+//alignas(16) microVU microVU0;
+//alignas(16) microVU microVU1;
+
+struct vuRegistersPack
+{
+    alignas(16) microVU microVU[2];
+};
+alignas(16) extern vuRegistersPack g_vuRegistersPack;
+////
+static microVU& microVU0 = g_vuRegistersPack.microVU[0];
+static microVU& microVU1 = g_vuRegistersPack.microVU[1];
 
 // Debug Helper
 int mVUdebugNow = 0;
