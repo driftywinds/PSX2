@@ -179,6 +179,7 @@ a64::Register armLoadPtr(const void* addr);
 a64::Register armLoadPtr64(const void* addr);
 a64::Register armLdrh(const void* addr);
 a64::Register armLdrsh(const void* addr);
+a64::Register armLdrsh(const a64::MemOperand offset);
 a64::Register armLoadPtr(const a64::MemOperand offset);
 void armLoadPtr(const a64::CPURegister& reg, const void* addr, int64_t offset);
 a64::Register armLoadPtr(a64::Register regRs, int64_t offset);

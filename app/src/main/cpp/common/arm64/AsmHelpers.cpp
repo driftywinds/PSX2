@@ -548,6 +548,12 @@ a64::Register armLdrsh(const void* addr)
     return EEX;
 }
 
+a64::Register armLdrsh(const a64::MemOperand offset)
+{
+    armAsm->Ldrsh(EEX, offset);
+    return EEX;
+}
+
 a64::Register armLoadPtr(const a64::MemOperand offset)
 {
     armAsm->Ldr(EEX, offset);

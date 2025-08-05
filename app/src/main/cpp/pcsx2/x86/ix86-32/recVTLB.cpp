@@ -304,8 +304,7 @@ static void DynGen_HandlerTest(const GenDirectFn& gen_direct, int mode, int bits
     armBind(&to_handler);
 
 //	xFastCall(GetIndirectDispatcherPtr(mode, szidx, sign));
-    armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<uintptr_t>(GetIndirectDispatcherPtr(mode, szidx, sign)));
-    armAsm->Blr(RXVIXLSCRATCH);
+    armEmitCall(GetIndirectDispatcherPtr(mode, szidx, sign));
 
 //	done.SetTarget();
     armBind(&done);

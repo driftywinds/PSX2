@@ -575,7 +575,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 		}
 		mVUDTendProgram(mVU, &mFC, 2);
 //		xCMP(ptr16[&mVU.branch], 0);
-        armAsm->Cmp(armLdrsh(&mVU.branch), 0);
+        armAsm->Cmp(armLdrsh(PTR_MVU(microVU[mVU.index].branch)), a64::wzr);
 //		xForwardJump32 tJMP(xInvertCond((JccComparisonType)JMPcc));
         a64::Label tJMP;
         armAsm->B(&tJMP, a64::InvertCondition(JMPcc));
@@ -627,7 +627,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 		}
 		mVUDTendProgram(mVU, &mFC, 2);
 //		xCMP(ptr16[&mVU.branch], 0);
-        armAsm->Cmp(armLdrsh(&mVU.branch), 0);
+        armAsm->Cmp(armLdrsh(PTR_MVU(microVU[mVU.index].branch)), a64::wzr);
 //		xForwardJump32 dJMP(xInvertCond((JccComparisonType)JMPcc));
         a64::Label dJMP;
         armAsm->B(&dJMP, a64::InvertCondition(JMPcc));
@@ -660,7 +660,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 
 		mVUendProgram(mVU, &mFC, 3);
 //		xCMP(ptr16[&mVU.branch], 0);
-        armAsm->Cmp(armLdrsh(&mVU.branch), 0);
+        armAsm->Cmp(armLdrsh(PTR_MVU(microVU[mVU.index].branch)), a64::wzr);
 //		xForwardJump32 dJMP((JccComparisonType)JMPcc);
         a64::Label dJMP;
         armAsm->B(&dJMP, JMPcc);
@@ -694,7 +694,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 
 		mVUendProgram(mVU, &mFC, 2);
 //		xCMP(ptr16[&mVU.branch], 0);
-        armAsm->Cmp(armLdrsh(&mVU.branch), 0);
+        armAsm->Cmp(armLdrsh(PTR_MVU(microVU[mVU.index].branch)), a64::wzr);
 
 		incPC(3);
 //		xForwardJump32 eJMP(((JccComparisonType)JMPcc));
@@ -727,7 +727,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 	else // Normal Conditional Branch
 	{
 //		xCMP(ptr16[&mVU.branch], 0);
-        armAsm->Cmp(armLdrsh(&mVU.branch), 0);
+        armAsm->Cmp(armLdrsh(PTR_MVU(microVU[mVU.index].branch)), a64::wzr);
 
 		incPC(3);
 		microBlock* bBlock;
