@@ -522,7 +522,8 @@ public:
 		}
 
         // Wait flush
-        usleep(2000);
+        std::thread t([]() {});
+        t.detach();
 	}
 
 	void flushCallerSavedRegisters(bool clearNeeded = false)

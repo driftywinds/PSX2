@@ -517,7 +517,7 @@ void normBranch(mV, microFlagCycles& mFC)
 //		xLoadFarAddr(rax, &mVUpBlock->pStateEnd);
         armMoveAddressToReg(RAX, &mVUpBlock->pStateEnd);
 //		xCALL((void*)mVU.copyPLState);
-        armEmitCall(reinterpret_cast<void*>(mVU.copyPLState));
+        armEmitCall(mVU.copyPLState);
 
 		mVUsetupBranch(mVU, mFC);
 		mVUendProgram(mVU, &mFC, 3);
@@ -656,7 +656,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 //		xLoadFarAddr(rax, &mVUpBlock->pStateEnd);
         armMoveAddressToReg(RAX, &mVUpBlock->pStateEnd);
 //		xCALL((void*)mVU.copyPLState);
-        armEmitCall(reinterpret_cast<void*>(mVU.copyPLState));
+        armEmitCall(mVU.copyPLState);
 
 		mVUendProgram(mVU, &mFC, 3);
 //		xCMP(ptr16[&mVU.branch], 0);
@@ -749,13 +749,11 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 		else
 		{
 //			s32* ajmp = xJcc32((JccComparisonType)JMPcc);
-            u8* ajmp = armGetCurrentCodePointer();
-
             ////////////////////////////////////////////////////////////
             a64::Label labelJump;
             armAsm->B(&labelJump, a64::InvertCondition(JMPcc));
-            ajmp = armGetCurrentCodePointer();
             armAsm->Nop();
+            s32* ajmp = (s32*)armGetCurrentCodePointer()-1;
             armBind(&labelJump);
             ////////////////////////////////////////////////////////////
 
