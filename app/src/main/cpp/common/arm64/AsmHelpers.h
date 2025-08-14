@@ -71,6 +71,7 @@ namespace a64 = vixl::aarch64;
 
 // iopMem->Main
 #define RSTATE_x29 a64::x29
+#define PTR_VU1(field) a64::MemOperand(RSTATE_x29, offsetof(VU_Thread, field))
 
 static inline s64 GetPCDisplacement(const void* current, const void* target)
 {

@@ -31,6 +31,7 @@ void mVUdispatcherAB(mV)
         // From memory to registry
         armMoveAddressToReg(RSTATE_MVU, &g_vuRegistersPack);
         armMoveAddressToReg(RSTATE_CPU, &g_cpuRegistersPack);
+        armMoveAddressToReg(RSTATE_x29, &vu1Thread);
 
 		// = The caller has already put the needed parameters in ecx/edx:
         if (!isVU1) {

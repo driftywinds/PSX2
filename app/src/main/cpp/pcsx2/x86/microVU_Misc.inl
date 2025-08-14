@@ -362,7 +362,7 @@ static void mVUwaitMTVU()
 // Transforms the Address in gprReg to valid VU0/VU1 Address
 __fi void mVUaddrFix(mV, const a64::Register& gprReg)
 {
-    auto reg32 = a64::WRegister(gprReg);
+    auto reg32 = gprReg.W();
 	if (isVU1)
 	{
 //		xAND(xRegister32(gprReg.Id), 0x3ff); // wrap around
