@@ -230,6 +230,11 @@ struct FPUd_Globals
     //u64		dlb_s_neg[2];
 };
 
+struct SSEMasks
+{
+    u32 MIN_MAX_1[4], MIN_MAX_2[4], ADD_SS[4];
+};
+
 struct mVU_SSE4
 {
     u32 sse4_minvals[2][4] = {
@@ -252,6 +257,12 @@ struct mVU_SSE4
     u32 g_minvals[4] = {0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff};
     u32 g_maxvals[4] = {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff};
     ////
+    u32 minmax_mask[8] =
+    {
+        0xffffffff, 0x80000000, 0, 0,
+        0,          0x40000000, 0, 0,
+    };
+    ////
     FPUd_Globals s_const =
     {
         {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff},
@@ -273,10 +284,11 @@ struct mVU_SSE4
         //{0x8000000000000000ULL, 0},
     };
     ////
-    u32 minmax_mask[8] =
+    SSEMasks sseMasks =
     {
-        0xffffffff, 0x80000000, 0, 0,
-        0,          0x40000000, 0, 0,
+        {0xffffffff, 0x80000000, 0xffffffff, 0x80000000},
+        {0x00000000, 0x40000000, 0x00000000, 0x40000000},
+        {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff},
     };
 };
 

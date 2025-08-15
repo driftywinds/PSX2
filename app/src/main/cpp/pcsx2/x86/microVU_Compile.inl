@@ -515,7 +515,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
     armAsm->B(&skip, a64::Condition::pl);
 
 //	xLoadFarAddr(rax, &mVUpBlock->pState);
-    armMoveAddressToReg(RAX, &mVUpBlock->pState);
+    armAsm->Ldr(RAX, PTR_MBLOCK(pState));
 //	xCALL((void*)mVU.copyPLState);
     armEmitCall(mVU.copyPLState);
 
