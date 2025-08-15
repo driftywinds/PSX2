@@ -208,4 +208,76 @@ struct mVU_Globals
 #undef __four
 };
 
+#define SINGLE(sign, exp, mant) (((u32)(sign) << 31) | ((u32)(exp) << 23) | (u32)(mant))
+#define DOUBLE(sign, exp, mant) (((sign##ULL) << 63) | ((exp##ULL) << 52) | (mant##ULL))
+
+struct FPUd_Globals
+{
+    u32 neg[4], pos[4];
+
+    u32 pos_inf[4], neg_inf[4],
+            one_exp[4];
+
+    u64 dbl_one_exp[2];
+
+    u64 dbl_cvt_overflow, // needs special code if above or equal
+    dbl_ps2_overflow, // overflow & clamp if above or equal
+    dbl_underflow;    // underflow if below
+
+    u64 padding;
+
+    u64 dbl_s_pos[2];
+    //u64		dlb_s_neg[2];
+};
+
+struct mVU_SSE4
+{
+    u32 sse4_minvals[2][4] = {
+        {0xff7fffff, 0xffffffff, 0xffffffff, 0xffffffff}, //1000
+        {0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff}, //1111
+    };
+    u32 sse4_maxvals[2][4] = {
+        {0x7f7fffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1000
+        {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
+    };
+    ////
+    u32 sse4_compvals[2][4] = {
+        {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
+        {0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1111
+    };
+    ////
+    u32 s_neg[4] = {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff};
+    u32 s_pos[4] = {0x7fffffff, 0xffffffff, 0xffffffff, 0xffffffff};
+    ////
+    u32 g_minvals[4] = {0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff};
+    u32 g_maxvals[4] = {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff};
+    ////
+    FPUd_Globals s_const =
+    {
+        {0x80000000, 0xffffffff, 0xffffffff, 0xffffffff},
+        {0x7fffffff, 0xffffffff, 0xffffffff, 0xffffffff},
+
+        {SINGLE(0, 0xff, 0), 0, 0, 0},
+        {SINGLE(1, 0xff, 0), 0, 0, 0},
+        {SINGLE(0,    1, 0), 0, 0, 0},
+
+        {DOUBLE(0, 1, 0), 0},
+
+        DOUBLE(0, 1151, 0), // cvt_overflow
+        DOUBLE(0, 1152, 0), // ps2_overflow
+        DOUBLE(0,  897, 0), // underflow
+
+        0,                  // Padding!!
+
+        {0x7fffffffffffffffULL, 0},
+        //{0x8000000000000000ULL, 0},
+    };
+    ////
+    u32 minmax_mask[8] =
+    {
+        0xffffffff, 0x80000000, 0, 0,
+        0,          0x40000000, 0, 0,
+    };
+};
+
 #endif //PCSX2_VUDEF_H

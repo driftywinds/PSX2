@@ -2071,7 +2071,7 @@ mVUop(mVU_XTOP)
         if (mVU.index && THREAD_VU1) {
             armAsm->Ldrh(regT, PTR_VU1(vifRegs.top));
         } else {
-            armAsm->Ldrh(regT, armMemOperandPtr(&mVU.getVifRegs().top));
+            armAsm->Ldrh(regT, PTR_CPU(vifRegs[mVU.index].top));
         }
 		mVU.regAlloc->clearNeeded(regT);
 		mVU.profiler.EmitOp(opXTOP);
@@ -2095,7 +2095,7 @@ mVUop(mVU_XITOP)
         if (mVU.index && THREAD_VU1) {
             armAsm->Ldrh(regT, PTR_VU1(vifRegs.itop));
         } else {
-            armAsm->Ldrh(regT, armMemOperandPtr(&mVU.getVifRegs().itop));
+            armAsm->Ldrh(regT, PTR_CPU(vifRegs[mVU.index].itop));
         }
 //		xAND(regT, isVU1 ? 0x3ff : 0xff);
         armAsm->And(regT, regT, isVU1 ? 0x3ff : 0xff);

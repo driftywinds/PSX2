@@ -58,6 +58,10 @@ uptr g_argPtrs[kMaxArgs];
 
 void cpuReset()
 {
+    //// cpuRegistersPack -> VIFregisters
+    g_cpuRegistersPack.vifRegs[0] = vif0Regs;
+    g_cpuRegistersPack.vifRegs[1] = vif1Regs;
+    ////
 	std::memset(&cpuRegs, 0, sizeof(cpuRegs));
 	std::memset(&fpuRegs, 0, sizeof(fpuRegs));
 	std::memset(&tlb, 0, sizeof(tlb));

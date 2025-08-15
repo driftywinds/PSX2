@@ -7,14 +7,14 @@
 // Micro VU - Clamp Functions
 //------------------------------------------------------------------
 
-alignas(16) const u32 sse4_minvals[2][4] = {
-	{0xff7fffff, 0xffffffff, 0xffffffff, 0xffffffff}, //1000
-	{0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff}, //1111
-};
-alignas(16) const u32 sse4_maxvals[2][4] = {
-	{0x7f7fffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1000
-	{0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
-};
+//alignas(16) const u32 sse4_minvals[2][4] = {
+//	{0xff7fffff, 0xffffffff, 0xffffffff, 0xffffffff}, //1000
+//	{0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff}, //1111
+//};
+//alignas(16) const u32 sse4_maxvals[2][4] = {
+//	{0x7f7fffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1000
+//	{0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
+//};
 
 // Used for Result Clamping
 // Note: This function will not preserve NaN values' sign.
@@ -55,9 +55,9 @@ void mVUclamp2(microVU& mVU, const xmm& reg, const xmm& regT1in, int xyzw, bool 
 	{
 		int i = (xyzw == 1 || xyzw == 2 || xyzw == 4 || xyzw == 8) ? 0 : 1;
 //		xPMIN.SD(reg, ptr128[&sse4_maxvals[i][0]]);
-        armAsm->Smin(reg.V4S(), reg.V4S(), armLoadPtrV(&sse4_maxvals[i][0]).V4S());
+        armAsm->Smin(reg.V4S(), reg.V4S(), armLoadPtrV(PTR_CPU(mVUss4.sse4_maxvals[i][0])).V4S());
 //		xPMIN.UD(reg, ptr128[&sse4_minvals[i][0]]);
-        armAsm->Umin(reg.V4S(), reg.V4S(), armLoadPtrV(&sse4_minvals[i][0]).V4S());
+        armAsm->Umin(reg.V4S(), reg.V4S(), armLoadPtrV(PTR_CPU(mVUss4.sse4_minvals[i][0])).V4S());
 		return;
 	}
 	else

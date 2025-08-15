@@ -18,10 +18,10 @@
 	} while (0)
 
 
-alignas(16) const u32 sse4_compvals[2][4] = {
-	{0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
-	{0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1111
-};
+//alignas(16) const u32 sse4_compvals[2][4] = {
+//	{0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff}, //1111
+//	{0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff}, //1111
+//};
 
 const std::array<u16, 16> flipMask{0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15};
 
@@ -96,16 +96,16 @@ static void mVUupdateFlags(mV, const xmm& reg, const xmm& regT1in = a64::NoVReg,
 //		xMOVAPS(regT1, regT2);
         armAsm->Mov(regT1.Q(), regT2.Q());
 //		xAND.PS(regT1, ptr128[&sse4_compvals[1][0]]); // Remove sign flags (we don't care)
-        armAsm->And(regT1.V16B(), regT1.V16B(), armLoadPtrV(&sse4_compvals[1][0]).V16B());
+        armAsm->And(regT1.V16B(), regT1.V16B(), armLoadPtrV(PTR_CPU(mVUss4.sse4_compvals[1][0])).V16B());
 //		xCMPNLT.PS(regT1, ptr128[&sse4_compvals[0][0]]); // Compare if T1 == FLT_MAX
-        armAsm->Fcmge(regT1.V4S(), regT1.V4S(), armLoadPtrV(&sse4_compvals[0][0]).V4S());
+        armAsm->Fcmeq(regT1.V4S(), regT1.V4S(), armLoadPtrV(PTR_CPU(mVUss4.sse4_compvals[0][0])).V4S());
 //		xMOVMSKPS(gprT2, regT1); // Grab sign bits  for equal results
         armMOVMSKPS(gprT2, regT1);
 //		xAND(gprT2, AND_XYZW); // Grab "Is FLT_MAX" bits from the previous calculation
-        armAsm->Ands(gprT2, gprT2, AND_XYZW);
+        armAsm->And(gprT2, gprT2, AND_XYZW);
 //		xForwardJump32 oJMP(Jcc_Zero);
         a64::Label oJMP;
-        armAsm->B(&oJMP, a64::Condition::eq);
+        armAsm->Cbz(gprT2, &oJMP);
 
 //		xOR(sReg, 0x820000);
         armAsm->Orr(sReg, sReg, 0x820000);
