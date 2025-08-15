@@ -454,7 +454,7 @@ mVUop(mVU_ABS)
 			return;
 		const xmm& Fs = mVU.regAlloc->allocReg(_Fs_, _Ft_, _X_Y_Z_W, !((_Fs_ == _Ft_) && (_X_Y_Z_W == 0xf)));
 //		xAND.PS(Fs, ptr128[mVUglob.absclip]);
-        armAsm->And(Fs.V16B(), Fs.V16B(), armLoadPtrV(mVUglob.absclip).V16B());
+        armAsm->And(Fs.V16B(), Fs.V16B(), armLoadPtrV(PTR_CPU(mVUglob.absclip)).V16B());
 		mVU.regAlloc->clearNeeded(Fs);
 		mVU.profiler.EmitOp(opABS);
 	}
@@ -525,7 +525,8 @@ mVUop(mVU_OPMSUB)
 }
 
 // FTOI0/FTIO4/FTIO12/FTIO15 Opcodes
-static void mVU_FTOIx(mP, const float* addr, microOpcode opEnum)
+//static void mVU_FTOIx(mP, const float* addr, microOpcode opEnum)
+static void mVU_FTOIx(mP, const a64::MemOperand& addr, microOpcode opEnum)
 {
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
@@ -538,14 +539,14 @@ static void mVU_FTOIx(mP, const float* addr, microOpcode opEnum)
 		// cvttps2dq returns 0x8000000 for any unrepresentable values.
 		// We want it to return 0x8000000 for negative and 0x7fffffff for positive.
 		// So for unrepresentable positive values, xor with 0xffffffff to turn 0x80000000 into 0x7fffffff.
-		if (addr) {
+		if (addr.IsValid()) {
 //            xMUL.PS(Fs, ptr128[addr]);
             armAsm->Fmul(Fs.V4S(), Fs.V4S(), armLoadPtrV(addr).V4S());
         }
 //		xMOVAPS(t1, Fs);
         armAsm->Mov(t1.Q(), Fs.Q());
 //		xPCMP.GTD(t1, ptr128[mVUglob.I32MAXF]);
-        armAsm->Cmgt(t1.V4S(), t1.V4S(), armLoadPtrV(mVUglob.I32MAXF).V4S());
+        armAsm->Cmgt(t1.V4S(), t1.V4S(), armLoadPtrV(PTR_CPU(mVUglob.I32MAXF)).V4S());
 //		xCVTTPS2DQ(Fs, Fs);
         armAsm->Fcvtzs(Fs.V4S(), Fs.V4S());
 //		xPXOR(Fs, t1);
@@ -563,7 +564,8 @@ static void mVU_FTOIx(mP, const float* addr, microOpcode opEnum)
 }
 
 // ITOF0/ITOF4/ITOF12/ITOF15 Opcodes
-static void mVU_ITOFx(mP, const float* addr, microOpcode opEnum)
+//static void mVU_ITOFx(mP, const float* addr, microOpcode opEnum)
+static void mVU_ITOFx(mP, const a64::MemOperand& addr, microOpcode opEnum)
 {
 	pass1 { mVUanalyzeFMAC2(mVU, _Fs_, _Ft_); }
 	pass2
@@ -574,7 +576,7 @@ static void mVU_ITOFx(mP, const float* addr, microOpcode opEnum)
 
 //		xCVTDQ2PS(Fs, Fs);
         armAsm->Scvtf(Fs.V4S(), Fs.V4S());
-		if (addr) {
+		if (addr.IsValid()) {
 //            xMUL.PS(Fs, ptr128[addr]);
             armAsm->Fmul(Fs.V4S(), Fs.V4S(), armLoadPtrV(addr).V4S());
         }
@@ -607,7 +609,7 @@ mVUop(mVU_CLIP)
         armAsm->Lsl(gprT1, gprT1, 6);
 
 //		xMOVAPS  (t1, ptr128[mVUglob.exponent]);
-        armAsm->Ldr(t1, armMemOperandPtr(mVUglob.exponent));
+        armAsm->Ldr(t1, PTR_CPU(mVUglob.exponent));
 //		xPAND    (t1, Fs);
         armAsm->And(t1.V16B(), t1.V16B(), Fs.V16B());
 //		xPXOR    (t2, t2);
@@ -617,10 +619,10 @@ mVUop(mVU_CLIP)
 //		xPANDN   (t1, Fs); // If denormal, set to zero, which can't be greater than any nonnegative denormal in Ft
         armAsm->Bic(t1.V16B(), Fs.V16B(), t1.V16B());
 //		xPAND    (Ft, ptr128[mVUglob.absclip]);
-        armAsm->And(Ft.V16B(), Ft.V16B(), armLoadPtrV(mVUglob.absclip).V16B());
+        armAsm->And(Ft.V16B(), Ft.V16B(), armLoadPtrV(PTR_CPU(mVUglob.absclip)).V16B());
 
 //		xMOVAPS  (Fs, ptr128[mVUglob.signbit]);
-        armAsm->Ldr(Fs, armMemOperandPtr(mVUglob.signbit));
+        armAsm->Ldr(Fs, PTR_CPU(mVUglob.signbit));
 //		xPXOR    (Fs, t1); // Negate
         armAsm->Eor(Fs.V16B(), Fs.V16B(), t1.V16B());
 //		xPCMP.GTD(t1, Ft); // +w, +z, +y, +x
@@ -741,12 +743,12 @@ mVUop(mVU_MINIx)  { mVU_FMACa(mVU, recPass, 2, 4, false, opMINIx,  0);  }
 mVUop(mVU_MINIy)  { mVU_FMACa(mVU, recPass, 2, 4, false, opMINIy,  0);  }
 mVUop(mVU_MINIz)  { mVU_FMACa(mVU, recPass, 2, 4, false, opMINIz,  0);  }
 mVUop(mVU_MINIw)  { mVU_FMACa(mVU, recPass, 2, 4, false, opMINIw,  0);  }
-mVUop(mVU_FTOI0)  { mVU_FTOIx(mX, NULL,                  opFTOI0);      }
-mVUop(mVU_FTOI4)  { mVU_FTOIx(mX, mVUglob.FTOI_4,        opFTOI4);      }
-mVUop(mVU_FTOI12) { mVU_FTOIx(mX, mVUglob.FTOI_12,       opFTOI12);     }
-mVUop(mVU_FTOI15) { mVU_FTOIx(mX, mVUglob.FTOI_15,       opFTOI15);     }
-mVUop(mVU_ITOF0)  { mVU_ITOFx(mX, NULL,                  opITOF0);      }
-mVUop(mVU_ITOF4)  { mVU_ITOFx(mX, mVUglob.ITOF_4,        opITOF4);      }
-mVUop(mVU_ITOF12) { mVU_ITOFx(mX, mVUglob.ITOF_12,       opITOF12);     }
-mVUop(mVU_ITOF15) { mVU_ITOFx(mX, mVUglob.ITOF_15,       opITOF15);     }
+mVUop(mVU_FTOI0)  { mVU_FTOIx(mX, a64::MemOperand(),              opFTOI0);      }
+mVUop(mVU_FTOI4)  { mVU_FTOIx(mX, PTR_CPU(mVUglob.FTOI_4),        opFTOI4);      }
+mVUop(mVU_FTOI12) { mVU_FTOIx(mX, PTR_CPU(mVUglob.FTOI_12),       opFTOI12);     }
+mVUop(mVU_FTOI15) { mVU_FTOIx(mX, PTR_CPU(mVUglob.FTOI_15),       opFTOI15);     }
+mVUop(mVU_ITOF0)  { mVU_ITOFx(mX, a64::MemOperand(),              opITOF0);      }
+mVUop(mVU_ITOF4)  { mVU_ITOFx(mX, PTR_CPU(mVUglob.ITOF_4),        opITOF4);      }
+mVUop(mVU_ITOF12) { mVU_ITOFx(mX, PTR_CPU(mVUglob.ITOF_12),       opITOF12);     }
+mVUop(mVU_ITOF15) { mVU_ITOFx(mX, PTR_CPU(mVUglob.ITOF_15),       opITOF15);     }
 mVUop(mVU_NOP)    { pass2 { mVU.profiler.EmitOp(opNOP); } pass3 { mVUlog("NOP"); } }

@@ -413,7 +413,7 @@ void normJumpCompile(mV, microFlagCycles& mFC, bool isEvilJump)
     else
     {
 //        xLoadFarAddr(arg2reg, &mVUpBlock->pStateEnd);
-        armMoveAddressToReg(RCX, &mVUpBlock->pStateEnd);
+        armAsm->Ldr(RCX, PTR_MBLOCK(pStateEnd));
     }
 
 	if (mVUup.eBit && isEvilJump) // E-bit EvilJump
@@ -515,7 +515,7 @@ void normBranch(mV, microFlagCycles& mFC)
 
 		memcpy(&mVUpBlock->pStateEnd, &mVUregs, sizeof(microRegInfo));
 //		xLoadFarAddr(rax, &mVUpBlock->pStateEnd);
-        armMoveAddressToReg(RAX, &mVUpBlock->pStateEnd);
+        armAsm->Ldr(RAX, PTR_MBLOCK(pStateEnd));
 //		xCALL((void*)mVU.copyPLState);
         armEmitCall(mVU.copyPLState);
 
@@ -654,7 +654,7 @@ void condBranch(mV, microFlagCycles& mFC, a64::Condition JMPcc)
 
 		memcpy(&mVUpBlock->pStateEnd, &mVUregs, sizeof(microRegInfo));
 //		xLoadFarAddr(rax, &mVUpBlock->pStateEnd);
-        armMoveAddressToReg(RAX, &mVUpBlock->pStateEnd);
+        armAsm->Ldr(RAX, PTR_MBLOCK(pStateEnd));
 //		xCALL((void*)mVU.copyPLState);
         armEmitCall(mVU.copyPLState);
 

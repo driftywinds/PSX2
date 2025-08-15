@@ -401,19 +401,13 @@ __fi void mVUaddrFix(mV, const a64::Register& gprReg)
 			}
 //			xAND(xRegister32(gprReg.Id), 0x3f); // ToDo: theres a potential problem if VU0 overrides VU1's VF0/VI0 regs!
             armAsm->And(reg32, reg32, 0x3f);
+
 //			xADD(gprReg, (u128*)VU1.VF - (u128*)VU0.Mem);
+            a64::MemOperand mop1 = PTR_CPU(vuRegs[1].VF);
+            a64::MemOperand mop2 = PTR_CPU(vuRegs[0].Mem);
+            armAsm->Sub(REX, mop1.GetBaseRegister(), mop2.GetBaseRegister());
+            armAsm->Add(gprReg, gprReg, REX);
 
-//        armAsm->Ldr(RAX, PTR_CPU(vuRegs[0].Mem));
-//        armAsm->Add(gprReg, gprReg, EEX);
-
-//        armAsm->Ldr(RCX, PTR_CPU(vuRegs[1].VF));
-//        armAsm->Sub(gprReg, gprReg, EEX);
-//        PTR_CPU(vuRegs[0].Mem);
-
-//        armAsm->Sub(REX, RCX, RAX);
-//        armAsm->Add(gprReg, gprReg, REX);
-
-            armAsm->Add(gprReg, gprReg, (u128*)VU1.VF - (u128*)VU0.Mem);
 //		jmpB.SetTarget();
         armBind(&jmpB);
 //		xSHL(gprReg, 4); // multiply by 16 (shift left by 4)

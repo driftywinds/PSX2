@@ -20,6 +20,7 @@
 #include "common/FastJmp.h"
 #include "common/HeapArray.h"
 #include "common/Perf.h"
+#include "x86/microVU_Misc.h"
 
 // Only for MOVQ workaround.
 #if !defined(__ANDROID__)

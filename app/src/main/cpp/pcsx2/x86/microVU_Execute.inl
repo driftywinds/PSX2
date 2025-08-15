@@ -23,15 +23,15 @@ static bool mvuNeedsFPCRUpdate(mV)
 void mVUdispatcherAB(mV)
 {
     mVU.startFunct = armStartBlock();
-
 	{
 //		xScopedStackFrame frame(false, true);
         armBeginStackFrame();
 
         // From memory to registry
+        armMoveAddressToReg(RSTATE_x29, &vu1Thread);
         armMoveAddressToReg(RSTATE_MVU, &g_vuRegistersPack);
         armMoveAddressToReg(RSTATE_CPU, &g_cpuRegistersPack);
-        armMoveAddressToReg(RSTATE_x29, &vu1Thread);
+        armMoveAddressToReg(RFASTMEMBASE, &mVUpBlock);
 
 		// = The caller has already put the needed parameters in ecx/edx:
         if (!isVU1) {
@@ -139,7 +139,6 @@ void mVUdispatcherAB(mV)
 void mVUdispatcherCD(mV)
 {
     mVU.startFunctXG = armStartBlock();
-
 	{
 //		xScopedStackFrame frame(false, true);
         armBeginStackFrame();
@@ -261,7 +260,6 @@ static void mVUGenerateWaitMTVU(mV)
 static void mVUGenerateCopyPipelineState(mV)
 {
     mVU.copyPLState = armStartBlock();
-
     {
 //		xMOVAPS(xmm0, ptr[rax]);
         armAsm->Ldr(xmm0, a64::MemOperand(RAX));
