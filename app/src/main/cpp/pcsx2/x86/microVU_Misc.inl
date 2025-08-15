@@ -62,7 +62,7 @@ void mVUloadReg(const xmm& reg, const a64::MemOperand& ptr, int xyzw)
 void mVUloadIreg(const xmm& reg, int xyzw, VURegs* vuRegs)
 {
 //	xMOVSSZX(reg, ptr32[&vuRegs->VI[REG_I].UL]);
-    armAsm->Ldr(reg, armMemOperandPtr(&vuRegs->VI[REG_I].UL));
+    armAsm->Ldr(reg, PTR_CPU(vuRegs[g_cpuRegistersPack.vuRegs->idx].VI[REG_I].UL));
 	if (!_XYZWss(xyzw)) {
 //        xSHUF.PS(reg, reg, 0);
         armSHUFPS(reg, reg, 0);
@@ -402,6 +402,17 @@ __fi void mVUaddrFix(mV, const a64::Register& gprReg)
 //			xAND(xRegister32(gprReg.Id), 0x3f); // ToDo: theres a potential problem if VU0 overrides VU1's VF0/VI0 regs!
             armAsm->And(reg32, reg32, 0x3f);
 //			xADD(gprReg, (u128*)VU1.VF - (u128*)VU0.Mem);
+
+//        armAsm->Ldr(RAX, PTR_CPU(vuRegs[0].Mem));
+//        armAsm->Add(gprReg, gprReg, EEX);
+
+//        armAsm->Ldr(RCX, PTR_CPU(vuRegs[1].VF));
+//        armAsm->Sub(gprReg, gprReg, EEX);
+//        PTR_CPU(vuRegs[0].Mem);
+
+//        armAsm->Sub(REX, RCX, RAX);
+//        armAsm->Add(gprReg, gprReg, REX);
+
             armAsm->Add(gprReg, gprReg, (u128*)VU1.VF - (u128*)VU0.Mem);
 //		jmpB.SetTarget();
         armBind(&jmpB);

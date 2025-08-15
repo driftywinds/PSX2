@@ -359,7 +359,7 @@ void recMTC0()
 //				xADD(ecx, scaleblockcycles_clear());
 //				xMOV(ptr32[&cpuRegs.cycle], ecx); // update cycles
                 armAdd(ECX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
-				_eeMoveGPRtoM((uptr)&cpuRegs.CP0.r[9], _Rt_);
+				_eeMoveGPRtoM(PTR_CPU(cpuRegs.CP0.r[9]), _Rt_);
 //				xMOV(ptr[&cpuRegs.lastCOP0Cycle], ecx);
                 armStore(PTR_CPU(cpuRegs.lastCOP0Cycle), ECX);
 				break;
@@ -376,7 +376,7 @@ void recMTC0()
                     armAdd(PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
 //					xFastCall((void*)COP0_UpdatePCCR);
                     armEmitCall(reinterpret_cast<void*>(COP0_UpdatePCCR));
-					_eeMoveGPRtoM((uptr)&cpuRegs.PERF.n.pccr, _Rt_);
+					_eeMoveGPRtoM(PTR_CPU(cpuRegs.PERF.n.pccr), _Rt_);
 //					xFastCall((void*)COP0_DiagnosticPCCR);
                     armEmitCall(reinterpret_cast<void*>(COP0_DiagnosticPCCR));
 				}
@@ -386,7 +386,7 @@ void recMTC0()
 //					xADD(ecx, scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.cycle], ecx); // update cycles
                     armAdd(ECX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
-					_eeMoveGPRtoM((uptr)&cpuRegs.PERF.n.pcr0, _Rt_);
+					_eeMoveGPRtoM(PTR_CPU(cpuRegs.PERF.n.pcr0), _Rt_);
 //					xMOV(ptr[&cpuRegs.lastPERFCycle[0]], ecx);
                     armStore(PTR_CPU(cpuRegs.lastPERFCycle[0]), ECX);
 				}
@@ -396,7 +396,7 @@ void recMTC0()
 //					xADD(ecx, scaleblockcycles_clear());
 //					xMOV(ptr32[&cpuRegs.cycle], ecx); // update cycles
                     armAdd(ECX, PTR_CPU(cpuRegs.cycle), scaleblockcycles_clear());
-					_eeMoveGPRtoM((uptr)&cpuRegs.PERF.n.pcr1, _Rt_);
+					_eeMoveGPRtoM(PTR_CPU(cpuRegs.PERF.n.pcr1), _Rt_);
 //					xMOV(ptr[&cpuRegs.lastPERFCycle[1]], ecx);
                     armStore(PTR_CPU(cpuRegs.lastPERFCycle[1]), ECX);
 				}
@@ -407,7 +407,7 @@ void recMTC0()
 				break;
 
 			default:
-				_eeMoveGPRtoM((uptr)&cpuRegs.CP0.r[_Rd_], _Rt_);
+				_eeMoveGPRtoM(PTR_CPU(cpuRegs.CP0.r[_Rd_]), _Rt_);
 				break;
 		}
 	}

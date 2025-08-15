@@ -298,11 +298,11 @@ void _eeMoveGPRtoR(const a64::Register& to, int fromgpr, bool allow_preload)
 	}
 }
 
-void _eeMoveGPRtoM(uptr to, int fromgpr)
+void _eeMoveGPRtoM(const a64::MemOperand& to, int fromgpr)
 {
 	if (GPR_IS_CONST1(fromgpr)) {
 //        xMOV(ptr32[(u32 *) (to)], g_cpuConstRegs[fromgpr].UL[0]);
-        armStorePtr(g_cpuConstRegs[fromgpr].UL[0], (u32 *) (to));
+        armStorePtr(g_cpuConstRegs[fromgpr].UL[0], to);
     }
 	else
 	{
@@ -320,19 +320,19 @@ void _eeMoveGPRtoM(uptr to, int fromgpr)
 		if (x86reg >= 0)
 		{
 //			xMOV(ptr32[(void*)(to)], xRegister32(x86reg));
-            armAsm->Str(a64::WRegister(x86reg), armMemOperandPtr((void*)(to)));
+            armAsm->Str( a64::WRegister(x86reg), to);
 		}
 		else if (xmmreg >= 0)
 		{
 //			xMOVSS(ptr32[(void*)(to)], xRegisterSSE(xmmreg));
-            armAsm->Str(a64::QRegister(xmmreg).S(), armMemOperandPtr((void*)(to)));
+            armAsm->Str(a64::QRegister(xmmreg).S(), to);
 		}
 		else
 		{
 //			xMOV(eax, ptr32[&cpuRegs.GPR.r[fromgpr].UL[0]]);
             armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[fromgpr].UL[0]));
 //			xMOV(ptr32[(void*)(to)], eax);
-            armAsm->Str(EAX, armMemOperandPtr((void*)(to)));
+            armAsm->Str(EAX, to);
 		}
 	}
 }
@@ -932,7 +932,7 @@ void SetBranchReg(u32 reg)
 			}
 			else
 			{
-				_eeMoveGPRtoM((uptr)&cpuRegs.pc, reg);
+				_eeMoveGPRtoM(PTR_CPU(cpuRegs.pc), reg);
 			}
 		}
 	}
