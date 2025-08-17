@@ -7,7 +7,8 @@
 #include "common/Perf.h"
 #include "common/StringUtil.h"
 
-alignas(16) vuRegistersPack g_vuRegistersPack;
+alignas(64) vuRegistersPack g_vuRegistersPack;
+VU_Thread& vu1Thread = g_vuRegistersPack.vu1Thread;
 
 //------------------------------------------------------------------
 // Micro VU - Main Functions

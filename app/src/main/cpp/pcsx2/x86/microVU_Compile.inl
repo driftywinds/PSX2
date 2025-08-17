@@ -515,7 +515,7 @@ void mVUtestCycles(microVU& mVU, microFlagCycles& mFC)
     armAsm->B(&skip, a64::Condition::pl);
 
 //	xLoadFarAddr(rax, &mVUpBlock->pState);
-    armAsm->Ldr(RAX, PTR_MBLOCK(pState));
+    armMoveAddressToReg(RAX, &mVUpBlock->pState);
 //	xCALL((void*)mVU.copyPLState);
     armEmitCall(mVU.copyPLState);
 
@@ -597,7 +597,7 @@ void mVUDoDBit(microVU& mVU, microFlagCycles* mFC)
 {
 	if (mVU.index && THREAD_VU1) {
 //        xTEST(ptr32[&vu1Thread.vuFBRST], (isVU1 ? 0x400 : 0x4));
-        armAsm->Tst(armLoadPtr(PTR_VU1(vuFBRST)), (isVU1 ? 0x400 : 0x4));
+        armAsm->Tst(armLoadPtr(PTR_MVU(vu1Thread.vuFBRST)), (isVU1 ? 0x400 : 0x4));
     }
 	else {
 //        xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x400 : 0x4));
@@ -624,7 +624,7 @@ void mVUDoTBit(microVU& mVU, microFlagCycles* mFC)
 {
 	if (mVU.index && THREAD_VU1) {
 //        xTEST(ptr32[&vu1Thread.vuFBRST], (isVU1 ? 0x800 : 0x8));
-        armAsm->Tst(armLoadPtr(PTR_VU1(vuFBRST)), (isVU1 ? 0x800 : 0x8));
+        armAsm->Tst(armLoadPtr(PTR_MVU(vu1Thread.vuFBRST)), (isVU1 ? 0x800 : 0x8));
     }
 	else {
 //        xTEST(ptr32[&VU0.VI[REG_FBRST].UL], (isVU1 ? 0x800 : 0x8));

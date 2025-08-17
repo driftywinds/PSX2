@@ -57,7 +57,6 @@ namespace a64 = vixl::aarch64;
 
 // fastmem
 #define RFASTMEMBASE a64::x25
-#define PTR_MBLOCK(field) a64::MemOperand(RFASTMEMBASE, offsetof(microBlock, field))
 
 #define RSTATE_x26 a64::x26
 
@@ -70,9 +69,8 @@ namespace a64 = vixl::aarch64;
 #define RSTATE_MVU a64::x28
 #define PTR_MVU(field) a64::MemOperand(RSTATE_MVU, offsetof(vuRegistersPack, field))
 
-// iopMem->Main, vu1Thread
+// iopMem->Main
 #define RSTATE_x29 a64::x29
-#define PTR_VU1(field) a64::MemOperand(RSTATE_x29, offsetof(VU_Thread, field))
 
 static inline s64 GetPCDisplacement(const void* current, const void* target)
 {

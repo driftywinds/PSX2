@@ -493,7 +493,7 @@ static const void* _DynGen_EnterRecompiledCode()
 
 	if (CHECK_FASTMEM) {
 //        xMOV(RFASTMEMBASE, ptrNative[&vtlb_private::vtlbdata.fastmem_base]);
-        armAsm->Ldr(RFASTMEMBASE, armMemOperandPtr(&vtlb_private::vtlbdata.fastmem_base));
+        armAsm->Ldr(RFASTMEMBASE, PTR_CPU(vtlbdata.fastmem_base));
     }
 
 //	xJMP(DispatcherReg);

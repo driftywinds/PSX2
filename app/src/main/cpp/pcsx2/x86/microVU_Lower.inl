@@ -388,9 +388,9 @@ mVUop(mVU_EEXP)
 //		xMUL.SS(t1, ptr32[mVUglob.E2]);
         armAsm->Fmul(t1.S(), t1.S(), armLoadPtrV(PTR_CPU(mVUglob.E2)).S());
 		SSE_ADDSS(mVU, xmmPQ, t1);
-		eexpHelper(&mVUglob.E3);
-		eexpHelper(&mVUglob.E4);
-		eexpHelper(&mVUglob.E5);
+		eexpHelper(PTR_CPU(mVUglob.E3));
+		eexpHelper(PTR_CPU(mVUglob.E4));
+		eexpHelper(PTR_CPU(mVUglob.E5));
 		SSE_MULSS(mVU, t2, Fs);
 //		xMUL.SS(t2, ptr32[mVUglob.E6]);
         armAsm->Fmul(t2.S(), t2.S(), armLoadPtrV(PTR_CPU(mVUglob.E6)).S());
@@ -2069,7 +2069,7 @@ mVUop(mVU_XTOP)
 		const a64::Register& regT = mVU.regAlloc->allocGPR(-1, _It_, mVUlow.backupVI);
 //		xMOVZX(regT, ptr16[&mVU.getVifRegs().top]);
         if (mVU.index && THREAD_VU1) {
-            armAsm->Ldrh(regT, PTR_VU1(vifRegs.top));
+            armAsm->Ldrh(regT, PTR_MVU(vu1Thread.vifRegs.top));
         } else {
             armAsm->Ldrh(regT, PTR_CPU(vifRegs[mVU.index].top));
         }
@@ -2093,7 +2093,7 @@ mVUop(mVU_XITOP)
 		const a64::Register& regT = mVU.regAlloc->allocGPR(-1, _It_, mVUlow.backupVI);
 //		xMOVZX(regT, ptr16[&mVU.getVifRegs().itop]);
         if (mVU.index && THREAD_VU1) {
-            armAsm->Ldrh(regT, PTR_VU1(vifRegs.itop));
+            armAsm->Ldrh(regT, PTR_MVU(vu1Thread.vifRegs.itop));
         } else {
             armAsm->Ldrh(regT, PTR_CPU(vifRegs[mVU.index].itop));
         }
