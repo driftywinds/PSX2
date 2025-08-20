@@ -229,7 +229,7 @@ public:
 	}
 };
 
-#define PC_GETBLOCK_(x, reclut) ((BASEBLOCK*)(reclut[((u32)(x)) >> 16] + (x) * (sizeof(BASEBLOCK) / 4)))
+#define PC_GETBLOCK_(x, reclut) ((BASEBLOCK*)(reclut[((u32)(x)) >> 16] + (x) * (sizeof(BASEBLOCK) >> 2))) // (sizeof(BASEBLOCK) / 4)
 
 /**
  * Add a page to the recompiler lookup table

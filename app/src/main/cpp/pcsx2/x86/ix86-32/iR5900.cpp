@@ -412,13 +412,13 @@ static const void* _DynGen_JITCompile()
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
     armLoad(EAX, PTR_CPU(cpuRegs.pc));
-    armAsm->Lsr(ECX, EAX, 16);
-    armAsm->Lsr(EAX, EAX, 2);
-//    armMoveAddressToReg(RDX, &recLUT);
-    armAsm->Mov(RDX, (uptr)&recLUT);
-    armAsm->Ldr(RCX, a64::MemOperand(RDX, RCX, a64::LSL, 3));
     ////
+    armAsm->Lsr(ECX, EAX, 16);
+    armAsm->Ldr(RCX, a64::MemOperand(RSTATE_x29, RCX, a64::LSL, 3));
+    ////
+    armAsm->Lsr(EAX, EAX, 2);
     armAsm->Ldr(RAX, a64::MemOperand(RCX, RAX, a64::LSL, 3));
+    ////
     armAsm->Br(RAX);
 
 	return retval;
@@ -441,13 +441,13 @@ static const void* _DynGen_DispatcherReg()
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
     armLoad(EAX, PTR_CPU(cpuRegs.pc));
-    armAsm->Lsr(ECX, EAX, 16);
-    armAsm->Lsr(EAX, EAX, 2);
-//    armMoveAddressToReg(RDX, &recLUT);
-    armAsm->Mov(RDX, (uptr)&recLUT);
-    armAsm->Ldr(RCX, a64::MemOperand(RDX, RCX, a64::LSL, 3));
     ////
+    armAsm->Lsr(ECX, EAX, 16);
+    armAsm->Ldr(RCX, a64::MemOperand(RSTATE_x29, RCX, a64::LSL, 3));
+    ////
+    armAsm->Lsr(EAX, EAX, 2);
     armAsm->Ldr(RAX, a64::MemOperand(RCX, RAX, a64::LSL, 3));
+    ////
     armAsm->Br(RAX);
 
 	return retval;
@@ -492,7 +492,7 @@ static const void* _DynGen_EnterRecompiledCode()
     // From memory to registry
     armMoveAddressToReg(RSTATE_PSX, &psxRegs);
     armMoveAddressToReg(RSTATE_CPU, &g_cpuRegistersPack);
-    armMoveAddressToReg(RSTATE_x26, &eeHw);
+    armMoveAddressToReg(RSTATE_x29, &recLUT);
 
 	if (CHECK_FASTMEM) {
 //        xMOV(RFASTMEMBASE, ptrNative[&vtlb_private::vtlbdata.fastmem_base]);
