@@ -3,13 +3,13 @@
 
 #pragma once
 
+#include <unordered_map>
 #include "common/Pcsx2Defs.h"
 #include "common/HashCombine.h"
+#include "cpuRegistersPack.h"
 
 #include "vixl/aarch64/constants-aarch64.h"
 #include "vixl/aarch64/macro-assembler-aarch64.h"
-
-#include <unordered_map>
 
 namespace a64 = vixl::aarch64;
 
@@ -72,6 +72,9 @@ namespace a64 = vixl::aarch64;
 // iopMem->Main
 #define RSTATE_x29 a64::x29
 
+// eeHw[Ps2MemSize::Hardware]
+#define psHu(mem) (mem & 0xffff)
+
 static inline s64 GetPCDisplacement(const void* current, const void* target)
 {
     return static_cast<s64>((reinterpret_cast<ptrdiff_t>(target) - reinterpret_cast<ptrdiff_t>(current)) >> 2);
@@ -118,6 +121,8 @@ void armEmitCall(const void* ptr, bool force_inline = false);
 void armEmitCbnz(const a64::Register& reg, const void* ptr);
 void armEmitCondBranch(a64::Condition cond, const void* ptr);
 void armMoveAddressToReg(const a64::Register& reg, const void* addr);
+void armCbz(const a64::Register& reg, a64::Label* p_label);
+void armCbnz(const a64::Register& reg, a64::Label* p_label);
 void armLoadPtr(const a64::CPURegister& reg, const void* addr);
 void armStorePtr(const a64::CPURegister& reg, const void* addr);
 void armBeginStackFrame(bool save_fpr=true);
@@ -252,7 +257,6 @@ void armPMOVMSKB(const a64::Register& regDst, const a64::VRegister& regSrc);
 
 void armSHUFPS(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex);
 void armPSHUFD(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex);
-void armShuffleTblx(const a64::VRegister& p_dst, const a64::VRegister& p_src, int p_a, int p_b, int p_c, int p_d, bool p_is_tbx);
-void armShuffle(const a64::VRegister& dstreg, const a64::VRegister& srcreg, int pIndex, bool p_is_tbx);
+void armShuffleTblx(const a64::VRegister& p_dst, const a64::VRegister& p_src, int pIndex, bool p_is_tbx);
 
 int find_bit_pos(uint32_t p_hex_value);

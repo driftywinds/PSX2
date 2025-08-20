@@ -283,7 +283,6 @@ static u8* GetIndirectDispatcherPtr(int mode, int operandsize, int sign = 0)
 // Generates a JS instruction that targets the appropriate templated instance of
 // the vtlb Indirect Dispatcher.
 //
-
 template <typename GenDirectFn>
 static void DynGen_HandlerTest(const GenDirectFn& gen_direct, int mode, int bits, bool sign = false)
 {
@@ -326,6 +325,7 @@ static void DynGen_IndirectTlbDispatcher(int mode, int bits, bool sign)
 #else
 //	xSUB(rsp, 8);
 //    armAsm->Sub(a64::sp, a64::sp, 48);
+    armAsm->Push(a64::xzr, a64::lr);
 #endif
 
 //	xMOVZX(eax, al);
@@ -337,20 +337,17 @@ static void DynGen_IndirectTlbDispatcher(int mode, int bits, bool sign)
 //	xSUB(arg1regd, eax);
     armAsm->Sub(ECX, ECX, EEX);
 
+    armAsm->Mov(RAX, RCX); // ecx is address
+    armAsm->Mov(RCX, RDX); // edx is data
+
 	// jump to the indirect handler, which is a C++ function.
 	// [ecx is address, edx is data]
 //	sptr table = (sptr)vtlbdata.RWFT[bits][mode];
 //  xFastCall(ptrNative[(rax * wordsize) + table], arg1reg, arg2reg);
 
-    armAsm->Mov(RXVIXLSCRATCH, reinterpret_cast<intptr_t>(vtlbdata.RWFT[bits][mode]));
+    armAsm->Mov(RXVIXLSCRATCH, (sptr)vtlbdata.RWFT[bits][mode]);
     armAsm->Ldr(REX, a64::MemOperand(RXVIXLSCRATCH, REX, a64::LSL, 3));
-
-    armAsm->Mov(RAX, RCX);
-    armAsm->Mov(RCX, RDX);
-
-    armAsm->Push(a64::xzr, a64::lr);
     armAsm->Blr(REX);
-    armAsm->Pop(a64::lr, a64::xzr);
 
 	if (!mode)
 	{
@@ -390,6 +387,7 @@ static void DynGen_IndirectTlbDispatcher(int mode, int bits, bool sign)
 #else
 //	xADD(rsp, 8);
 //    armAsm->Add(a64::sp, a64::sp, 48);
+    armAsm->Pop(a64::lr, a64::xzr);
 #endif
 
 //	xRET();
@@ -604,23 +602,28 @@ int vtlb_DynGenReadNonQuad_Const(u32 bits, bool sign, bool xmm, u32 addr_const, 
         // Shortcut for the INTC_STAT register, which many games like to spin on heavily.
         if ((bits == 32) && !EmuConfig.Speedhacks.IntcStat && (paddr == INTC_STAT))
         {
+//            armAsm->Ldr(RXVIXLSCRATCH, (uptr)&psHu32(INTC_STAT));
+//            auto mop = a64::MemOperand(RXVIXLSCRATCH);
+            auto mop = armMemOperandPtr(&psHu32(INTC_STAT));
+
 //			x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(eax), eax.GetId());
             x86_dest_reg = dest_reg_alloc ? dest_reg_alloc() : (_freeX86reg(EAX), EAX.GetCode());
             if (!xmm)
             {
+                auto regX = a64::XRegister(x86_dest_reg);
                 if (sign) {
 //                    xMOVSX(xRegister64(x86_dest_reg), ptr32[&psHu32(INTC_STAT)]);
-                    armAsm->Ldrsw(a64::XRegister(x86_dest_reg), armMemOperandPtr(&psHu32(INTC_STAT)));
+                    armAsm->Ldrsw(regX, mop);
                 }
                 else {
 //                    xMOV(xRegister32(x86_dest_reg), ptr32[&psHu32(INTC_STAT)]);
-                    armAsm->Ldr(a64::WRegister(x86_dest_reg), armMemOperandPtr(&psHu32(INTC_STAT)));
+                    armAsm->Ldr(regX.W(), mop);
                 }
             }
             else
             {
 //				xMOVDZX(xRegisterSSE(x86_dest_reg), ptr32[&psHu32(INTC_STAT)]);
-                armAsm->Ldr(a64::QRegister(x86_dest_reg).S(), armMemOperandPtr(&psHu32(INTC_STAT)));
+                armAsm->Ldr(a64::QRegister(x86_dest_reg).S(), mop);
             }
         }
         else
