@@ -196,6 +196,7 @@ void armLoadPtr(const a64::CPURegister& regRt, a64::Register regRs, int64_t offs
 void armLoadPtr(uint64_t imm, const void* addr, const a64::Register& reg=EEX);
 void armLoadPtr(uint64_t imm, a64::Register regRs, int64_t offset, const a64::Register& regRt=EEX);
 a64::VRegister armLoadPtrV(const void* addr);
+a64::VRegister armLoadPtrM(const a64::MemOperand offset);
 a64::VRegister armLoadPtrM(a64::Register regRs, int64_t offset=0);
 void armStorePtr(const a64::CPURegister& reg, const void* addr, int64_t offset);
 void armStorePtr(const a64::CPURegister& regRt, a64::Register regRs, int64_t offset);

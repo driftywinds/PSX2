@@ -596,6 +596,12 @@ a64::VRegister armLoadPtrV(const void* addr)
     return RQSCRATCH;
 }
 
+a64::VRegister armLoadPtrM(const a64::MemOperand offset)
+{
+    armAsm->Ldr(RQSCRATCH, offset);
+    return RQSCRATCH;
+}
+
 a64::VRegister armLoadPtrM(a64::Register regRs, int64_t offset)
 {
     armAsm->Ldr(RQSCRATCH, a64::MemOperand(regRs, offset));
