@@ -20,6 +20,7 @@
 #include "common/FastJmp.h"
 #include "common/HeapArray.h"
 #include "common/Perf.h"
+#include "x86/microVU_Misc.h"
 
 // Only for MOVQ workaround.
 #if !defined(__ANDROID__)
@@ -298,11 +299,11 @@ void _eeMoveGPRtoR(const a64::Register& to, int fromgpr, bool allow_preload)
 	}
 }
 
-void _eeMoveGPRtoM(uptr to, int fromgpr)
+void _eeMoveGPRtoM(const a64::MemOperand& to, int fromgpr)
 {
 	if (GPR_IS_CONST1(fromgpr)) {
 //        xMOV(ptr32[(u32 *) (to)], g_cpuConstRegs[fromgpr].UL[0]);
-        armStorePtr(g_cpuConstRegs[fromgpr].UL[0], (u32 *) (to));
+        armStorePtr(g_cpuConstRegs[fromgpr].UL[0], to);
     }
 	else
 	{
@@ -320,19 +321,19 @@ void _eeMoveGPRtoM(uptr to, int fromgpr)
 		if (x86reg >= 0)
 		{
 //			xMOV(ptr32[(void*)(to)], xRegister32(x86reg));
-            armAsm->Str(a64::WRegister(x86reg), armMemOperandPtr((void*)(to)));
+            armAsm->Str( a64::WRegister(x86reg), to);
 		}
 		else if (xmmreg >= 0)
 		{
 //			xMOVSS(ptr32[(void*)(to)], xRegisterSSE(xmmreg));
-            armAsm->Str(a64::QRegister(xmmreg).S(), armMemOperandPtr((void*)(to)));
+            armAsm->Str(a64::QRegister(xmmreg).S(), to);
 		}
 		else
 		{
 //			xMOV(eax, ptr32[&cpuRegs.GPR.r[fromgpr].UL[0]]);
             armLoad(EAX, PTR_CPU(cpuRegs.GPR.r[fromgpr].UL[0]));
 //			xMOV(ptr32[(void*)(to)], eax);
-            armAsm->Str(EAX, armMemOperandPtr((void*)(to)));
+            armAsm->Str(EAX, to);
 		}
 	}
 }
@@ -411,12 +412,13 @@ static const void* _DynGen_JITCompile()
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
     armLoad(EAX, PTR_CPU(cpuRegs.pc));
-    armMoveAddressToReg(RDX, &recLUT);
-    armAsm->Lsr(ECX, EAX, 16);
-    armAsm->Lsr(EAX, EAX, 2);
-    armAsm->Ldr(RCX, a64::MemOperand(RDX, RCX, a64::LSL, 3));
     ////
+    armAsm->Lsr(ECX, EAX, 16);
+    armAsm->Ldr(RCX, a64::MemOperand(RSTATE_x29, RCX, a64::LSL, 3));
+    ////
+    armAsm->Lsr(EAX, EAX, 2);
     armAsm->Ldr(RAX, a64::MemOperand(RCX, RAX, a64::LSL, 3));
+    ////
     armAsm->Br(RAX);
 
 	return retval;
@@ -439,12 +441,13 @@ static const void* _DynGen_DispatcherReg()
 //	xJMP(ptrNative[rbx * (wordsize / 4) + rcx]);
 
     armLoad(EAX, PTR_CPU(cpuRegs.pc));
-    armMoveAddressToReg(RDX, &recLUT);
-    armAsm->Lsr(ECX, EAX, 16);
-    armAsm->Lsr(EAX, EAX, 2);
-    armAsm->Ldr(RCX, a64::MemOperand(RDX, RCX, a64::LSL, 3));
     ////
+    armAsm->Lsr(ECX, EAX, 16);
+    armAsm->Ldr(RCX, a64::MemOperand(RSTATE_x29, RCX, a64::LSL, 3));
+    ////
+    armAsm->Lsr(EAX, EAX, 2);
     armAsm->Ldr(RAX, a64::MemOperand(RCX, RAX, a64::LSL, 3));
+    ////
     armAsm->Br(RAX);
 
 	return retval;
@@ -489,10 +492,11 @@ static const void* _DynGen_EnterRecompiledCode()
     // From memory to registry
     armMoveAddressToReg(RSTATE_PSX, &psxRegs);
     armMoveAddressToReg(RSTATE_CPU, &g_cpuRegistersPack);
+    armMoveAddressToReg(RSTATE_x29, &recLUT);
 
 	if (CHECK_FASTMEM) {
 //        xMOV(RFASTMEMBASE, ptrNative[&vtlb_private::vtlbdata.fastmem_base]);
-        armAsm->Ldr(RFASTMEMBASE, armMemOperandPtr(&vtlb_private::vtlbdata.fastmem_base));
+        armAsm->Ldr(RFASTMEMBASE, PTR_CPU(vtlbdata.fastmem_base));
     }
 
 //	xJMP(DispatcherReg);
@@ -932,7 +936,7 @@ void SetBranchReg(u32 reg)
 			}
 			else
 			{
-				_eeMoveGPRtoM((uptr)&cpuRegs.pc, reg);
+				_eeMoveGPRtoM(PTR_CPU(cpuRegs.pc), reg);
 			}
 		}
 	}

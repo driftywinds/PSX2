@@ -243,6 +243,8 @@ public:
 		}
 		return thisBlock;
 	}
+
+    typedef u32 (*mVUCall)(u32, void*, void*);
 	__ri microBlock* search(microVU& mVU, microRegInfo* pState)
 	{
 		if (pState->needExactMatch) // Needs Detailed Search (Exact Match of Pipeline State)
@@ -250,7 +252,8 @@ public:
 			microBlockLink* prevI = nullptr;
 			for (microBlockLink* linkI = fBlockList; linkI != nullptr; prevI = linkI, linkI = linkI->next)
 			{
-				if (mVU.compareState(pState, &linkI->block.pState) == 0)
+//				if (mVU.compareState(pState, &linkI->block.pState) == 0)
+                if (((mVUCall(mVU.compareStateF)(0, pState, &linkI->block.pState)) == 0))
 				{
 					if (linkI != fBlockList)
 					{
@@ -310,8 +313,9 @@ inline int microBlockManager::s_free_link_count = 0;
 struct vuRegistersPack
 {
     alignas(16) microVU microVU[2];
+    alignas(64) VU_Thread vu1Thread;
 };
-alignas(16) extern vuRegistersPack g_vuRegistersPack;
+alignas(64) extern vuRegistersPack g_vuRegistersPack;
 ////
 static microVU& microVU0 = g_vuRegistersPack.microVU[0];
 static microVU& microVU1 = g_vuRegistersPack.microVU[1];
