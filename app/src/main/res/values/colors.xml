@@ -7,4 +7,17 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Brand palette derived from psx2_logo2_fixed.xml -->
+    <color name="brand_primary">#33A1FF</color>      <!-- core blue (#FF33A1FF sans alpha) -->
+    <color name="brand_secondary">#7C52FF</color>    <!-- violet (#FF7C52FF sans alpha) -->
+    <color name="brand_accent">#66CCFF</color>       <!-- light blue (#FF66CCFF sans alpha) -->
+    <color name="brand_outline">#8F61FF</color>      <!-- subtle outline glow from logo -->
+    <color name="brand_ripple">#8033A1FF</color>     <!-- 50% alpha ripple of primary -->
+
+    <!-- PS2 face button colors -->
+    <color name="ps2_triangle_green">#00D000</color>
+    <color name="ps2_circle_red">#FF3030</color>
+    <color name="ps2_cross_blue">#4080FF</color>
+    <color name="ps2_square_pink">#FF80C0</color>
 </resources>

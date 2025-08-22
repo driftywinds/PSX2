@@ -26,9 +26,10 @@ class microBlockManager;
 
 struct microBlockLink
 {
-	microBlock block;
-	microBlockLink* next;
+    microBlock block;
+    microBlockLink* next;
 };
+
 
 struct microBlockLinkRef
 {
@@ -146,6 +147,37 @@ private:
 	std::vector<microBlockLinkRef> quickLookup;
 	int qListI, fListI;
 
+	// Simple free-list pool for microBlockLink to reduce aligned allocations.
+	static microBlockLink* s_free_links;
+	static int s_free_link_count;
+	static constexpr int s_free_link_max = 4096;
+
+	static microBlockLink* allocLink()
+	{
+		if (s_free_links)
+		{
+			microBlockLink* p = s_free_links;
+			s_free_links = s_free_links->next;
+			s_free_link_count--;
+			return p;
+		}
+		return (microBlockLink*)_aligned_malloc(sizeof(microBlockLink), 32);
+	}
+	static void freeLink(microBlockLink* p)
+	{
+		if (!p) return;
+		if (s_free_link_count < s_free_link_max)
+		{
+			p->next = s_free_links;
+			s_free_links = p;
+			s_free_link_count++;
+		}
+		else
+		{
+			_aligned_free(p);
+		}
+	}
+
 public:
 	inline int getFullListCount() const { return fListI; }
 	microBlockManager()
@@ -162,14 +194,14 @@ public:
 			microBlockLink* freeI = linkI;
 			safe_delete_array(linkI->block.jumpCache);
 			linkI = linkI->next;
-			_aligned_free(freeI);
+			freeLink(freeI);
 		}
 		for (microBlockLink* linkI = fBlockList; linkI != nullptr;)
 		{
 			microBlockLink* freeI = linkI;
 			safe_delete_array(linkI->block.jumpCache);
 			linkI = linkI->next;
-			_aligned_free(freeI);
+			freeLink(freeI);
 		}
 		qListI = fListI = 0;
 		qBlockEnd = qBlockList = nullptr;
@@ -189,7 +221,7 @@ public:
 
             microBlockLink*& blockList = fullCmp ? fBlockList : qBlockList;
             microBlockLink*& blockEnd  = fullCmp ? fBlockEnd  : qBlockEnd;
-            microBlockLink*  newBlock  = (microBlockLink*)_aligned_malloc(sizeof(microBlockLink), 32);
+			microBlockLink*  newBlock  = allocLink();
 
 			newBlock->block.jumpCache  = nullptr;
 			newBlock->next             = nullptr;
@@ -266,9 +298,12 @@ public:
 			linkI = linkI->next;
 		}
 	}
-};
+	};
+// Static members initialization (after class definition to avoid incomplete-type errors)
+inline microBlockLink* microBlockManager::s_free_links = nullptr;
+inline int microBlockManager::s_free_link_count = 0;
 
-// microVU rec structs
+	// microVU rec structs
 //alignas(16) microVU microVU0;
 //alignas(16) microVU microVU1;
 

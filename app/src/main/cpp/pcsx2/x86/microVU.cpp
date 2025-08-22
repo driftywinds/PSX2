@@ -122,24 +122,46 @@ __fi void mVUclear(mV, u32 addr, u32 size)
 //------------------------------------------------------------------
 
 // Deletes a program
+// Simple reuse pool for microProgram allocations to avoid frequent aligned malloc/free.
+static std::vector<microProgram*> s_microprog_pool;
+static constexpr size_t kMicroProgPoolMax = 128;
+
 __ri void mVUdeleteProg(microVU& mVU, microProgram*& prog)
 {
     u32 i, e = (mVU.progSize >> 1); // mVU.progSize / 2
-	for (i = 0; i < e; ++i)
-	{
-		safe_delete(prog->block[i]);
-	}
-	safe_delete(prog->ranges);
-	safe_aligned_free(prog);
+    for (i = 0; i < e; ++i)
+    {
+        safe_delete(prog->block[i]);
+    }
+    safe_delete(prog->ranges);
+    // Reuse the microProgram object to reduce allocator overhead.
+    if (s_microprog_pool.size() < kMicroProgPoolMax)
+    {
+        s_microprog_pool.push_back(prog);
+    }
+    else
+    {
+        safe_aligned_free(prog);
+    }
 }
 
 // Creates a new Micro Program
 __ri microProgram* mVUcreateProg(microVU& mVU, int startPC)
 {
-	auto* prog = (microProgram*)_aligned_malloc(sizeof(microProgram), 64);
-	memset(prog, 0, sizeof(microProgram));
-	prog->idx = mVU.prog.total++;
-	prog->ranges = new std::deque<microRange>();
+    microProgram* prog = nullptr;
+    if (!s_microprog_pool.empty())
+    {
+        prog = s_microprog_pool.back();
+        s_microprog_pool.pop_back();
+        std::memset(prog, 0, sizeof(microProgram));
+    }
+    else
+    {
+        prog = (microProgram*)_aligned_malloc(sizeof(microProgram), 64);
+        std::memset(prog, 0, sizeof(microProgram));
+    }
+    prog->idx = mVU.prog.total++;
+    prog->ranges = new std::deque<microRange>();
 	prog->startPC = startPC;
 	if(doWholeProgCompare)
 		mVUcacheProg(mVU, *prog); // Cache Micro Program

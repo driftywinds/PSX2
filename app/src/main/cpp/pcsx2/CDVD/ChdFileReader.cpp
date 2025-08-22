@@ -16,6 +16,10 @@
 #include "fmt/format.h"
 #include "xxhash.h"
 
+#ifndef _WIN32
+#include <unistd.h>
+#endif
+
 static constexpr u32 MAX_PARENTS = 32; // Surely someone wouldn't be insane enough to go beyond this...
 static std::vector<std::pair<std::string, chd_header>> s_chd_hash_cache; // <filename, header>
 static std::recursive_mutex s_chd_hash_cache_mutex;
@@ -366,17 +370,43 @@ static chd_file* OpenCHD(const std::string& filename, FileSystem::ManagedCFilePt
 
 bool ChdFileReader::Open2(std::string filename, Error* error)
 {
-	Close2();
+    Close2();
 
-	m_filename = std::move(filename);
+    m_filename = std::move(filename);
 
-	auto fp = FileSystem::OpenManagedSharedCFile(m_filename.c_str(), "rb", FileSystem::FileShareMode::DenyWrite, error);
-	if (!fp)
-		return false;
+    FileSystem::ManagedCFilePtr fp;
+    // Support Android Storage Access Framework content URIs (e.g., from the picker)
+    if (m_filename.rfind("content://", 0) == 0)
+    {
+        const int fd = FileSystem::OpenFDFileContent(m_filename.c_str());
+        if (fd < 0)
+        {
+            Error::SetStringView(error, "Failed to open CHD content URI.");
+            return false;
+        }
 
-	ChdFile = OpenCHD(m_filename, std::move(fp), error, 0);
-	if (!ChdFile)
-		return false;
+        std::FILE* f = fdopen(fd, "rb");
+        if (!f)
+        {
+#ifndef _WIN32
+            close(fd);
+#endif
+            Error::SetStringView(error, "Failed to create file stream for CHD content URI.");
+            return false;
+        }
+
+        fp.reset(f);
+    }
+    else
+    {
+        fp = FileSystem::OpenManagedSharedCFile(m_filename.c_str(), "rb", FileSystem::FileShareMode::DenyWrite, error);
+        if (!fp)
+            return false;
+    }
+
+    ChdFile = OpenCHD(m_filename, std::move(fp), error, 0);
+    if (!ChdFile)
+        return false;
 
 	const chd_header* chd_header = chd_get_header(ChdFile);
 	hunk_size = chd_header->hunkbytes;

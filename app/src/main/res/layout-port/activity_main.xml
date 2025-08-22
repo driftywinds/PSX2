@@ -1,0 +1,508 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:keepScreenOn="true"
+    tools:context=".MainActivity">
+
+    <FrameLayout
+        android:id="@+id/fl_board"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Top-left Settings button -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_settings"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="settings"
+        android:textColor="@color/white"
+        app:rippleColor="#80cdcdcd"
+        app:strokeColor="#80000000"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_margin="12dp"/>
+
+    <LinearLayout
+        android:id="@+id/ll_renderer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="start"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_ogl"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="60dip"
+            android:layout_height="wrap_content"
+            android:text="OGL"
+            android:textSize="12dp"
+            android:textColor="@color/white"
+            app:rippleColor="#80cdcdcd"
+            app:strokeColor="#80000000" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_vulkan"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="60dip"
+            android:layout_height="wrap_content"
+            android:text="VK"
+            android:textSize="12dp"
+            android:textColor="@color/white"
+            app:rippleColor="#80cdcdcd"
+            app:strokeColor="#80000000" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_sw"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="60dip"
+            android:layout_height="wrap_content"
+            android:text="SW"
+            android:textSize="12dp"
+            android:textColor="@color/white"
+            app:rippleColor="#80cdcdcd"
+            app:strokeColor="#80000000" />
+    </LinearLayout>
+
+    <!-- Controls toggle (top-right) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_toggle_controls"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="controls"
+        android:textColor="@color/white"
+        app:rippleColor="#80cdcdcd"
+        app:strokeColor="#80000000"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_margin="12dp"/>
+
+    <!-- Small unhide button (only visible when all UI is hidden) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_unhide_ui"
+        style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:backgroundTint="#33000000"
+        android:visibility="gone"
+        app:icon="@drawable/ic_unhide"
+        app:iconSize="24dp"
+        app:iconGravity="textStart"
+        app:iconPadding="0dp"
+        app:iconTint="@null"
+        app:rippleColor="#40ffffff"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_margin="8dp"
+        android:elevation="4dp"/>
+
+    
+
+    <LinearLayout
+        android:id="@+id/ll_quick_actions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btn_settings">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_file"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="GAMES"
+            android:textColor="@color/white"
+            app:rippleColor="#80cdcdcd"
+            app:strokeColor="#80000000" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_bios"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="bios"
+            android:textColor="@color/white"
+            app:rippleColor="#80cdcdcd"
+            app:strokeColor="#80000000" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_saves"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="saves"
+            android:textColor="@color/white"
+            app:rippleColor="#80cdcdcd"
+            app:strokeColor="#80000000" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_hide_ui"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="hide"
+            android:textColor="@color/white"
+            app:rippleColor="#80cdcdcd"
+            app:strokeColor="#80000000" />
+    </LinearLayout>
+
+    <!-- Portrait control stack: Joy above D-Pad; both above Select/Start; Right cluster above Select/Start -->
+    <LinearLayout
+        android:id="@+id/ll_pad_select_start"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:visibility="gone"
+        android:orientation="horizontal"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_pad_select"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="select"
+            android:textColor="@color/white"
+            app:rippleColor="#80cdcdcd"
+            app:strokeColor="#80000000" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_pad_start"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="start"
+            android:textColor="@color/white"
+            app:rippleColor="#80cdcdcd"
+            app:strokeColor="#80000000" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_pad_right_buttons"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/ll_pad_select_start"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_l3"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="L3"
+                android:textColor="@color/white"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_r3"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="R3"
+                android:textColor="@color/white"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_l2"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="L2"
+                android:textColor="@color/white"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_r2"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="R2"
+                android:textColor="@color/white"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_l1"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="L1"
+                android:textColor="@color/white"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_r1"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="R1"
+                android:textColor="@color/white"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_x"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:gravity="center"
+                app:icon="@drawable/ic_ps2_square"
+                app:iconTint="#FF80C0"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                app:iconGravity="textStart"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_y"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:gravity="center"
+                app:icon="@drawable/ic_ps2_triangle"
+                app:iconTint="#00D000"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                app:iconGravity="textStart"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_a"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:gravity="center"
+                app:icon="@drawable/ic_ps2_x"
+                app:iconTint="#4080FF"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                app:iconGravity="textStart"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_b"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text=""
+                android:gravity="center"
+                app:icon="@drawable/ic_ps2_circle"
+                app:iconTint="#FF3030"
+                app:iconPadding="0dp"
+                app:iconSize="20dp"
+                app:iconGravity="textStart"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="#80000000" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_pad_joy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginBottom="6dp">
+
+        <com.izzy2lost.psx2.JoystickView
+            android:id="@+id/joystick_view"
+            android:layout_width="170dp"
+            android:layout_height="170dp"
+            android:layout_margin="2dp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/ll_pad_dpad"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:padding="2dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@id/ll_pad_joy"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginBottom="0dp">
+
+        <GridLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:rowCount="3"
+            android:columnCount="3">
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_row="0"
+                android:layout_column="0" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_dir_top"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:gravity="center"
+                android:layout_row="0"
+                android:layout_column="1"
+                android:text=""
+                app:icon="@drawable/ic_arrow_up"
+                app:iconTint="@color/white"
+                app:iconPadding="0dp"
+                app:iconSize="18dp"
+                app:strokeWidth="0dp"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="@android:color/transparent" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_row="0"
+                android:layout_column="2" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_dir_left"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:gravity="center"
+                android:layout_row="1"
+                android:layout_column="0"
+                android:text=""
+                app:icon="@drawable/ic_arrow_left"
+                app:iconTint="@color/white"
+                app:iconPadding="0dp"
+                app:iconSize="18dp"
+                app:strokeWidth="0dp"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="@android:color/transparent" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_row="1"
+                android:layout_column="1" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_dir_right"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:gravity="center"
+                android:layout_row="1"
+                android:layout_column="2"
+                android:text=""
+                app:icon="@drawable/ic_arrow_right"
+                app:iconTint="@color/white"
+                app:iconPadding="0dp"
+                app:iconSize="18dp"
+                app:strokeWidth="0dp"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="@android:color/transparent" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_row="2"
+                android:layout_column="0" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_pad_dir_bottom"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:gravity="center"
+                android:layout_row="2"
+                android:layout_column="1"
+                android:text=""
+                app:icon="@drawable/ic_arrow_down"
+                app:iconTint="@color/white"
+                app:iconPadding="0dp"
+                app:iconSize="18dp"
+                app:strokeWidth="0dp"
+                app:rippleColor="#80cdcdcd"
+                app:strokeColor="@android:color/transparent" />
+
+            <Space
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_row="2"
+                android:layout_column="2" />
+        </GridLayout>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

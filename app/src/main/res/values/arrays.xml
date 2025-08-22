@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="scale_entries">
+        <item>1x (Native ~480p)</item>
+        <item>2x (~720p HD)</item>
+        <item>3x (~1080p FHD)</item>
+        <item>4x (~1440p QHD)</item>
+        <item>5x (~1800p QHD+)</item>
+        <item>6x (~2160p 4K UHD)</item>
+        <item>7x (~2520p)</item>
+        <item>8x (~2880p 5K UHD)</item>
+    </string-array>
+    
+    <string-array name="aspect_ratio_entries">
+        <item>Stretch (Fill Screen)</item>
+        <item>Auto 4:3/3:2 (Recommended)</item>
+        <item>4:3 (Original PS2)</item>
+        <item>16:9 (Widescreen)</item>
+        <item>10:7 (Uncommon)</item>
+    </string-array>
+
+    <string-array name="blending_accuracy_entries">
+        <item>Minimum (Fastest, may break effects)</item>
+        <item>Basic (Recommended)</item>
+        <item>Medium (Good compatibility)</item>
+        <item>High (Better effects)</item>
+        <item>Full (Best quality, slower)</item>
+        <item>Maximum (Perfect, very slow)</item>
+    </string-array>
+
+    <string-array name="renderer_entries">
+        <item>Auto (Recommended)</item>
+        <item>Hardware (Vulkan)</item>
+        <item>Hardware (OpenGL)</item>
+        <item>Software (Slow, accurate)</item>
+    </string-array>
+</resources>

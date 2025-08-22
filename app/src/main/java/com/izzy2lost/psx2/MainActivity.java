@@ -1,0 +1,1280 @@
+package com.izzy2lost.psx2;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.Intent;
+import android.content.res.AssetManager;
+import android.content.res.Configuration;
+import android.database.Cursor;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.net.Uri;
+import android.view.InputDevice;
+import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.View;
+import android.widget.FrameLayout;
+import android.view.ViewGroup;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.content.ClipData;
+import android.content.SharedPreferences;
+import android.os.Build;
+import android.view.Window;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+import android.view.WindowManager;
+import android.util.TypedValue;
+
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.documentfile.provider.DocumentFile;
+import androidx.constraintlayout.widget.ConstraintLayout;
+import androidx.core.content.ContextCompat;
+import androidx.activity.OnBackPressedCallback;
+
+import com.google.android.material.button.MaterialButton;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import android.provider.OpenableColumns;
+import org.json.JSONArray;
+import org.json.JSONException;
+import androidx.fragment.app.FragmentManager;
+import java.util.List;
+
+public class MainActivity extends AppCompatActivity implements GamesCoverDialogFragment.OnGameSelectedListener {
+    private String m_szGamefile = "";
+
+    private HIDDeviceManager mHIDDeviceManager;
+    private Thread mEmulationThread = null;
+    private boolean mHudVisible = false;
+    
+
+    // Track joystick directional pressed state to avoid duplicate down events
+    private boolean joyUpPressed = false;
+    private boolean joyDownPressed = false;
+    private boolean joyLeftPressed = false;
+    private boolean joyRightPressed = false;
+
+    private boolean isThread() {
+        if (mEmulationThread != null) {
+            Thread.State _thread_state = mEmulationThread.getState();
+            return _thread_state == Thread.State.BLOCKED
+                    || _thread_state == Thread.State.RUNNABLE
+                    || _thread_state == Thread.State.TIMED_WAITING
+                    || _thread_state == Thread.State.WAITING;
+        }
+        return false;
+    }
+
+    // Expose whether a game has been chosen (non-empty path)
+    public boolean hasSelectedGame() {
+        return !TextUtils.isEmpty(m_szGamefile);
+    }
+
+    
+
+    @Override
+    public void onConfigurationChanged(@NonNull Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        // Keep fullscreen on rotate and reflow constraints without recreating
+        hideStatusBar();
+        applyConstraintsForOrientation(newConfig.orientation);
+    }
+
+    private void applyConstraintsForOrientation(int orientation) {
+        // Views present in both layouts
+        View quick = findViewById(R.id.ll_quick_actions);
+        View btnSettings = findViewById(R.id.btn_settings);
+        View btnControls = findViewById(R.id.btn_toggle_controls);
+        View llJoy = findViewById(R.id.ll_pad_joy);
+        View llDpad = findViewById(R.id.ll_pad_dpad);
+        View llRight = findViewById(R.id.ll_pad_right_buttons);
+        View llSelectStart = findViewById(R.id.ll_pad_select_start);
+
+        // Use helper dp()
+
+        if (quick != null && btnSettings != null && btnControls != null) {
+            ConstraintLayout.LayoutParams lp = safeCLP(quick);
+            if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                // Between settings and controls, top-aligned
+                lp.width = 0; // chain between start/end
+                lp.topToTop = btnSettings.getId();
+                lp.topToBottom = ConstraintLayout.LayoutParams.UNSET;
+                lp.startToEnd = btnSettings.getId();
+                lp.endToStart = btnControls.getId();
+                lp.startToStart = ConstraintLayout.LayoutParams.UNSET;
+                lp.endToEnd = ConstraintLayout.LayoutParams.UNSET;
+                lp.topMargin = dp(0);
+                lp.horizontalChainStyle = ConstraintLayout.LayoutParams.CHAIN_PACKED;
+            } else {
+                // Centered under settings
+                lp.width = ConstraintLayout.LayoutParams.WRAP_CONTENT;
+                lp.topToTop = ConstraintLayout.LayoutParams.UNSET;
+                lp.topToBottom = btnSettings.getId();
+                lp.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
+                lp.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+                lp.startToEnd = ConstraintLayout.LayoutParams.UNSET;
+                lp.endToStart = ConstraintLayout.LayoutParams.UNSET;
+                lp.topMargin = dp(16);
+                lp.horizontalChainStyle = ConstraintLayout.LayoutParams.CHAIN_SPREAD;
+            }
+            quick.setLayoutParams(lp);
+        }
+
+        if (llJoy != null) {
+            ConstraintLayout.LayoutParams lp = safeCLP(llJoy);
+            lp.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+            lp.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
+            lp.endToEnd = ConstraintLayout.LayoutParams.UNSET;
+            lp.topToTop = ConstraintLayout.LayoutParams.UNSET;
+            lp.topToBottom = ConstraintLayout.LayoutParams.UNSET;
+            int m = (orientation == Configuration.ORIENTATION_LANDSCAPE) ? 6 : 6;
+            lp.setMargins(dp(m), dp(m), dp(m), dp(m));
+            llJoy.setLayoutParams(lp);
+            // Nudge joystick further left in both orientations to avoid Select overlap
+            llJoy.setTranslationX(-dp(28));
+        }
+
+        if (llDpad != null && llJoy != null) {
+            ConstraintLayout.LayoutParams lp = safeCLP(llDpad);
+            // Above-left of joystick for both, with slight spacing
+            lp.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
+            lp.endToEnd = ConstraintLayout.LayoutParams.UNSET;
+            lp.bottomToTop = llJoy.getId();
+            lp.bottomToBottom = ConstraintLayout.LayoutParams.UNSET;
+            lp.topToTop = ConstraintLayout.LayoutParams.UNSET;
+            lp.topToBottom = ConstraintLayout.LayoutParams.UNSET;
+            lp.setMargins(dp(0), dp(0), dp(0), dp(orientation == Configuration.ORIENTATION_LANDSCAPE ? 2 : 0));
+            llDpad.setLayoutParams(lp);
+        }
+
+        if (llRight != null) {
+            ConstraintLayout.LayoutParams lp = safeCLP(llRight);
+            if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
+                lp.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+                lp.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+                lp.bottomToTop = ConstraintLayout.LayoutParams.UNSET;
+                lp.setMargins(dp(12), dp(12), dp(12), dp(12));
+            } else {
+                // Above Select/Start, aligned to end
+                if (llSelectStart != null) {
+                    lp.bottomToTop = llSelectStart.getId();
+                } else {
+                    lp.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+                }
+                lp.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+                lp.bottomToBottom = (llSelectStart == null) ? ConstraintLayout.LayoutParams.PARENT_ID : ConstraintLayout.LayoutParams.UNSET;
+                lp.setMargins(0,0,0,dp(8));
+            }
+            llRight.setLayoutParams(lp);
+        }
+
+        if (llSelectStart != null) {
+            ConstraintLayout.LayoutParams lp = safeCLP(llSelectStart);
+            lp.startToStart = ConstraintLayout.LayoutParams.PARENT_ID;
+            lp.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
+            lp.bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID;
+            lp.setMargins(0,0,0,dp(orientation == Configuration.ORIENTATION_LANDSCAPE ? 8 : 0));
+            llSelectStart.setLayoutParams(lp);
+        }
+    }
+
+    private ConstraintLayout.LayoutParams safeCLP(View v) {
+        ViewGroup.LayoutParams p = v.getLayoutParams();
+        if (p instanceof ConstraintLayout.LayoutParams) return (ConstraintLayout.LayoutParams) p;
+        ConstraintLayout.LayoutParams lp = new ConstraintLayout.LayoutParams(p);
+        v.setLayoutParams(lp);
+        return lp;
+    }
+
+    private int dp(int d) {
+        return (int) TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, d, getResources().getDisplayMetrics());
+    }
+
+    private void hideStatusBar() {
+        Window w = getWindow();
+        if (w == null) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController controller = w.getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.statusBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        } else {
+            w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        }
+    }
+
+    private void pickGamesFolder() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        startActivityResultGamesFolderPick.launch(intent);
+    }
+
+    private void showGamesListOrReselect(Uri treeUri) {
+        // Re-scan quickly each time to keep list fresh
+        String[] names;
+        String[] uris;
+        try {
+            GameList list = scanGamesFromTreeUri(treeUri);
+            names = list.names;
+            uris = list.uris;
+        } catch (Exception e) {
+            names = new String[0];
+            uris = new String[0];
+        }
+        // Make effectively-final copies for use in lambda
+        final String[] namesFinal = names;
+        final String[] urisFinal = uris;
+
+        if (namesFinal.length == 0) {
+            new AlertDialog.Builder(this)
+                    .setTitle("GAMES")
+                    .setMessage("No games found. Pick a folder?")
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton("Pick Folder", (d,w) -> pickGamesFolder())
+                    .show();
+            return;
+        }
+        // Show covers grid dialog fragment
+        GamesCoverDialogFragment frag = GamesCoverDialogFragment.newInstance(namesFinal, urisFinal);
+        FragmentManager fm = getSupportFragmentManager();
+        frag.show(fm, "covers_dialog");
+    }
+
+    @Override
+    public void onGameSelected(String gameUri) {
+        if (!TextUtils.isEmpty(gameUri)) {
+            // Avoid any pre-VM native calls here; just set the game and launch.
+            m_szGamefile = gameUri;
+            restartEmuThread();
+        }
+    }
+
+    private static final String[] GAME_EXTS = new String[]{
+            ".iso", ".bin", ".img", ".mdf", ".nrg", ".chd"
+    };
+
+    private static boolean hasGameExt(String name) {
+        if (TextUtils.isEmpty(name)) return false;
+        String lower = name.toLowerCase();
+        for (String ext : GAME_EXTS) {
+            if (lower.endsWith(ext)) return true;
+        }
+        return false;
+    }
+
+    private static class GameList {
+        final String[] names;
+        final String[] uris;
+        GameList(String[] n, String[] u) { names = n; uris = u; }
+    }
+
+    private GameList scanGamesFromTreeUri(Uri treeUri) {
+        DocumentFile dir = DocumentFile.fromTreeUri(this, treeUri);
+        if (dir == null || !dir.isDirectory()) return new GameList(new String[0], new String[0]);
+        java.util.ArrayList<String> nameList = new java.util.ArrayList<>();
+        java.util.ArrayList<String> uriList = new java.util.ArrayList<>();
+        scanGamesRecursive(dir, nameList, uriList);
+
+        // Persist folder and latest list
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        JSONArray arr = new JSONArray();
+        for (int i = 0; i < nameList.size(); i++) {
+            JSONArray pair = new JSONArray();
+            try {
+                pair.put(nameList.get(i));
+                pair.put(uriList.get(i));
+            } catch (Exception ignored) {}
+            arr.put(pair);
+        }
+        prefs.edit()
+                .putString("games_folder_uri", treeUri.toString())
+                .putString("games_list_json", arr.toString())
+                .apply();
+
+        return new GameList(nameList.toArray(new String[0]), uriList.toArray(new String[0]));
+    }
+
+    private void scanGamesRecursive(DocumentFile dir, java.util.List<String> names, java.util.List<String> uris) {
+        DocumentFile[] children = dir.listFiles();
+        if (children == null) return;
+        for (DocumentFile child : children) {
+            if (child == null) continue;
+            if (child.isDirectory()) {
+                scanGamesRecursive(child, names, uris);
+            } else if (child.isFile()) {
+                String name = child.getName();
+                if (hasGameExt(name)) {
+                    names.add(name);
+                    uris.add(child.getUri().toString());
+                }
+            }
+        }
+    }
+
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        hideStatusBar();
+
+        // Setup back button handler
+        setupBackPressedHandler();
+
+        // Default resources
+        copyAssetAll(getApplicationContext(), "bios");
+        copyAssetAll(getApplicationContext(), "resources");
+
+        Initialize();
+
+        makeButtonTouch();
+
+        setSurfaceView(new SDLSurface(this));
+
+        // Improve button outline contrast across all MaterialButtons
+        tintAllMaterialButtonOutlines();
+
+        // Apply saved graphics settings (renderer, scaling, aspect)
+        applySavedSettings();
+
+        // Apply orientation-specific constraints once at startup
+        int currentOrientation = getResources().getConfiguration().orientation;
+        applyConstraintsForOrientation(currentOrientation);
+
+        
+    }
+
+    private void setupBackPressedHandler() {
+        OnBackPressedCallback callback = new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                showExitDialog();
+            }
+        };
+        getOnBackPressedDispatcher().addCallback(this, callback);
+    }
+
+    private void makeButtonTouch() {
+        MaterialButton btn_file = findViewById(R.id.btn_file);
+        if(btn_file != null) {
+            // Tap: show games list (from persisted folder). If none, prompt to pick folder.
+            btn_file.setOnClickListener(v -> {
+                SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+                String folderUri = prefs.getString("games_folder_uri", null);
+                if (TextUtils.isEmpty(folderUri)) {
+                    pickGamesFolder();
+                    return;
+                }
+                showGamesListOrReselect(Uri.parse(folderUri));
+            });
+            // Long-press: reselect games folder
+            btn_file.setOnLongClickListener(v -> {
+                pickGamesFolder();
+                return true;
+            });
+        }
+
+        // Combined saves dialog
+        MaterialButton btn_saves = findViewById(R.id.btn_saves);
+        if(btn_saves != null) {
+            btn_saves.setOnClickListener(v -> {
+                SavesDialogFragment dialog = new SavesDialogFragment();
+                dialog.show(getSupportFragmentManager(), "saves_dialog");
+            });
+        }
+
+        // BIOS picker
+        MaterialButton btn_bios = findViewById(R.id.btn_bios);
+        if (btn_bios != null) {
+            // Tap: pick multiple BIOS files
+            btn_bios.setOnClickListener(v -> {
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                intent.setType("*/*");
+                startActivityResultBiosPick.launch(intent);
+            });
+            // Long-press: pick a BIOS folder
+            btn_bios.setOnLongClickListener(v -> {
+                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                        | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+                startActivityResultBiosFolderPick.launch(intent);
+                return true;
+            });
+        }
+
+        // Settings button opens dialog
+        MaterialButton btn_settings = findViewById(R.id.btn_settings);
+        if (btn_settings != null) {
+            btn_settings.setOnClickListener(v -> {
+                FragmentManager fm = getSupportFragmentManager();
+                SettingsDialogFragment dialog = new SettingsDialogFragment();
+                dialog.show(fm, "settings_dialog");
+            });
+        }
+
+        // Toggle on-screen controls visibility
+        MaterialButton btnToggleControls = findViewById(R.id.btn_toggle_controls);
+        if (btnToggleControls != null) {
+            btnToggleControls.setOnClickListener(v -> {
+                View llDpad = findViewById(R.id.ll_pad_dpad);
+                View llRight = findViewById(R.id.ll_pad_right_buttons);
+                View llSelectStart = findViewById(R.id.ll_pad_select_start);
+                View llJoy = findViewById(R.id.ll_pad_joy);
+
+                boolean currentlyVisible = (llDpad != null && llDpad.getVisibility() == View.VISIBLE);
+                setControlsVisible(!currentlyVisible);
+            });
+        }
+
+        // HUD toggle moved to Settings (Developer section)
+
+        // Hide UI button
+        MaterialButton btn_hide_ui = findViewById(R.id.btn_hide_ui);
+        if(btn_hide_ui != null) {
+            btn_hide_ui.setOnClickListener(v -> {
+                toggleAllUIVisibility();
+            });
+        }
+
+        // Small unhide button (appears when all UI is hidden)
+        MaterialButton btn_unhide_ui = findViewById(R.id.btn_unhide_ui);
+        if(btn_unhide_ui != null) {
+            btn_unhide_ui.setOnClickListener(v -> {
+                toggleAllUIVisibility(); // Show UI again
+            });
+        }
+
+        //////
+        // RENDERER
+
+        MaterialButton btn_ogl = findViewById(R.id.btn_ogl);
+        if(btn_ogl != null) {
+            btn_ogl.setOnClickListener(v -> {
+                NativeApp.renderGpu(12);
+            });
+        }
+        MaterialButton btn_vulkan = findViewById(R.id.btn_vulkan);
+        if(btn_vulkan != null) {
+            btn_vulkan.setOnClickListener(v -> {
+                NativeApp.renderGpu(14);
+            });
+        }
+        MaterialButton btn_sw = findViewById(R.id.btn_sw);
+        if(btn_sw != null) {
+            btn_sw.setOnClickListener(v -> {
+                NativeApp.renderGpu(13);
+            });
+        }
+
+        //////
+        // PAD
+
+        MaterialButton btn_pad_select = findViewById(R.id.btn_pad_select);
+        if(btn_pad_select != null) {
+            btn_pad_select.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_SELECT);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_start = findViewById(R.id.btn_pad_start);
+        if(btn_pad_start != null) {
+            btn_pad_start.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_START);
+                return true;
+            });
+        }
+
+         MaterialButton btn_pad_a = findViewById(R.id.btn_pad_a);
+        if(btn_pad_a != null) {
+            btn_pad_a.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_A);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_b = findViewById(R.id.btn_pad_b);
+        if(btn_pad_b != null) {
+            btn_pad_b.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_B);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_x = findViewById(R.id.btn_pad_x);
+        if(btn_pad_x != null) {
+            btn_pad_x.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_X);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_y = findViewById(R.id.btn_pad_y);
+        if(btn_pad_y != null) {
+            btn_pad_y.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_Y);
+                return true;
+            });
+        }
+
+        ////
+
+        MaterialButton btn_pad_l1 = findViewById(R.id.btn_pad_l1);
+        if(btn_pad_l1 != null) {
+            btn_pad_l1.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_L1);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_r1 = findViewById(R.id.btn_pad_r1);
+        if(btn_pad_r1 != null) {
+            btn_pad_r1.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_R1);
+                return true;
+            });
+        }
+
+        MaterialButton btn_pad_l2 = findViewById(R.id.btn_pad_l2);
+        if(btn_pad_l2 != null) {
+            btn_pad_l2.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_L2);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_r2 = findViewById(R.id.btn_pad_r2);
+        if(btn_pad_r2 != null) {
+            btn_pad_r2.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_R2);
+                return true;
+            });
+        }
+
+        MaterialButton btn_pad_l3 = findViewById(R.id.btn_pad_l3);
+        if(btn_pad_l3 != null) {
+            btn_pad_l3.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_THUMBL);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_r3 = findViewById(R.id.btn_pad_r3);
+        if(btn_pad_r3 != null) {
+            btn_pad_r3.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_BUTTON_THUMBR);
+                return true;
+            });
+        }
+
+        ////
+
+        final int PAD_L_UP = 110;
+        final int PAD_L_RIGHT = 111;
+        final int PAD_L_DOWN = 112;
+        final int PAD_L_LEFT = 113;
+
+        final int PAD_R_UP = 120;
+        final int PAD_R_RIGHT = 121;
+        final int PAD_R_DOWN = 122;
+        final int PAD_R_LEFT = 123;
+
+        MaterialButton btn_pad_joy_lt = findViewById(R.id.btn_pad_joy_lt);
+        if(btn_pad_joy_lt != null) {
+            btn_pad_joy_lt.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), PAD_L_UP);
+                sendKeyAction(v, event.getAction(), PAD_L_LEFT);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_joy_t = findViewById(R.id.btn_pad_joy_t);
+        if(btn_pad_joy_t != null) {
+            btn_pad_joy_t.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), PAD_L_UP);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_joy_rt = findViewById(R.id.btn_pad_joy_rt);
+        if(btn_pad_joy_rt != null) {
+            btn_pad_joy_rt.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), PAD_L_UP);
+                sendKeyAction(v, event.getAction(), PAD_L_RIGHT);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_joy_l = findViewById(R.id.btn_pad_joy_l);
+        if(btn_pad_joy_l != null) {
+            btn_pad_joy_l.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), PAD_L_LEFT);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_joy_r = findViewById(R.id.btn_pad_joy_r);
+        if(btn_pad_joy_r != null) {
+            btn_pad_joy_r.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), PAD_L_RIGHT);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_joy_lb = findViewById(R.id.btn_pad_joy_lb);
+        if(btn_pad_joy_lb != null) {
+            btn_pad_joy_lb.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), PAD_L_LEFT);
+                sendKeyAction(v, event.getAction(), PAD_L_DOWN);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_joy_b = findViewById(R.id.btn_pad_joy_b);
+        if(btn_pad_joy_b != null) {
+            btn_pad_joy_b.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), PAD_L_DOWN);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_joy_rb = findViewById(R.id.btn_pad_joy_rb);
+        if(btn_pad_joy_rb != null) {
+            btn_pad_joy_rb.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), PAD_L_RIGHT);
+                sendKeyAction(v, event.getAction(), PAD_L_DOWN);
+                return true;
+            });
+        }
+
+        // Draggable JoystickView (portrait/landscape layouts)
+        View joystick = findViewById(R.id.joystick_view);
+        if (joystick instanceof JoystickView) {
+            JoystickView jv = (JoystickView) joystick;
+            jv.setOnMoveListener((nx, ny, action) -> {
+                // Thresholds
+                final float T = 0.3f;
+                boolean up = ny < -T;
+                boolean down = ny > T;
+                boolean left = nx < -T;
+                boolean right = nx > T;
+
+                // Issue key down/up transitions only when state changes
+                if (up != joyUpPressed) {
+                    sendKeyAction(jv, up ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP, PAD_L_UP);
+                    joyUpPressed = up;
+                }
+                if (down != joyDownPressed) {
+                    sendKeyAction(jv, down ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP, PAD_L_DOWN);
+                    joyDownPressed = down;
+                }
+                if (left != joyLeftPressed) {
+                    sendKeyAction(jv, left ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP, PAD_L_LEFT);
+                    joyLeftPressed = left;
+                }
+                if (right != joyRightPressed) {
+                    sendKeyAction(jv, right ? MotionEvent.ACTION_DOWN : MotionEvent.ACTION_UP, PAD_L_RIGHT);
+                    joyRightPressed = right;
+                }
+
+                if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                    // Ensure all released
+                    if (joyUpPressed)  sendKeyAction(jv, MotionEvent.ACTION_UP, PAD_L_UP);
+                    if (joyDownPressed) sendKeyAction(jv, MotionEvent.ACTION_UP, PAD_L_DOWN);
+                    if (joyLeftPressed) sendKeyAction(jv, MotionEvent.ACTION_UP, PAD_L_LEFT);
+                    if (joyRightPressed) sendKeyAction(jv, MotionEvent.ACTION_UP, PAD_L_RIGHT);
+                    joyUpPressed = joyDownPressed = joyLeftPressed = joyRightPressed = false;
+                }
+            });
+        }
+
+        ////
+
+        MaterialButton btn_pad_dir_top = findViewById(R.id.btn_pad_dir_top);
+        if(btn_pad_dir_top != null) {
+            btn_pad_dir_top.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_DPAD_UP);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_dir_bottom = findViewById(R.id.btn_pad_dir_bottom);
+        if(btn_pad_dir_bottom != null) {
+            btn_pad_dir_bottom.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_DPAD_DOWN);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_dir_left = findViewById(R.id.btn_pad_dir_left);
+        if(btn_pad_dir_left != null) {
+            btn_pad_dir_left.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_DPAD_LEFT);
+                return true;
+            });
+        }
+        MaterialButton btn_pad_dir_right = findViewById(R.id.btn_pad_dir_right);
+        if(btn_pad_dir_right != null) {
+            btn_pad_dir_right.setOnTouchListener((v, event) -> {
+                sendKeyAction(v, event.getAction(), KeyEvent.KEYCODE_DPAD_RIGHT);
+                return true;
+            });
+        }
+    }
+
+    private boolean allUIHidden = false;
+
+    private void setControlsVisible(boolean visible) {
+        int vis = visible ? View.VISIBLE : View.GONE;
+        View llDpad = findViewById(R.id.ll_pad_dpad);
+        View llRight = findViewById(R.id.ll_pad_right_buttons);
+        View llSelectStart = findViewById(R.id.ll_pad_select_start);
+        View llJoy = findViewById(R.id.ll_pad_joy);
+
+        if (llDpad != null) llDpad.setVisibility(vis);
+        if (llRight != null) llRight.setVisibility(vis);
+        if (llSelectStart != null) llSelectStart.setVisibility(vis);
+        if (llJoy != null) llJoy.setVisibility(vis);
+    }
+
+    private void toggleAllUIVisibility() {
+        allUIHidden = !allUIHidden;
+        int vis = allUIHidden ? View.GONE : View.VISIBLE;
+        
+        // Hide/show all UI elements
+        View btnSettings = findViewById(R.id.btn_settings);
+        View btnToggleControls = findViewById(R.id.btn_toggle_controls);
+        View btnFile = findViewById(R.id.btn_file);
+        View btnBios = findViewById(R.id.btn_bios);
+        View btnSaves = findViewById(R.id.btn_saves);
+        View btnHideUI = findViewById(R.id.btn_hide_ui);
+        
+        if (btnSettings != null) btnSettings.setVisibility(vis);
+        if (btnToggleControls != null) btnToggleControls.setVisibility(vis);
+        if (btnFile != null) btnFile.setVisibility(vis);
+        if (btnBios != null) btnBios.setVisibility(vis);
+        if (btnSaves != null) btnSaves.setVisibility(vis);
+        if (btnHideUI != null) btnHideUI.setVisibility(vis);
+        
+        // Hide/show on-screen controls
+        if (!allUIHidden) {
+            // When showing UI again, restore controls to their previous state
+            setControlsVisible(true); // You might want to remember the previous state
+        } else {
+            // When hiding all UI, also hide controls
+            setControlsVisible(false);
+        }
+        
+        // Show a small unhide button when UI is hidden
+        View unhideButton = findViewById(R.id.btn_unhide_ui);
+        if (unhideButton != null) {
+            unhideButton.setVisibility(allUIHidden ? View.VISIBLE : View.GONE);
+        }
+    }
+
+    private void tintAllMaterialButtonOutlines() {
+        // Brand strokes
+        final ColorStateList strokeDefault = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_outline));
+        final ColorStateList strokePrimary = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_primary));
+        final ColorStateList strokeSecondary = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_secondary));
+
+        View root = findViewById(android.R.id.content);
+        if (root instanceof ViewGroup) {
+            traverseAndTintButtons((ViewGroup) root, strokeDefault, strokePrimary, strokeSecondary);
+        }
+    }
+
+    private void traverseAndTintButtons(ViewGroup group, ColorStateList strokeDefault, ColorStateList strokePrimary, ColorStateList strokeSecondary) {
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child instanceof ViewGroup) {
+                traverseAndTintButtons((ViewGroup) child, strokeDefault, strokePrimary, strokeSecondary);
+            }
+            if (child instanceof MaterialButton) {
+                MaterialButton mb = (MaterialButton) child;
+                // Ensure ripple matches brand globally
+                mb.setRippleColor(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_ripple)));
+                int id = mb.getId();
+                if (id == R.id.btn_settings || id == R.id.btn_toggle_controls) {
+                    mb.setStrokeColor(strokePrimary);
+                } else if (id == R.id.btn_file || id == R.id.btn_bios || id == R.id.btn_saves || id == R.id.btn_hide_ui) {
+                    mb.setStrokeColor(strokeSecondary);
+                } else if (id == R.id.btn_pad_y) { // Triangle = green
+                    final int base = ContextCompat.getColor(this, R.color.ps2_triangle_green);
+                    ColorStateList stateful = pressedColorStateList(base);
+                    mb.setStrokeColor(stateful);
+                    mb.setTextColor(stateful);
+                } else if (id == R.id.btn_pad_b) { // Circle = red
+                    final int base = ContextCompat.getColor(this, R.color.ps2_circle_red);
+                    ColorStateList stateful = pressedColorStateList(base);
+                    mb.setStrokeColor(stateful);
+                    mb.setTextColor(stateful);
+                } else if (id == R.id.btn_pad_a) { // Cross = blue
+                    final int base = ContextCompat.getColor(this, R.color.ps2_cross_blue);
+                    ColorStateList stateful = pressedColorStateList(base);
+                    mb.setStrokeColor(stateful);
+                    mb.setTextColor(stateful);
+                } else if (id == R.id.btn_pad_x) { // Square = pink
+                    final int base = ContextCompat.getColor(this, R.color.ps2_square_pink);
+                    ColorStateList stateful = pressedColorStateList(base);
+                    mb.setStrokeColor(stateful);
+                    mb.setTextColor(stateful);
+                } else if (id == R.id.btn_pad_dir_top || id == R.id.btn_pad_dir_left || id == R.id.btn_pad_dir_right || id == R.id.btn_pad_dir_bottom) {
+                    // D-pad arrow icon tint to brand accent
+                    ColorStateList iconTint = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_accent));
+                    mb.setIconTint(iconTint);
+                } else {
+                    mb.setStrokeColor(strokeDefault);
+                }
+                mb.setStrokeWidth(1);
+            }
+        }
+    }
+
+    private ColorStateList pressedColorStateList(int base) {
+        int pressed = darkenColor(base, 0.85f); // 15% darker when pressed
+        int[][] states = new int[][]{
+                new int[]{android.R.attr.state_pressed},
+                new int[]{}
+        };
+        int[] colors = new int[]{
+                pressed,
+                base
+        };
+        return new ColorStateList(states, colors);
+    }
+
+    private int darkenColor(int color, float factor) {
+        int a = (color >> 24) & 0xFF;
+        int r = (color >> 16) & 0xFF;
+        int g = (color >> 8) & 0xFF;
+        int b = color & 0xFF;
+        r = Math.max(0, Math.min(255, (int)(r * factor)));
+        g = Math.max(0, Math.min(255, (int)(g * factor)));
+        b = Math.max(0, Math.min(255, (int)(b * factor)));
+        return (a << 24) | (r << 16) | (g << 8) | b;
+    }
+
+    private void applySavedSettings() {
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        // Renderer: 12=OpenGL, 13=Software, 14=Vulkan
+        int renderer = prefs.getInt("renderer", 14);
+        NativeApp.renderGpu(renderer);
+
+        // Resolution scale multiplier (float), default 1.0
+        float scale = prefs.getFloat("upscale_multiplier", 1.0f);
+        NativeApp.renderUpscalemultiplier(scale);
+
+        // Aspect ratio: 0=Stretch, 1=Auto 4:3/3:2, 2=4:3, 3=16:9, 4=10:7
+        int aspectRatio = prefs.getInt("aspect_ratio", 1); // Default to Auto 4:3/3:2
+        NativeApp.setAspectRatio(aspectRatio);
+
+        // Widescreen patches
+        boolean widescreenPatches = prefs.getBoolean("widescreen_patches", false);
+        NativeApp.setWidescreenPatches(widescreenPatches);
+
+        // No interlacing patches
+        boolean noInterlacingPatches = prefs.getBoolean("no_interlacing_patches", false);
+        NativeApp.setNoInterlacingPatches(noInterlacingPatches);
+
+        // HUD visibility
+        boolean hudVisible = prefs.getBoolean("hud_visible", false);
+        NativeApp.setHudVisible(hudVisible);
+    }
+
+    public final ActivityResultLauncher<Intent> startActivityResultLocalFilePlay = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if(result.getResultCode() == Activity.RESULT_OK) {
+                    try {
+                        Intent _intent = result.getData();
+                        if(_intent != null) {
+                            m_szGamefile = _intent.getDataString();
+                            if(!TextUtils.isEmpty(m_szGamefile)) {
+                                restartEmuThread();
+                            }
+                        }
+                    }
+                    catch (Exception ignored) {}
+                }
+            }
+        );
+
+    public final ActivityResultLauncher<Intent> startActivityResultBiosPick = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK) {
+                    try {
+                        Intent data = result.getData();
+                        if (data != null) {
+                            File biosDir = new File(getApplicationContext().getExternalFilesDir(null), "bios");
+                            if (!biosDir.exists()) biosDir.mkdirs();
+
+                            ClipData clipData = data.getClipData();
+                            if (clipData != null && clipData.getItemCount() > 0) {
+                                for (int i = 0; i < clipData.getItemCount(); i++) {
+                                    Uri uri = clipData.getItemAt(i).getUri();
+                                    importSingleBiosUri(uri, biosDir);
+                                }
+                            } else {
+                                Uri uri = data.getData();
+                                if (uri != null) {
+                                    importSingleBiosUri(uri, biosDir);
+                                }
+                            }
+                            
+                        }
+                    } catch (Exception ignored) {}
+                }
+            });
+
+    public final ActivityResultLauncher<Intent> startActivityResultBiosFolderPick = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK) {
+                    try {
+                        Intent data = result.getData();
+                        if (data != null) {
+                            Uri treeUri = data.getData();
+                            if (treeUri != null) {
+                                // Persist read permission for future imports, optional
+                                final int takeFlags = (data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION));
+                                getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+
+                                DocumentFile pickedDir = DocumentFile.fromTreeUri(this, treeUri);
+                                if (pickedDir != null && pickedDir.isDirectory()) {
+                                    File biosDir = new File(getApplicationContext().getExternalFilesDir(null), "bios");
+                                    if (!biosDir.exists()) biosDir.mkdirs();
+                                    copyDocumentTreeToDirectory(pickedDir, biosDir);
+                                }
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            });
+
+    public final ActivityResultLauncher<Intent> startActivityResultGamesFolderPick = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK) {
+                    try {
+                        Intent data = result.getData();
+                        if (data != null) {
+                            Uri treeUri = data.getData();
+                            if (treeUri != null) {
+                                final int takeFlags = (data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION));
+                                try {
+                                    getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+                                } catch (SecurityException ignored) {}
+                                // Save folder and show games
+                                getSharedPreferences("app_prefs", MODE_PRIVATE)
+                                        .edit()
+                                        .putString("games_folder_uri", treeUri.toString())
+                                        .apply();
+                                showGamesListOrReselect(treeUri);
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            });
+
+    private void importSingleBiosUri(Uri uri, File biosDir) {
+        if (uri == null) return;
+        String displayName = getDisplayNameFromUri(this, uri);
+        if (TextUtils.isEmpty(displayName)) displayName = "bios.bin";
+        File outFile = new File(biosDir, displayName);
+        copyUriToFile(this, uri, outFile);
+    }
+
+    private void copyDocumentTreeToDirectory(DocumentFile dir, File outDir) {
+        if (dir == null || !dir.isDirectory()) return;
+        DocumentFile[] children = dir.listFiles();
+        if (children == null) return;
+        for (DocumentFile child : children) {
+            if (child == null) continue;
+            if (child.isDirectory()) {
+                File sub = new File(outDir, child.getName() != null ? child.getName() : "folder");
+                if (!sub.exists()) sub.mkdirs();
+                copyDocumentTreeToDirectory(child, sub);
+            } else if (child.isFile()) {
+                String name = child.getName();
+                if (TextUtils.isEmpty(name)) name = "bios.bin";
+                File dest = new File(outDir, name);
+                copyUriToFile(this, child.getUri(), dest);
+            }
+        }
+    }
+
+    private static String getDisplayNameFromUri(Context context, Uri uri) {
+        String name = null;
+        Cursor cursor = context.getContentResolver().query(uri, null, null, null, null);
+        if (cursor != null) {
+            try {
+                int nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (nameIndex >= 0 && cursor.moveToFirst()) {
+                    name = cursor.getString(nameIndex);
+                }
+            } finally {
+                cursor.close();
+            }
+        }
+        if (TextUtils.isEmpty(name)) {
+            name = uri.getLastPathSegment();
+        }
+        return name;
+    }
+
+    private static boolean copyUriToFile(Context context, Uri uri, File destFile) {
+        InputStream is = null;
+        FileOutputStream os = null;
+        try {
+            is = context.getContentResolver().openInputStream(uri);
+            if (is == null) return false;
+            os = new FileOutputStream(destFile);
+            byte[] buffer = new byte[8192];
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                os.write(buffer, 0, read);
+            }
+            os.flush();
+            return true;
+        } catch (Exception e) {
+            return false;
+        } finally {
+            try { if (is != null) is.close(); } catch (Exception ignored) {}
+            try { if (os != null) os.close(); } catch (Exception ignored) {}
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        NativeApp.pause();
+        super.onPause();
+        ////
+        if (mHIDDeviceManager != null) {
+            mHIDDeviceManager.setFrozen(true);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        NativeApp.resume();
+        super.onResume();
+        ////
+        if (mHIDDeviceManager != null) {
+            mHIDDeviceManager.setFrozen(false);
+        }
+        // Re-assert full screen when returning to the activity
+        hideStatusBar();
+    }
+
+    @Override
+    protected void onDestroy() {
+        NativeApp.shutdown();
+        super.onDestroy();
+        ////
+        if (mHIDDeviceManager != null) {
+            HIDDeviceManager.release(mHIDDeviceManager);
+            mHIDDeviceManager = null;
+        }
+        ////
+        if (mEmulationThread != null) {
+            try {
+                mEmulationThread.join();
+                mEmulationThread = null;
+            }
+            catch (InterruptedException ignored) {}
+        }
+
+        int appPid = android.os.Process.myPid();
+        android.os.Process.killProcess(appPid);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+
+    public void Initialize() {
+        NativeApp.initializeOnce(getApplicationContext());
+
+        // Set up JNI
+        SDLControllerManager.nativeSetupJNI();
+
+        // Initialize state
+        SDLControllerManager.initialize();
+
+        // Load and apply saved settings
+        SettingsDialogFragment.loadAndApplySettings(this);
+
+        mHIDDeviceManager = HIDDeviceManager.acquire(this);
+    }
+
+    private void setSurfaceView(Object p_value) {
+        FrameLayout fl_board = findViewById(R.id.fl_board);
+        if(fl_board != null) {
+            if(fl_board.getChildCount() > 0) {
+                fl_board.removeAllViews();
+            }
+            ////
+            if(p_value instanceof SDLSurface) {
+                fl_board.addView((SDLSurface)p_value);
+            }
+        }
+    }
+
+    public void startEmuThread() {
+        if(!isThread()) {
+            mEmulationThread = new Thread(() -> NativeApp.runVMThread(m_szGamefile));
+            mEmulationThread.start();
+        }
+    }
+
+    private void restartEmuThread() {
+        NativeApp.shutdown();
+        if (mEmulationThread != null) {
+            try {
+                mEmulationThread.join();
+                mEmulationThread = null;
+            }
+            catch (InterruptedException ignored) {}
+        }
+        ////
+        startEmuThread();
+    }
+
+    // Public API for UI components to reboot the emulator
+    public void rebootEmu() {
+        if (!TextUtils.isEmpty(m_szGamefile)) {
+            restartEmuThread();
+        } else {
+            // No game loaded; just shutdown for safety
+            NativeApp.shutdown();
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+
+    @Override
+    public boolean onGenericMotionEvent(MotionEvent event) {
+        if (SDLControllerManager.isDeviceSDLJoystick(event.getDeviceId())) {
+            SDLControllerManager.handleJoystickMotionEvent(event);
+            return true;
+        }
+        return super.onGenericMotionEvent(event);
+    }
+
+    @Override
+    public boolean onKeyDown(int p_keyCode, KeyEvent p_event) {
+        if ((p_event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
+            if (p_event.getRepeatCount() == 0) {
+                SDLControllerManager.onNativePadDown(p_event.getDeviceId(), p_keyCode);
+                return true;
+            }
+        }
+        else {
+            if (p_keyCode == KeyEvent.KEYCODE_BACK) {
+                showExitDialog();
+                return true;
+            }
+        }
+        return super.onKeyDown(p_keyCode, p_event);
+    }
+
+    @Override
+    public boolean onKeyUp(int p_keyCode, KeyEvent p_event) {
+        if ((p_event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
+            if (p_event.getRepeatCount() == 0) {
+                SDLControllerManager.onNativePadUp(p_event.getDeviceId(), p_keyCode);
+                return true;
+            }
+        }
+        return super.onKeyUp(p_keyCode, p_event);
+    }
+
+    public static void sendKeyAction(View p_view, int p_action, int p_keycode) {
+        if(p_action == MotionEvent.ACTION_DOWN) {
+            p_view.setPressed(true);
+            int pad_force = 0;
+            if(p_keycode >= 110) {
+                float _abs = 90; // Joystic test value
+                _abs = Math.min(_abs, 100);
+                pad_force = (int) (_abs * 32766.0f / 100);
+            }
+            NativeApp.setPadButton(p_keycode, pad_force, true);
+        } else if(p_action == MotionEvent.ACTION_UP || p_action == MotionEvent.ACTION_CANCEL) {
+            p_view.setPressed(false);
+            NativeApp.setPadButton(p_keycode, 0, false);
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////////
+    // Asset copy helpers used on first launch to seed default resources
+    private void copyAssetAll(Context context, String srcPath) {
+        AssetManager assetMgr = context.getAssets();
+        try {
+            String[] assets = assetMgr.list(srcPath);
+            String destPath = context.getExternalFilesDir(null) + File.separator + srcPath;
+            if (assets != null) {
+                if (assets.length == 0) {
+                    copyFile(context, srcPath, destPath);
+                } else {
+                    File dir = new File(destPath);
+                    if (!dir.exists()) dir.mkdirs();
+                    for (String element : assets) {
+                        copyAssetAll(context, srcPath + File.separator + element);
+                    }
+                }
+            }
+        } catch (IOException ignored) {}
+    }
+
+    private static void copyFile(Context context, String srcFile, String destFile) {
+        AssetManager assetMgr = context.getAssets();
+        InputStream is = null;
+        FileOutputStream os = null;
+        try {
+            is = assetMgr.open(srcFile);
+            boolean exists = new File(destFile).exists();
+            if (srcFile.contains("shaders")) {
+                exists = false; // always refresh shaders
+            }
+            if (!exists) {
+                File parent = new File(destFile).getParentFile();
+                if (parent != null && !parent.exists()) parent.mkdirs();
+                os = new FileOutputStream(destFile);
+                byte[] buffer = new byte[4096];
+                int read;
+                while ((read = is.read(buffer)) != -1) {
+                    os.write(buffer, 0, read);
+                }
+                os.flush();
+            }
+        } catch (IOException ignored) {
+        } finally {
+            try { if (is != null) is.close(); } catch (IOException ignored) {}
+            try { if (os != null) os.close(); } catch (IOException ignored) {}
+        }
+    }
+
+
+
+    @Override
+    public void onBackPressed() {
+        // Fallback for older Android versions
+        showExitDialog();
+    }
+
+    private void showExitDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Exit App")
+                .setMessage("Do you want to exit PSX2?")
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setPositiveButton("Exit", (dialog, which) -> {
+                    // Stop emulator first
+                    NativeApp.shutdown();
+                    // Quit the app
+                    finishAffinity();
+                    finishAndRemoveTask();
+                    // As a fallback ensure process exit
+                    System.exit(0);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+}

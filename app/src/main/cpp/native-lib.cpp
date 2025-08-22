@@ -4,9 +4,11 @@
 #include "PrecompiledHeader.h"
 #include "common/StringUtil.h"
 #include "common/FileSystem.h"
+#include "common/Error.h"
 #include "common/ZipHelpers.h"
 #include "pcsx2/GS.h"
 #include "pcsx2/VMManager.h"
+#include "CDVD/CDVD.h"
 #include "PerformanceMetrics.h"
 #include "GameList.h"
 #include "GS/GSPerfMon.h"
@@ -14,6 +16,7 @@
 #include "ImGui/ImGuiManager.h"
 #include "common/Path.h"
 #include "common/MemorySettingsInterface.h"
+#include "pcsx2/INISettingsInterface.h"
 #include "SIO/Pad/Pad.h"
 #include "Input/InputManager.h"
 #include "ImGui/ImGuiFullscreen.h"
@@ -32,6 +35,10 @@ int s_window_height = 0;
 ANativeWindow* s_window = nullptr;
 
 static MemorySettingsInterface s_settings_interface;
+static int s_pending_renderer = -1; // -1 = none; else 12=OpenGL,13=SW,14=Vulkan
+
+// Fallback JNI access for content:// when SDL's Android env is not yet ready
+// (no JNI fallback)
 
 ////
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
@@ -44,9 +51,122 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
     return cpp_string;
 }
 
+static void ApplyPerGameSettingsForPath(const std::string& game_path)
+{
+    // Determine serial via CDVD using the same path the core will open
+    Error error;
+    std::string serial;
+    auto* prev = CDVD;
+    CDVD = &CDVDapi_Iso;
+    if (CDVD->open(game_path, &error))
+    {
+        (void)DoCDVDdetectDiskType();
+        cdvdGetDiscInfo(&serial, nullptr, nullptr, nullptr, nullptr);
+        DoCDVDclose();
+    }
+    CDVD = prev;
+
+    if (serial.empty())
+        return;
+
+    // Build settings path and load
+    const std::string settings_dir = Path::Combine(EmuFolders::DataRoot, "gamesettings");
+    const std::string settings_path = Path::Combine(settings_dir, serial + ".ini");
+    INISettingsInterface per_game(settings_path);
+    if (!per_game.Load())
+        return;
+
+    // Map known keys into our in-memory settings layer and apply where possible
+    std::string s;
+    float fval = 0.0f;
+    bool bval = false;
+
+    if (per_game.GetStringValue("EmuCore/GS", "Renderer", &s))
+    {
+        s_settings_interface.SetStringValue("EmuCore/GS", "Renderer", s.c_str());
+        // Defer actual renderer switch until VM is initialized
+        int rend = -1;
+        if (StringUtil::Strcasecmp(s.c_str(), "OpenGL") == 0) rend = 12;
+        else if (StringUtil::Strcasecmp(s.c_str(), "Software") == 0) rend = 13;
+        else if (StringUtil::Strcasecmp(s.c_str(), "Vulkan") == 0) rend = 14;
+        if (rend >= 0)
+            s_pending_renderer = rend;
+    }
+    if (per_game.GetFloatValue("EmuCore/GS", "upscale_multiplier", &fval))
+        s_settings_interface.SetFloatValue("EmuCore/GS", "upscale_multiplier", fval);
+    int abl_int = -1;
+    if (per_game.GetIntValue("EmuCore/GS", "accurate_blending_unit", &abl_int))
+    {
+        s_settings_interface.SetStringValue("EmuCore/GS", "accurate_blending_unit", StringUtil::StdStringFromFormat("%d", abl_int).c_str());
+    }
+    else if (per_game.GetStringValue("EmuCore/GS", "accurate_blending_unit", &s))
+    {
+        int lvl = 1;
+        if (StringUtil::Strcasecmp(s.c_str(), "Minimum") == 0) lvl = 0;
+        else if (StringUtil::Strcasecmp(s.c_str(), "Basic") == 0) lvl = 1;
+        else if (StringUtil::Strcasecmp(s.c_str(), "Medium") == 0) lvl = 2;
+        else if (StringUtil::Strcasecmp(s.c_str(), "High") == 0) lvl = 3;
+        else if (StringUtil::Strcasecmp(s.c_str(), "Full") == 0) lvl = 4;
+        else if (StringUtil::Strcasecmp(s.c_str(), "Maximum") == 0) lvl = 5;
+        s_settings_interface.SetStringValue("EmuCore/GS", "accurate_blending_unit", StringUtil::StdStringFromFormat("%d", lvl).c_str());
+    }
+
+    if (per_game.GetBoolValue("EmuCore", "EnableWideScreenPatches", &bval))
+        s_settings_interface.SetBoolValue("EmuCore", "EnableWideScreenPatches", bval);
+    if (per_game.GetBoolValue("EmuCore", "EnableNoInterlacingPatches", &bval))
+        s_settings_interface.SetBoolValue("EmuCore", "EnableNoInterlacingPatches", bval);
+    if (per_game.GetBoolValue("EmuCore", "EnablePatches", &bval))
+        s_settings_interface.SetBoolValue("EmuCore", "EnablePatches", bval);
+    if (per_game.GetBoolValue("EmuCore", "EnableCheats", &bval))
+        s_settings_interface.SetBoolValue("EmuCore", "EnableCheats", bval);
+}
+
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_initialize(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_setHudVisible(JNIEnv* env, jclass clazz, jboolean p_visible)
+{
+    const bool visible = (p_visible == JNI_TRUE);
+    MemorySettingsInterface& si = s_settings_interface;
+
+    // Toggle most HUD/OSD elements together
+    si.SetBoolValue("EmuCore/GS", "OsdShowSpeed", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowFPS", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowVPS", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowCPU", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowGPU", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowResolution", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowGSStats", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowIndicators", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowSettings", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowInputs", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowFrameTimes", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowVersion", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowHardwareInfo", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowVideoCapture", visible);
+    si.SetBoolValue("EmuCore/GS", "OsdShowInputRec", visible);
+
+    // Apply changes to the running VM/renderer if active
+    VMManager::ApplySettings();
+    if (MTGS::IsOpen())
+        MTGS::ApplySettings();
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_setBlendingAccuracy(JNIEnv* env, jclass, jint level)
+{
+    // level: 0..5 -> numeric string
+    if (level < 0) level = 0; if (level > 5) level = 5;
+    s_settings_interface.SetStringValue("EmuCore/GS", "accurate_blending_unit", StringUtil::StdStringFromFormat("%d", level).c_str());
+    if (VMManager::HasValidVM())
+        VMManager::ApplySettings();
+    if (MTGS::IsOpen())
+        MTGS::ApplySettings();
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_initialize(JNIEnv *env, jclass clazz,
                                                 jstring p_szpath, jint p_apiVer) {
     std::string _szPath = GetJavaString(env, p_szpath);
     EmuFolders::AppRoot = _szPath;
@@ -61,6 +181,11 @@ Java_kr_co_iefriends_pcsx2_NativeApp_initialize(JNIEnv *env, jclass clazz,
         // don't provide an ini path, or bother loading. we'll store everything in memory.
         MemorySettingsInterface &si = s_settings_interface;
         Host::Internal::SetBaseSettingsLayer(&si);
+
+        // Initialize emulator folders and ensure they exist (including GameSettings)
+        EmuFolders::SetDefaults(si);
+        EmuFolders::LoadConfig(si);
+        EmuFolders::EnsureFoldersExist();
 
         VMManager::SetDefaultSettings(si, true, true, true, true, true);
 
@@ -85,10 +210,22 @@ Java_kr_co_iefriends_pcsx2_NativeApp_initialize(JNIEnv *env, jclass clazz,
         si.SetBoolValue("Logging", "EnableTimestamps", true);
         si.SetBoolValue("Logging", "EnableVerbose", true);
 
-        // and show some stats :)
-        si.SetBoolValue("EmuCore/GS", "OsdShowFPS", true);
-        si.SetBoolValue("EmuCore/GS", "OsdShowResolution", true);
-        si.SetBoolValue("EmuCore/GS", "OsdShowGSStats", true);
+        // Default to a clean screen: hide HUD/OSD overlays by default
+        si.SetBoolValue("EmuCore/GS", "OsdShowSpeed", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowFPS", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowVPS", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowCPU", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowGPU", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowResolution", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowGSStats", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowIndicators", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowSettings", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowInputs", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowFrameTimes", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowVersion", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowHardwareInfo", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowVideoCapture", false);
+        si.SetBoolValue("EmuCore/GS", "OsdShowInputRec", false);
 
 //        // remove memory cards, so we don't have sharing violations
 //        for (u32 i = 0; i < 2; i++)
@@ -103,7 +240,7 @@ Java_kr_co_iefriends_pcsx2_NativeApp_initialize(JNIEnv *env, jclass clazz,
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_getGameTitle(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_getGameTitle(JNIEnv *env, jclass clazz,
                                                   jstring p_szpath) {
     std::string _szPath = GetJavaString(env, p_szpath);
 
@@ -122,41 +259,88 @@ Java_kr_co_iefriends_pcsx2_NativeApp_getGameTitle(JNIEnv *env, jclass clazz,
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_getGameSerial(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_getCurrentGameSerial(JNIEnv *env, jclass clazz) {
     std::string ret = VMManager::GetDiscSerial();
     return env->NewStringUTF(ret.c_str());
 }
 
 extern "C"
 JNIEXPORT jfloat JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_getFPS(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_getFPS(JNIEnv *env, jclass clazz) {
     return (jfloat)PerformanceMetrics::GetFPS();
 }
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_getPauseGameTitle(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_getPauseGameTitle(JNIEnv *env, jclass clazz) {
     std::string ret = VMManager::GetTitle(true);
     return env->NewStringUTF(ret.c_str());
 }
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_getPauseGameSerial(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_getPauseGameSerial(JNIEnv *env, jclass clazz) {
     std::string ret = StringUtil::StdStringFromFormat("%s (%08X)", VMManager::GetDiscSerial().c_str(), VMManager::GetDiscCRC());
     return env->NewStringUTF(ret.c_str());
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_izzy2lost_psx2_NativeApp_getGameSerial(JNIEnv* env, jclass, jstring p_uri)
+{
+    if (!p_uri)
+        return env->NewStringUTF("");
+    std::string path = GetJavaString(env, p_uri);
+
+    // Direct CDVD open to support content:// URIs for ISO/CHD
+    Error error;
+    std::string serial;
+    auto* prev = CDVD;
+    CDVD = &CDVDapi_Iso;
+    if (CDVD->open(path, &error))
+    {
+        (void)DoCDVDdetectDiskType();
+        cdvdGetDiscInfo(&serial, nullptr, nullptr, nullptr, nullptr);
+        DoCDVDclose();
+    }
+    CDVD = prev;
+    return env->NewStringUTF(serial.c_str());
+}
+
+extern "C"
+JNIEXPORT jstring JNICALL
+Java_com_izzy2lost_psx2_NativeApp_getGameCrc(JNIEnv* env, jclass, jstring p_uri)
+{
+    if (!p_uri)
+        return env->NewStringUTF("");
+    std::string path = GetJavaString(env, p_uri);
+
+    Error error;
+    u32 crc = 0;
+    auto* prev = CDVD;
+    CDVD = &CDVDapi_Iso;
+    if (CDVD->open(path, &error))
+    {
+        (void)DoCDVDdetectDiskType();
+        cdvdGetDiscInfo(nullptr, nullptr, nullptr, &crc, nullptr);
+        DoCDVDclose();
+    }
+    CDVD = prev;
+
+    const std::string crc_hex = (crc != 0) ? StringUtil::StdStringFromFormat("%08X", crc) : std::string("");
+    return env->NewStringUTF(crc_hex.c_str());
 }
 
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_setPadVibration(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_setPadVibration(JNIEnv *env, jclass clazz,
                                                      jboolean p_isOnOff) {
 }
 
 
 extern "C" JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_setPadButton(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_setPadButton(JNIEnv *env, jclass clazz,
                                                   jint p_key, jint p_range, jboolean p_keyPressed) {
     PadDualshock2::Inputs _key;
     switch (p_key) {
@@ -191,66 +375,305 @@ Java_kr_co_iefriends_pcsx2_NativeApp_setPadButton(JNIEnv *env, jclass clazz,
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_resetKeyStatus(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_resetKeyStatus(JNIEnv *env, jclass clazz) {
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_setEnableCheats(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_setEnableCheats(JNIEnv *env, jclass clazz,
                                                      jboolean p_isonoff) {
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_setAspectRatio(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_setAspectRatio(JNIEnv *env, jclass clazz,
                                                     jint p_type) {
+    // AspectRatio values: 0=Stretch, 1=Auto 4:3/3:2, 2=4:3, 3=16:9, 4=10:7
+    const char* aspect_ratio_names[] = {
+        "Stretch",
+        "Auto 4:3/3:2", 
+        "4:3",
+        "16:9",
+        "10:7"
+    };
+    
+    if (p_type >= 0 && p_type < 5) {
+        s_settings_interface.SetStringValue("EmuCore/GS", "AspectRatio", aspect_ratio_names[p_type]);
+        
+        // Apply settings immediately if emulation is running
+        if (VMManager::HasValidVM()) {
+            VMManager::ApplySettings();
+        }
+    }
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_speedhackLimitermode(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_speedhackLimitermode(JNIEnv *env, jclass clazz,
                                                           jint p_value) {
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_speedhackEecyclerate(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_speedhackEecyclerate(JNIEnv *env, jclass clazz,
                                                           jint p_value) {
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_speedhackEecycleskip(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_speedhackEecycleskip(JNIEnv *env, jclass clazz,
                                                           jint p_value) {
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_renderUpscalemultiplier(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_renderUpscalemultiplier(JNIEnv *env, jclass clazz,
                                                              jfloat p_value) {
+    if (p_value < 1.0f) p_value = 1.0f;  // Ensure minimum 1x
+    if (p_value > 12.0f) p_value = 12.0f; // Cap at maximum 12x
+    
+    s_settings_interface.SetFloatValue("EmuCore/GS", "upscale_multiplier", p_value);
+    
+    // Apply the settings immediately if emulation is running
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_renderMipmap(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_setWidescreenPatches(JNIEnv *env, jclass clazz,
+                                                          jboolean p_enabled) {
+    s_settings_interface.SetBoolValue("EmuCore", "EnableWideScreenPatches", p_enabled);
+    
+    // Apply the settings immediately if emulation is running
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_setNoInterlacingPatches(JNIEnv *env, jclass clazz,
+                                                            jboolean p_enabled) {
+    s_settings_interface.SetBoolValue("EmuCore", "EnableNoInterlacingPatches", p_enabled);
+    
+    // Apply the settings immediately if emulation is running
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_setLoadTextures(JNIEnv *env, jclass clazz,
+                                                   jboolean p_enabled) {
+    s_settings_interface.SetBoolValue("EmuCore/GS", "LoadTextureReplacements", p_enabled);
+    
+    // Apply the settings immediately if emulation is running
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_setAsyncTextureLoading(JNIEnv *env, jclass clazz,
+                                                          jboolean p_enabled) {
+    s_settings_interface.SetBoolValue("EmuCore/GS", "LoadTextureReplacementsAsync", p_enabled);
+    
+    // Apply the settings immediately if emulation is running
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_saveGameSettings(JNIEnv *env, jclass clazz, jstring p_filename, 
+                                                     jint p_blending_accuracy, jint p_renderer, 
+                                                     jint p_resolution, jboolean p_widescreen_patches,
+                                                     jboolean p_no_interlacing_patches, jboolean p_enable_patches,
+                                                     jboolean p_enable_cheats)
+{
+    if (!p_filename)
+        return;
+
+    const char* filename_chars = env->GetStringUTFChars(p_filename, nullptr);
+    if (!filename_chars)
+        return;
+
+    // Use DataRoot directly for game settings to ensure write permissions
+    std::string settings_dir = Path::Combine(EmuFolders::DataRoot, "gamesettings");
+    std::string settings_path = Path::Combine(settings_dir, filename_chars);
+    env->ReleaseStringUTFChars(p_filename, filename_chars);
+
+    // Debug logging
+    printf("PCSX2: Saving game settings to: %s\n", settings_path.c_str());
+    printf("PCSX2: Settings directory: %s\n", settings_dir.c_str());
+    printf("PCSX2: Blending: %d, Renderer: %d, Resolution: %d\n", p_blending_accuracy, p_renderer, p_resolution);
+    printf("PCSX2: Widescreen: %d, NoInterlacing: %d, Patches: %d, Cheats: %d\n", 
+           p_widescreen_patches, p_no_interlacing_patches, p_enable_patches, p_enable_cheats);
+
+    // Ensure directory exists
+    FileSystem::CreateDirectoryPath(settings_dir.c_str(), false);
+
+    // Build and write INI content directly to avoid any ambiguous formatting
+    const char* renderers[] = {"Auto", "Vulkan", "OpenGL", "Software"};
+
+    std::string ini;
+    ini.reserve(512);
+    ini += "[EmuCore/GS]\n";
+    // Renderer
+    if (p_renderer >= 0 && p_renderer < 4)
+        ini += std::string("Renderer=") + renderers[p_renderer] + "\n";
+    // Resolution scale (1..8)
+    if (p_resolution >= 0 && p_resolution <= 7)
+    {
+        float multiplier = 1.0f + (float)p_resolution;
+        ini += "upscale_multiplier=" + StringUtil::StdStringFromFormat("%.2f", multiplier) + "\n";
+    }
+    // Blending accuracy as numeric (0..5)
+    if (p_blending_accuracy >= 0 && p_blending_accuracy < 6)
+        ini += std::string("accurate_blending_unit=") + StringUtil::StdStringFromFormat("%d", p_blending_accuracy) + "\n";
+
+    ini += "\n[EmuCore]\n";
+    ini += std::string("EnableWideScreenPatches=") + (p_widescreen_patches ? "true" : "false") + "\n";
+    ini += std::string("EnableNoInterlacingPatches=") + (p_no_interlacing_patches ? "true" : "false") + "\n";
+    ini += std::string("EnablePatches=") + (p_enable_patches ? "true" : "false") + "\n";
+    ini += std::string("EnableCheats=") + (p_enable_cheats ? "true" : "false") + "\n";
+
+    const bool ok = FileSystem::WriteStringToFile(settings_path.c_str(), ini);
+    printf("PCSX2: Settings write %s: %s\n", ok ? "OK" : "FAILED", settings_path.c_str());
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_saveGameSettingsToPath(JNIEnv *env, jclass clazz, jstring p_full_path, 
+                                                           jint p_blending_accuracy, jint p_renderer, 
+                                                           jint p_resolution, jboolean p_widescreen_patches,
+                                                           jboolean p_no_interlacing_patches, jboolean p_enable_patches,
+                                                           jboolean p_enable_cheats)
+{
+    if (!p_full_path)
+        return;
+
+    const char* path_chars = env->GetStringUTFChars(p_full_path, nullptr);
+    if (!path_chars)
+        return;
+
+    std::string settings_path(path_chars);
+    env->ReleaseStringUTFChars(p_full_path, path_chars);
+
+    // Debug logging
+    printf("PCSX2: Saving game settings to full path: %s\n", settings_path.c_str());
+    printf("PCSX2: Blending: %d, Renderer: %d, Resolution: %d\n", p_blending_accuracy, p_renderer, p_resolution);
+    printf("PCSX2: Widescreen: %d, NoInterlacing: %d, Patches: %d, Cheats: %d\n", 
+           p_widescreen_patches, p_no_interlacing_patches, p_enable_patches, p_enable_cheats);
+
+    // Ensure parent directory exists
+    std::string parent_dir(Path::GetDirectory(settings_path));
+    printf("PCSX2: Parent directory: %s\n", parent_dir.c_str());
+    bool dir_created = FileSystem::CreateDirectoryPath(parent_dir.c_str(), false);
+    printf("PCSX2: Directory creation result: %s\n", dir_created ? "SUCCESS" : "FAILED");
+
+    // Check if we can write to the directory
+    bool can_write = FileSystem::DirectoryExists(parent_dir.c_str());
+    printf("PCSX2: Directory exists: %s\n", can_write ? "YES" : "NO");
+
+    INISettingsInterface game_settings(settings_path);
+    
+    // Blending accuracy (0=Minimum, 1=Basic, 2=Medium, 3=High, 4=Full, 5=Maximum)
+    const char* blend_levels[] = {"Minimum", "Basic", "Medium", "High", "Full", "Maximum"};
+    if (p_blending_accuracy >= 0 && p_blending_accuracy < 6) {
+        game_settings.SetStringValue("EmuCore/GS", "accurate_blending_unit", blend_levels[p_blending_accuracy]);
+    }
+
+    // Renderer (0=Auto, 1=Vulkan, 2=OpenGL, 3=Software)
+    const char* renderers[] = {"Auto", "Vulkan", "OpenGL", "Software"};
+    if (p_renderer >= 0 && p_renderer < 4) {
+        game_settings.SetStringValue("EmuCore/GS", "Renderer", renderers[p_renderer]);
+    }
+
+    // Resolution multiplier (same as global scale entries)
+    if (p_resolution >= 0 && p_resolution <= 7) {
+        float multiplier = 1.0f + (float)p_resolution;
+        game_settings.SetFloatValue("EmuCore/GS", "upscale_multiplier", multiplier);
+    }
+
+    // Patches
+    game_settings.SetBoolValue("EmuCore", "EnableWideScreenPatches", p_widescreen_patches);
+    game_settings.SetBoolValue("EmuCore", "EnableNoInterlacingPatches", p_no_interlacing_patches);
+    game_settings.SetBoolValue("EmuCore", "EnablePatches", p_enable_patches);
+    game_settings.SetBoolValue("EmuCore", "EnableCheats", p_enable_cheats);
+
+    // Test basic file write first
+    std::FILE* test_file = std::fopen(settings_path.c_str(), "w");
+    if (test_file) {
+        fprintf(test_file, "# Test file write\n");
+        std::fclose(test_file);
+        printf("PCSX2: Basic file write test: SUCCESS\n");
+    } else {
+        printf("PCSX2: Basic file write test: FAILED - errno: %d\n", errno);
+        return;
+    }
+
+    bool save_result = game_settings.Save();
+    printf("PCSX2: Settings save result: %s\n", save_result ? "SUCCESS" : "FAILED");
+    
+    // Check if file actually exists and has content
+    if (FileSystem::FileExists(settings_path.c_str())) {
+        s64 file_size = FileSystem::GetPathFileSize(settings_path.c_str());
+        printf("PCSX2: File exists with size: %lld bytes\n", file_size);
+    } else {
+        printf("PCSX2: File does not exist after save attempt\n");
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_deleteGameSettings(JNIEnv *env, jclass clazz, jstring p_filename)
+{
+    if (!p_filename)
+        return;
+
+    const char* filename_chars = env->GetStringUTFChars(p_filename, nullptr);
+    if (!filename_chars)
+        return;
+
+    // Use DataRoot directly for game settings to ensure write permissions
+    std::string settings_dir = Path::Combine(EmuFolders::DataRoot, "gamesettings");
+    std::string settings_path = Path::Combine(settings_dir, filename_chars);
+    env->ReleaseStringUTFChars(p_filename, filename_chars);
+
+    if (FileSystem::FileExists(settings_path.c_str())) {
+        FileSystem::DeleteFilePath(settings_path.c_str());
+    }
+}
+
+
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_renderMipmap(JNIEnv *env, jclass clazz,
                                                   jint p_value) {
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_renderHalfpixeloffset(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_renderHalfpixeloffset(JNIEnv *env, jclass clazz,
                                                            jint p_value) {
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_renderPreloading(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_renderPreloading(JNIEnv *env, jclass clazz,
                                                       jint p_value) {
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_renderGpu(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_renderGpu(JNIEnv *env, jclass clazz,
                                                jint p_value) {
     EmuConfig.GS.Renderer = static_cast<GSRendererType>(p_value);
     if(MTGS::IsOpen()) {
@@ -260,12 +683,12 @@ Java_kr_co_iefriends_pcsx2_NativeApp_renderGpu(JNIEnv *env, jclass clazz,
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_onNativeSurfaceCreated(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_onNativeSurfaceCreated(JNIEnv *env, jclass clazz) {
 }
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_onNativeSurfaceChanged(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_onNativeSurfaceChanged(JNIEnv *env, jclass clazz,
                                                             jobject p_surface, jint p_width, jint p_height) {
     if(s_window) {
         ANativeWindow_release(s_window);
@@ -287,7 +710,7 @@ Java_kr_co_iefriends_pcsx2_NativeApp_onNativeSurfaceChanged(JNIEnv *env, jclass 
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_onNativeSurfaceDestroyed(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_onNativeSurfaceDestroyed(JNIEnv *env, jclass clazz) {
     if(s_window) {
         ANativeWindow_release(s_window);
         s_window = nullptr;
@@ -388,7 +811,7 @@ int FileSystem::OpenFDFileContent(const char* filename)
     if(env == nullptr) {
         return -1;
     }
-    jclass NativeApp = env->FindClass("kr/co/iefriends/pcsx2/NativeApp");
+    jclass NativeApp = env->FindClass("com/izzy2lost/psx2/NativeApp");
     jmethodID openContentUri = env->GetStaticMethodID(NativeApp, "openContentUri", "(Ljava/lang/String;)I");
 
     jstring j_filename = env->NewStringUTF(filename);
@@ -399,7 +822,7 @@ int FileSystem::OpenFDFileContent(const char* filename)
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_runVMThread(JNIEnv *env, jclass clazz,
+Java_com_izzy2lost_psx2_NativeApp_runVMThread(JNIEnv *env, jclass clazz,
                                                  jstring p_szpath) {
     std::string _szPath = GetJavaString(env, p_szpath);
 
@@ -416,6 +839,9 @@ Java_kr_co_iefriends_pcsx2_NativeApp_runVMThread(JNIEnv *env, jclass clazz,
     VMBootParameters boot_params;
     boot_params.filename = _szPath;
 
+    // Apply per-game settings (if any) before applying core settings
+    ApplyPerGameSettingsForPath(_szPath);
+
     if (!VMManager::Internal::CPUThreadInitialize()) {
         VMManager::Internal::CPUThreadShutdown();
     }
@@ -425,6 +851,14 @@ Java_kr_co_iefriends_pcsx2_NativeApp_runVMThread(JNIEnv *env, jclass clazz,
 
     if (VMManager::Initialize(boot_params))
     {
+        // If a per-game renderer was requested, apply it now that VM is up.
+        if (s_pending_renderer >= 0)
+        {
+            EmuConfig.GS.Renderer = static_cast<GSRendererType>(s_pending_renderer);
+            s_pending_renderer = -1;
+            if (MTGS::IsOpen())
+                MTGS::ApplySettings();
+        }
         VMState _vmState = VMState::Running;
         VMManager::SetState(_vmState);
         ////
@@ -451,7 +885,7 @@ Java_kr_co_iefriends_pcsx2_NativeApp_runVMThread(JNIEnv *env, jclass clazz,
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_pause(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_pause(JNIEnv *env, jclass clazz) {
     std::thread([] {
         VMManager::SetPaused(true);
     }).detach();
@@ -459,7 +893,7 @@ Java_kr_co_iefriends_pcsx2_NativeApp_pause(JNIEnv *env, jclass clazz) {
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_resume(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_resume(JNIEnv *env, jclass clazz) {
     std::thread([] {
         VMManager::SetPaused(false);
     }).detach();
@@ -467,7 +901,7 @@ Java_kr_co_iefriends_pcsx2_NativeApp_resume(JNIEnv *env, jclass clazz) {
 
 extern "C"
 JNIEXPORT void JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_shutdown(JNIEnv *env, jclass clazz) {
+Java_com_izzy2lost_psx2_NativeApp_shutdown(JNIEnv *env, jclass clazz) {
     std::thread([] {
         VMManager::SetState(VMState::Stopping);
     }).detach();
@@ -476,7 +910,7 @@ Java_kr_co_iefriends_pcsx2_NativeApp_shutdown(JNIEnv *env, jclass clazz) {
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_saveStateToSlot(JNIEnv *env, jclass clazz, jint p_slot) {
+Java_com_izzy2lost_psx2_NativeApp_saveStateToSlot(JNIEnv *env, jclass clazz, jint p_slot) {
     if (!VMManager::HasValidVM()) {
         return false;
     }
@@ -508,7 +942,7 @@ Java_kr_co_iefriends_pcsx2_NativeApp_saveStateToSlot(JNIEnv *env, jclass clazz, 
 
 extern "C"
 JNIEXPORT jboolean JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_loadStateFromSlot(JNIEnv *env, jclass clazz, jint p_slot) {
+Java_com_izzy2lost_psx2_NativeApp_loadStateFromSlot(JNIEnv *env, jclass clazz, jint p_slot) {
     if (!VMManager::HasValidVM()) {
         return false;
     }
@@ -542,7 +976,7 @@ Java_kr_co_iefriends_pcsx2_NativeApp_loadStateFromSlot(JNIEnv *env, jclass clazz
 
 extern "C"
 JNIEXPORT jstring JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_getGamePathSlot(JNIEnv *env, jclass clazz, jint p_slot) {
+Java_com_izzy2lost_psx2_NativeApp_getGamePathSlot(JNIEnv *env, jclass clazz, jint p_slot) {
     std::string _filename = VMManager::GetSaveStateFileName(VMManager::GetDiscSerial().c_str(), VMManager::GetDiscCRC(), p_slot);
     if(!_filename.empty()) {
         return env->NewStringUTF(_filename.c_str());
@@ -552,7 +986,7 @@ Java_kr_co_iefriends_pcsx2_NativeApp_getGamePathSlot(JNIEnv *env, jclass clazz, 
 
 extern "C"
 JNIEXPORT jbyteArray JNICALL
-Java_kr_co_iefriends_pcsx2_NativeApp_getImageSlot(JNIEnv *env, jclass clazz, jint p_slot) {
+Java_com_izzy2lost_psx2_NativeApp_getImageSlot(JNIEnv *env, jclass clazz, jint p_slot) {
     jbyteArray retArr = nullptr;
 
     std::string _filename = VMManager::GetSaveStateFileName(VMManager::GetDiscSerial().c_str(), VMManager::GetDiscCRC(), p_slot);

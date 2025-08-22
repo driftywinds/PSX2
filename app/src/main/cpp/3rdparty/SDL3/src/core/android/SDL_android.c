@@ -45,7 +45,7 @@
 #include <unistd.h>
 #include <dlfcn.h>
 
-#define SDL_JAVA_PREFIX                               kr_co_iefriends_pcsx2
+#define SDL_JAVA_PREFIX                               com_izzy2lost_psx2
 #define CONCAT1(prefix, class, function)              CONCAT2(prefix, class, function)
 #define CONCAT2(prefix, class, function)              Java_##prefix##_##class##_##function
 #define SDL_JAVA_INTERFACE(function)                  CONCAT1(SDL_JAVA_PREFIX, SDLActivity, function)
@@ -559,8 +559,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved)
 //    register_methods(env, "kr/co/iefriends/pcsx2/SDLActivity", SDLActivity_tab, SDL_arraysize(SDLActivity_tab));
 //    register_methods(env, "kr/co/iefriends/pcsx2/SDLInputConnection", SDLInputConnection_tab, SDL_arraysize(SDLInputConnection_tab));
 //    register_methods(env, "kr/co/iefriends/pcsx2/SDLAudioManager", SDLAudioManager_tab, SDL_arraysize(SDLAudioManager_tab));
-    register_methods(env, "kr/co/iefriends/pcsx2/SDLControllerManager", SDLControllerManager_tab, SDL_arraysize(SDLControllerManager_tab));
-    register_methods(env, "kr/co/iefriends/pcsx2/HIDDeviceManager", HIDDeviceManager_tab, SDL_arraysize(HIDDeviceManager_tab));
+    register_methods(env, "com/izzy2lost/psx2/SDLControllerManager", SDLControllerManager_tab, SDL_arraysize(SDLControllerManager_tab));
+    register_methods(env, "com/izzy2lost/psx2/HIDDeviceManager", HIDDeviceManager_tab, SDL_arraysize(HIDDeviceManager_tab));
 
     return JNI_VERSION_1_4;
 }

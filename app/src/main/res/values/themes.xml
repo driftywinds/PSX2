@@ -1,8 +1,22 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.PCSX2" parent="@style/Theme.MaterialComponents.Light.NoActionBar">
+    <style name="Theme.PSX2" parent="@style/Theme.MaterialComponents.Light.NoActionBar">
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowIsTranslucent">false</item>
         <item name="android:windowAnimationStyle">@android:style/Animation</item>
+        <!-- Apply custom outlined button style globally -->
+        <item name="materialButtonOutlinedStyle">@style/PSX2.OutlinedButton</item>
+        <!-- Brand blue for activated controls (RadioButton, Switch, etc.) -->
+        <item name="colorControlActivated">@color/brand_primary</item>
+        <!-- Fallback for platform widgets using accent -->
+        <item name="colorAccent">@color/brand_primary</item>
+    </style>
+
+    <!-- Custom outlined button style with light gray stroke for visibility on dark backgrounds -->
+    <style name="PSX2.OutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">@color/brand_outline</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="rippleColor">@color/brand_ripple</item>
     </style>
 </resources>

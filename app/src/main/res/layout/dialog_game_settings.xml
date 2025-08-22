@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true"
+    android:padding="16dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Game Title -->
+        <TextView
+            android:id="@+id/tv_game_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Game Title"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:layout_marginBottom="4dp"/>
+
+        <!-- Subtitle -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Per-Game Settings (Long-press from game list)"
+            android:textSize="12sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="4dp"/>
+
+        <!-- Game Serial/CRC -->
+        <TextView
+            android:id="@+id/tv_game_serial"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Serial: SLUS-12345 | CRC: 12345678"
+            android:textSize="12sp"
+            android:textColor="#888888"
+            android:layout_marginBottom="16dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="These settings will override global settings for this game only."
+            android:textSize="14sp"
+            android:textColor="#666666"
+            android:layout_marginBottom="8dp"/>
+
+
+
+        <!-- Graphics Settings -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Graphics"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:paddingBottom="8dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Blending Accuracy"
+            android:textSize="14sp"
+            android:paddingBottom="4dp"/>
+
+        <Spinner
+            android:id="@+id/sp_blending_accuracy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Renderer"
+            android:textSize="14sp"
+            android:paddingBottom="4dp"/>
+
+        <Spinner
+            android:id="@+id/sp_renderer"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Resolution"
+            android:textSize="14sp"
+            android:paddingBottom="4dp"/>
+
+        <Spinner
+            android:id="@+id/sp_resolution"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Game Patches -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Game Patches"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:paddingBottom="8dp"/>
+
+        <Switch
+            android:id="@+id/sw_widescreen_patches"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Widescreen Patches"
+            android:layout_marginBottom="8dp"/>
+
+        <Switch
+            android:id="@+id/sw_no_interlacing_patches"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="No Interlacing Patches"
+            android:layout_marginBottom="8dp"/>
+
+        <Switch
+            android:id="@+id/sw_enable_patch_codes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Enable Patch Codes (PNACH)"
+            android:layout_marginBottom="8dp"/>
+
+        
+        <Switch
+            android:id="@+id/sw_enable_cheats"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Enable Cheats"
+            android:layout_marginBottom="16dp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_import_pnach"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Import Cheats / Patch Codes (.pnach)" />
+
+    </LinearLayout>
+
+</ScrollView>

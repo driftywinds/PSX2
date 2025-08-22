@@ -1,0 +1,388 @@
+package com.izzy2lost.psx2;
+
+import android.app.Dialog;
+import android.content.Context;
+import android.net.Uri;
+import android.content.SharedPreferences;
+import android.os.Bundle;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.Window;
+import android.view.WindowManager;
+import android.widget.Toast;
+import android.os.Build;
+import android.view.WindowInsets;
+import android.view.WindowInsetsController;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AlertDialog;
+import androidx.fragment.app.DialogFragment;
+import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+
+public class GamesCoverDialogFragment extends DialogFragment {
+    private CoversAdapter adapter;
+    private String[] titles;
+    private String[] uris;
+    private String[] coverUrls;
+    private String[] localPaths;
+    private RecyclerView rv;
+    private GridLayoutManager glm;
+
+    public interface OnGameSelectedListener {
+        void onGameSelected(String gameUri);
+    }
+
+    private static final String ARG_TITLES = "titles";
+    private static final String ARG_URIS = "uris";
+
+    public static GamesCoverDialogFragment newInstance(String[] titles, String[] uris) {
+        GamesCoverDialogFragment f = new GamesCoverDialogFragment();
+        Bundle b = new Bundle();
+        b.putStringArray(ARG_TITLES, titles);
+        b.putStringArray(ARG_URIS, uris);
+        f.setArguments(b);
+        return f;
+    }
+
+    private OnGameSelectedListener listener;
+
+    @Override
+    public void onAttach(@NonNull Context context) {
+        super.onAttach(context);
+        if (context instanceof OnGameSelectedListener) {
+            listener = (OnGameSelectedListener) context;
+        }
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // Re-assert fixed span (2/4) after resume to avoid any flips
+        if (rv != null && glm != null) {
+            int currentOrientation = getResources().getConfiguration().orientation;
+            int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
+            if (fixedSpan != glm.getSpanCount()) {
+                glm.setSpanCount(fixedSpan);
+            }
+        }
+    }
+
+    @NonNull
+    @Override
+    public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+        LayoutInflater inflater = LayoutInflater.from(requireContext());
+        View root = inflater.inflate(R.layout.dialog_covers_grid, null, false);
+
+        rv = root.findViewById(R.id.recycler_covers);
+        rv.setHasFixedSize(true);
+        glm = new GridLayoutManager(requireContext(), 3);
+        rv.setLayoutManager(glm);
+        // spacing decoration (8dp) using half on each side so the gap between items is exactly spacingPx
+        final int spacingPx = (int) (8 * getResources().getDisplayMetrics().density);
+        final int half = Math.max(1, spacingPx / 2);
+        rv.addItemDecoration(new RecyclerView.ItemDecoration() {
+            @Override
+            public void getItemOffsets(android.graphics.Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
+                outRect.set(half, half, half, half);
+            }
+        });
+        // Hard lock spans based on orientation only
+        rv.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            int currentOrientation = getResources().getConfiguration().orientation;
+            int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
+            if (fixedSpan != glm.getSpanCount()) { glm.setSpanCount(fixedSpan); }
+        });
+        // Set initial fixed span as soon as possible
+        root.post(() -> {
+            int currentOrientation = getResources().getConfiguration().orientation;
+            int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
+            if (fixedSpan != glm.getSpanCount()) { glm.setSpanCount(fixedSpan); }
+        });
+
+        titles = getArguments() != null ? getArguments().getStringArray(ARG_TITLES) : new String[0];
+        uris = getArguments() != null ? getArguments().getStringArray(ARG_URIS) : new String[0];
+        coverUrls = new String[uris.length];
+        localPaths = new String[uris.length];
+        SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+        for (int i = 0; i < uris.length; i++) {
+            String saved = prefs.getString("serial:" + uris[i], null);
+            String serial = saved;
+            if (serial == null || serial.isEmpty()) {
+                // Ask native core for the real serial (supports ISO/CHD and content://)
+                try {
+                    String nativeSerial = NativeApp.getGameSerial(uris[i]);
+                    if (nativeSerial != null && !nativeSerial.isEmpty()) {
+                        serial = normalizeSerial(nativeSerial);
+                        prefs.edit().putString("serial:" + uris[i], serial).apply();
+                    }
+                } catch (Throwable ignored) {}
+            }
+            if (serial == null || serial.isEmpty()) {
+                // Heuristic fallback from filename
+                serial = buildSerialFromUri(uris[i]);
+            }
+            coverUrls[i] = buildCoverUrlFromSerial(serial);
+            localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+        }
+
+        adapter = new CoversAdapter(requireContext(), titles, coverUrls, localPaths, 
+            position -> {
+                // Regular click - start game
+                if (listener != null && position >= 0 && position < uris.length) {
+                    listener.onGameSelected(uris[position]);
+                    dismissAllowingStateLoss();
+                }
+            },
+            position -> {
+                // Long click - show game settings
+                if (position >= 0 && position < uris.length) {
+                    showGameSettings(titles[position], uris[position]);
+                }
+            });
+        rv.setAdapter(adapter);
+
+        // Toolbar buttons
+        View btnHome = root.findViewById(R.id.btn_home);
+        if (btnHome != null) btnHome.setOnClickListener(v -> dismissAllowingStateLoss());
+        View btnDownload = root.findViewById(R.id.btn_download);
+        if (btnDownload != null) btnDownload.setOnClickListener(v -> startDownloadCovers());
+
+        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+                .setView(root)
+                .create();
+        return dialog;
+    }
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Dialog d = getDialog();
+        if (d != null) {
+            Window w = d.getWindow();
+            if (w != null) {
+                w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+                w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                // Hide status bar for true full-screen dialog
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    w.setDecorFitsSystemWindows(false);
+                    WindowInsetsController controller = w.getInsetsController();
+                    if (controller != null) {
+                        controller.hide(WindowInsets.Type.statusBars());
+                        controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                    }
+                } else {
+                    w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+                }
+            }
+        }
+    }
+
+    private int calculateSpanForWidth(int rvWidthPx, int itemDp, int spacingPx) {
+        float density = getResources().getDisplayMetrics().density;
+        int usable = Math.max(0, rvWidthPx);
+        int itemPx = (int) (itemDp * density);
+        // Include spacing in the packing calculation to avoid oscillation
+        // span = floor((usable + spacing) / (itemPx + spacing))
+        int span = (itemPx > 0) ? (int) Math.floor((usable + (double) spacingPx) / (itemPx + (double) spacingPx)) : 1;
+        return Math.max(2, Math.max(1, span));
+    }
+
+    private void preloadCovers(String[] urls) {
+        // Use Glide to warm cache
+        for (String url : urls) {
+            if (url == null) continue;
+            com.bumptech.glide.Glide.with(requireContext()).load(url).preload();
+        }
+    }
+
+    private void startDownloadCovers() {
+        Toast.makeText(requireContext(), "Downloading covers in background", Toast.LENGTH_SHORT).show();
+        new Thread(() -> {
+            // Try to refine serials/URLs by scanning disc contents first
+            SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+            for (int i = 0; i < uris.length; i++) {
+                try {
+                    // Prefer native serial extraction so CHDs work
+                    String better = null;
+                    try { better = NativeApp.getGameSerial(uris[i]); } catch (Throwable ignored) {}
+                    if (better == null) better = extractSerialFromUri(uris[i]);
+                    if (better != null && !better.equalsIgnoreCase(serialFromUrl(coverUrls[i]))) {
+                        String serial = normalizeSerial(better);
+                        coverUrls[i] = buildCoverUrlFromSerial(serial);
+                        localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+                        editor.putString("serial:" + uris[i], serial);
+                    }
+                } catch (Exception ignored) { }
+            }
+            editor.apply();
+
+            int total = coverUrls.length;
+            int ok = 0;
+            java.io.File dir = getCoversDir();
+            if (!dir.exists()) dir.mkdirs();
+            for (int i = 0; i < total; i++) {
+                String url = coverUrls[i];
+                String outPath = localPaths[i];
+                if (isFileValid(outPath)) { ok++; continue; }
+                try {
+                    if (downloadToFile(url, outPath)) ok++;
+                } catch (Exception ignored) { }
+            }
+            final int downloaded = ok;
+            if (isAdded()) requireActivity().runOnUiThread(() -> {
+                Toast.makeText(requireContext(), "Covers ready: " + downloaded + "/" + total, Toast.LENGTH_SHORT).show();
+                // refresh adapter to prefer local files now
+                if (adapter != null) adapter.notifyDataSetChanged();
+            });
+        }).start();
+    }
+
+    private static String serialFromUrl(String url) {
+        if (url == null) return null;
+        int slash = url.lastIndexOf('/');
+        int dot = url.lastIndexOf('.');
+        if (slash >= 0 && dot > slash) return url.substring(slash + 1, dot);
+        return null;
+    }
+
+    private java.io.File getCoversDir() {
+        java.io.File base = requireContext().getExternalFilesDir("covers");
+        if (base == null) base = new java.io.File(requireContext().getFilesDir(), "covers");
+        return base;
+    }
+
+    private static boolean isFileValid(String path) {
+        if (path == null) return false;
+        java.io.File f = new java.io.File(path);
+        return f.exists() && f.length() > 0;
+    }
+
+    private static boolean downloadToFile(String urlStr, String outPath) throws Exception {
+        java.net.URL url = new java.net.URL(urlStr);
+        java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+        conn.setConnectTimeout(10000);
+        conn.setReadTimeout(15000);
+        conn.setInstanceFollowRedirects(true);
+        conn.connect();
+        int code = conn.getResponseCode();
+        if (code != 200) { conn.disconnect(); return false; }
+        java.io.File outFile = new java.io.File(outPath);
+        java.io.File parent = outFile.getParentFile();
+        if (parent != null && !parent.exists()) parent.mkdirs();
+        java.io.InputStream in = conn.getInputStream();
+        java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
+        byte[] buf = new byte[8192];
+        int n;
+        while ((n = in.read(buf)) != -1) fos.write(buf, 0, n);
+        fos.flush();
+        fos.close();
+        in.close();
+        conn.disconnect();
+        return true;
+    }
+
+    private static String buildSerialFromUri(String gameUri) {
+        // Try to infer PS2 serial from file name: e.g., SLUS-20312 or SLPS_123.45 style
+        String last = Uri.parse(gameUri).getLastPathSegment();
+        if (last == null) last = "";
+        last = last.replace('_', '-');
+        // remove extension
+        int dot = last.lastIndexOf('.');
+        if (dot > 0) last = last.substring(0, dot);
+        String serial = null;
+        // Very simple heuristic: find token like XXXX-XXXXX
+        String upper = last.toUpperCase();
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("([A-Z]{4,5}-[0-9]{3,5})").matcher(upper);
+        if (m.find()) {
+            serial = m.group(1);
+        }
+        if (serial == null) {
+            serial = upper;
+        }
+        return serial;
+    }
+
+    private static String buildCoverUrlFromSerial(String serial) {
+        return "https://raw.githubusercontent.com/izzy2lost/ps2-covers/main/covers/3d/" + serial + ".png";
+    }
+
+    private String extractSerialFromUri(String gameUri) {
+        try {
+            java.io.InputStream in = requireContext().getContentResolver().openInputStream(Uri.parse(gameUri));
+            if (in == null) return null;
+            // Read first 8MB searching for SYSTEM.CNF contents, e.g., "BOOT2 = cdrom0:\\SLUS_203.12;1"
+            final int MAX_BYTES = 8 * 1024 * 1024;
+            final byte[] buf = new byte[64 * 1024];
+            int read;
+            int total = 0;
+            StringBuilder sb = new StringBuilder();
+            while ((read = in.read(buf)) != -1 && total < MAX_BYTES) {
+                total += read;
+                // append as ASCII
+                sb.append(new String(buf, 0, read));
+                // try to match as we go to avoid huge strings
+                String found = findSerialInString(sb);
+                if (found != null) { in.close(); return found; }
+                if (sb.length() > 512 * 1024) sb.delete(0, sb.length() - 128 * 1024); // keep window
+            }
+            in.close();
+        } catch (Exception ignored) { }
+        return null;
+    }
+
+    private static String findSerialInString(CharSequence cs) {
+        // Match common forms: SLUS_203.12, SLPM_650.51, SCES_123.45 etc.
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("([A-Z]{4,5})[_-]([0-9]{3})\\.([0-9]{2})")
+                .matcher(cs);
+        if (m.find()) {
+            String prefix = m.group(1);
+            String part1 = m.group(2);
+            String part2 = m.group(3);
+            return prefix + "-" + part1 + part2; // SLUS-20312
+        }
+        return null;
+    }
+
+    private static String normalizeSerial(String serial) {
+        if (serial == null) return null;
+        String s = serial.toUpperCase().replace('_', '-');
+        // If form like XXXX-123.45 -> XXXX-12345
+        s = s.replaceAll("([A-Z]{4,5})-([0-9]{3})\\.([0-9]{2})", "$1-$2$3");
+        return s;
+    }
+
+    private void showGameSettings(String gameTitle, String gameUri) {
+        // Prefer native extraction so CHDs work
+        String gameSerial = null;
+        try { gameSerial = NativeApp.getGameSerial(gameUri); } catch (Throwable ignored) {}
+        if (gameSerial == null || gameSerial.isEmpty()) {
+            gameSerial = extractSerialFromUri(gameUri);
+        }
+        if (gameSerial == null || gameSerial.isEmpty()) {
+            gameSerial = buildSerialFromUri(gameUri);
+        }
+        gameSerial = normalizeSerial(gameSerial);
+
+        // CRC (native if available)
+        String gameCrc = null;
+        try { gameCrc = NativeApp.getGameCrc(gameUri); } catch (Throwable ignored) {}
+        if (gameCrc == null || gameCrc.isEmpty()) {
+            gameCrc = String.format("%08X", Math.abs(gameUri.hashCode()));
+        }
+
+        // Debug logging
+        android.util.Log.d("GameSettings", "Opening game settings for: " + gameTitle);
+        android.util.Log.d("GameSettings", "URI: " + gameUri);
+        android.util.Log.d("GameSettings", "Extracted Serial: " + gameSerial);
+        android.util.Log.d("GameSettings", "Generated CRC: " + gameCrc);
+
+        GameSettingsDialogFragment dialog = GameSettingsDialogFragment.newInstance(
+            gameTitle, gameUri, gameSerial, gameCrc);
+        dialog.show(getParentFragmentManager(), "game_settings");
+    }
+}

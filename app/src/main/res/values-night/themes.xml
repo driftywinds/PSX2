@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.PCSX2" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+    <style name="Theme.PSX2" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary brand color. -->
         <item name="colorPrimary">@color/purple_200</item>
         <item name="colorPrimaryVariant">@color/purple_700</item>
@@ -12,5 +12,15 @@
         <!-- Status bar color. -->
         <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
         <!-- Customize your theme here. -->
+        <!-- Keep default dark palette, just ensure outlined buttons are visible -->
+        <item name="materialButtonOutlinedStyle">@style/PSX2.OutlinedButton</item>
+    </style>
+
+    <!-- Night variant: bright outline -->
+    <style name="PSX2.OutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="strokeColor">#E6FFFFFF</item> <!-- 90% white for dark bg -->
+        <item name="strokeWidth">1dp</item>
+        <item name="android:textColor">@color/white</item>
+        <item name="rippleColor">#80cdcdcd</item>
     </style>
 </resources>

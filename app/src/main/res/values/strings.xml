@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">PCSX2</string>
+    <string name="app_name">PSX2</string>
+    <string name="covers_hint_long_press">Long press a game cover for per-game settings</string>
 </resources>
