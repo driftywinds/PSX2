@@ -13,3 +13,8 @@ app/build/
 
 # NDK
 app/.cxx/
+
+# IDE
+.vscode/
+.idea/
+*.iml

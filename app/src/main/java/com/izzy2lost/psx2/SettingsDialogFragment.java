@@ -41,8 +41,13 @@ public class SettingsDialogFragment extends DialogFragment {
         boolean asyncTextureLoading = prefs.getBoolean("async_texture_loading", true);
         boolean hudVisible = prefs.getBoolean("hud_visible", false);
         
+        // Debug logging
+        android.util.Log.d("SettingsDialog", "Loading renderer setting: " + renderer + 
+            " (12=OpenGL, 13=Software, 14=Vulkan)");
+        
         // Apply all settings
         NativeApp.renderGpu(renderer);
+        android.util.Log.d("SettingsDialog", "Applied renderer: " + renderer);
         NativeApp.renderUpscalemultiplier(scale);
         NativeApp.setAspectRatio(aspectRatio);
         NativeApp.setWidescreenPatches(widescreenPatches);
@@ -50,6 +55,12 @@ public class SettingsDialogFragment extends DialogFragment {
         NativeApp.setLoadTextures(loadTextures);
         NativeApp.setAsyncTextureLoading(asyncTextureLoading);
         NativeApp.setHudVisible(hudVisible);
+        
+        // Set brighter default brightness (60 instead of 50)
+        NativeApp.setShadeBoost(true);
+        NativeApp.setShadeBoostBrightness(60);
+        NativeApp.setShadeBoostContrast(50);
+        NativeApp.setShadeBoostSaturation(50);
     }
 
     @NonNull
@@ -223,9 +234,31 @@ public class SettingsDialogFragment extends DialogFragment {
              boolean asyncTextureLoading = swAsyncTextureLoading.isChecked();
              boolean hudVisible = (swDevHud != null && swDevHud.isChecked());
 
-             // Persist
+             // Debug logging
+             android.util.Log.d("SettingsDialog", "Saving renderer setting: " + renderer + 
+                 " (12=OpenGL, 13=Software, 14=Vulkan)");
+             
+             // Save renderer setting first with commit() to ensure immediate write
+             prefs.edit().putInt("renderer", renderer).commit();
+             android.util.Log.d("SettingsDialog", "Renderer setting saved successfully");
+             
+             // Small delay to ensure setting is persisted
+             try {
+                 Thread.sleep(100);
+             } catch (InterruptedException ignored) {}
+             
+             // Apply renderer change (might crash, but setting is already saved)
+             try {
+                 NativeApp.renderGpu(renderer);
+                 android.util.Log.d("SettingsDialog", "Applied renderer change to: " + renderer);
+             } catch (Exception e) {
+                 android.util.Log.e("SettingsDialog", "Failed to apply renderer: " + e.getMessage());
+                 // If renderer change fails, we'll still have the setting saved
+                 // for next app restart
+             }
+             
+             // Persist all other settings
              prefs.edit()
-                     .putInt("renderer", renderer)
                      .putFloat("upscale_multiplier", scale)
                      .putInt("aspect_ratio", aspectRatio)
                      .putBoolean("widescreen_patches", widescreenPatches)
@@ -235,8 +268,7 @@ public class SettingsDialogFragment extends DialogFragment {
                      .putBoolean("hud_visible", hudVisible)
                      .apply();
 
-             // Apply immediately
-             NativeApp.renderGpu(renderer);
+             // Apply other settings
              NativeApp.renderUpscalemultiplier(scale);
              NativeApp.setAspectRatio(aspectRatio);
              NativeApp.setWidescreenPatches(widescreenPatches);

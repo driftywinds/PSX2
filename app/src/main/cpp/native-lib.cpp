@@ -490,6 +490,53 @@ Java_com_izzy2lost_psx2_NativeApp_setAsyncTextureLoading(JNIEnv *env, jclass cla
 
 extern "C"
 JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_setShadeBoost(JNIEnv *env, jclass clazz,
+                                                 jboolean p_enabled) {
+    s_settings_interface.SetBoolValue("EmuCore/GS", "ShadeBoost", p_enabled);
+    
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_setShadeBoostBrightness(JNIEnv *env, jclass clazz,
+                                                           jint p_brightness) {
+    int brightness = std::max(1, std::min(100, (int)p_brightness));
+    s_settings_interface.SetIntValue("EmuCore/GS", "ShadeBoost_Brightness", brightness);
+    
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_setShadeBoostContrast(JNIEnv *env, jclass clazz,
+                                                         jint p_contrast) {
+    int contrast = std::max(1, std::min(100, (int)p_contrast));
+    s_settings_interface.SetIntValue("EmuCore/GS", "ShadeBoost_Contrast", contrast);
+    
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_setShadeBoostSaturation(JNIEnv *env, jclass clazz,
+                                                           jint p_saturation) {
+    int saturation = std::max(1, std::min(100, (int)p_saturation));
+    s_settings_interface.SetIntValue("EmuCore/GS", "ShadeBoost_Saturation", saturation);
+    
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
 Java_com_izzy2lost_psx2_NativeApp_saveGameSettings(JNIEnv *env, jclass clazz, jstring p_filename, 
                                                      jint p_blending_accuracy, jint p_renderer, 
                                                      jint p_resolution, jboolean p_widescreen_patches,

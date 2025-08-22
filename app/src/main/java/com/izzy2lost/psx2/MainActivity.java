@@ -345,8 +345,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Improve button outline contrast across all MaterialButtons
         tintAllMaterialButtonOutlines();
 
-        // Apply saved graphics settings (renderer, scaling, aspect)
-        applySavedSettings();
+        // Settings are already applied in Initialize() -> loadAndApplySettings()
+        // No need to call applySavedSettings() again here
 
         // Apply orientation-specific constraints once at startup
         int currentOrientation = getResources().getConfiguration().orientation;
@@ -464,19 +464,60 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         MaterialButton btn_ogl = findViewById(R.id.btn_ogl);
         if(btn_ogl != null) {
             btn_ogl.setOnClickListener(v -> {
-                NativeApp.renderGpu(12);
+                // Save setting first with commit() to ensure immediate write
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 12).commit();
+                
+                // Small delay to ensure setting is persisted
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ignored) {}
+                
+                try {
+                    NativeApp.renderGpu(12);
+                } catch (Exception e) {
+                    // Setting saved for next restart
+                }
             });
         }
         MaterialButton btn_vulkan = findViewById(R.id.btn_vulkan);
         if(btn_vulkan != null) {
             btn_vulkan.setOnClickListener(v -> {
-                NativeApp.renderGpu(14);
+                // Save setting first with commit() to ensure immediate write
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 14).commit();
+                
+                // Small delay to ensure setting is persisted
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ignored) {}
+                
+                try {
+                    NativeApp.renderGpu(14);
+                } catch (Exception e) {
+                    // Setting saved for next restart
+                }
             });
         }
         MaterialButton btn_sw = findViewById(R.id.btn_sw);
         if(btn_sw != null) {
             btn_sw.setOnClickListener(v -> {
-                NativeApp.renderGpu(13);
+                android.util.Log.d("MainActivity", "SW button clicked - saving renderer 13");
+                
+                // Save setting first with commit() to ensure immediate write
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 13).commit();
+                android.util.Log.d("MainActivity", "SW renderer setting saved");
+                
+                // Small delay to ensure setting is persisted
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException ignored) {}
+                
+                try {
+                    NativeApp.renderGpu(13);
+                    android.util.Log.d("MainActivity", "Applied SW renderer (13)");
+                } catch (Exception e) {
+                    android.util.Log.e("MainActivity", "Failed to apply SW renderer: " + e.getMessage());
+                    // Setting saved for next restart
+                }
             });
         }
 
@@ -855,8 +896,12 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
     private void applySavedSettings() {
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
-        // Renderer: 12=OpenGL, 13=Software, 14=Vulkan
-        int renderer = prefs.getInt("renderer", 14);
+        // Renderer constants (match SettingsDialogFragment)
+        final int RENDERER_OPENGL = 12;
+        final int RENDERER_SOFTWARE = 13;
+        final int RENDERER_VULKAN = 14;
+        
+        int renderer = prefs.getInt("renderer", RENDERER_VULKAN);
         NativeApp.renderGpu(renderer);
 
         // Resolution scale multiplier (float), default 1.0
@@ -875,9 +920,22 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         boolean noInterlacingPatches = prefs.getBoolean("no_interlacing_patches", false);
         NativeApp.setNoInterlacingPatches(noInterlacingPatches);
 
+        // Texture loading options
+        boolean loadTextures = prefs.getBoolean("load_textures", false);
+        NativeApp.setLoadTextures(loadTextures);
+        
+        boolean asyncTextureLoading = prefs.getBoolean("async_texture_loading", true);
+        NativeApp.setAsyncTextureLoading(asyncTextureLoading);
+
         // HUD visibility
         boolean hudVisible = prefs.getBoolean("hud_visible", false);
         NativeApp.setHudVisible(hudVisible);
+        
+        // Set brighter default brightness (60 instead of 50)
+        NativeApp.setShadeBoost(true);
+        NativeApp.setShadeBoostBrightness(60);
+        NativeApp.setShadeBoostContrast(50);
+        NativeApp.setShadeBoostSaturation(50);
     }
 
     public final ActivityResultLauncher<Intent> startActivityResultLocalFilePlay = registerForActivityResult(
@@ -1103,6 +1161,14 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         SettingsDialogFragment.loadAndApplySettings(this);
 
         mHIDDeviceManager = HIDDeviceManager.acquire(this);
+        
+        // Apply renderer setting again after a delay to override any automatic detection
+        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+            SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+            int renderer = prefs.getInt("renderer", 14); // Default to Vulkan if no setting
+            android.util.Log.d("MainActivity", "Re-applying renderer setting after delay: " + renderer);
+            NativeApp.renderGpu(renderer);
+        }, 1000); // 1 second delay
     }
 
     private void setSurfaceView(Object p_value) {
@@ -1134,6 +1200,13 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             }
             catch (InterruptedException ignored) {}
         }
+        
+        // Apply global renderer setting before starting new game
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        int renderer = prefs.getInt("renderer", 14); // Default to Vulkan if no setting
+        android.util.Log.d("MainActivity", "Applying global renderer before game restart: " + renderer);
+        NativeApp.renderGpu(renderer);
+        
         ////
         startEmuThread();
     }

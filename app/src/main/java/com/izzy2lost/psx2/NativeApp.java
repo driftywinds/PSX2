@@ -69,6 +69,12 @@ public class NativeApp {
     public static native void setLoadTextures(boolean enabled);
     public static native void setAsyncTextureLoading(boolean enabled);
     public static native void setBlendingAccuracy(int level);
+    
+    // Shade Boost (brightness/contrast/saturation)
+    public static native void setShadeBoost(boolean enabled);
+    public static native void setShadeBoostBrightness(int brightness);
+    public static native void setShadeBoostContrast(int contrast);
+    public static native void setShadeBoostSaturation(int saturation);
 
     // Per-game settings
     public static native void saveGameSettings(String filename, int blendingAccuracy, int renderer, 
