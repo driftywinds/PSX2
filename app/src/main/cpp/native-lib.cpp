@@ -121,6 +121,8 @@ static void ApplyPerGameSettingsForPath(const std::string& game_path)
         s_settings_interface.SetBoolValue("EmuCore", "EnableCheats", bval);
 }
 
+// (renderGpu JNI defined later; keep only one definition)
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_izzy2lost_psx2_NativeApp_setHudVisible(JNIEnv* env, jclass clazz, jboolean p_visible)
@@ -722,10 +724,15 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_izzy2lost_psx2_NativeApp_renderGpu(JNIEnv *env, jclass clazz,
                                                jint p_value) {
+    // Accept 12(OpenGL), 13(Software), 14(Vulkan)
+    if (p_value != 12 && p_value != 13 && p_value != 14)
+        return;
+
+    // Persist to base settings and apply immediately if possible
+    s_settings_interface.SetIntValue("EmuCore/GS", "Renderer", (int)p_value);
     EmuConfig.GS.Renderer = static_cast<GSRendererType>(p_value);
-    if(MTGS::IsOpen()) {
+    if (MTGS::IsOpen())
         MTGS::ApplySettings();
-    }
 }
 
 extern "C"

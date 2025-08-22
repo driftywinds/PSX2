@@ -69,7 +69,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
         blendingAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spBlendingAccuracy.setAdapter(blendingAdapter);
 
-        // Renderer Spinner
+        // Renderer Spinner (no Auto; entries: Vulkan, OpenGL, Software)
         Spinner spRenderer = view.findViewById(R.id.sp_renderer);
         ArrayAdapter<CharSequence> rendererAdapter = ArrayAdapter.createFromResource(ctx,
                 R.array.renderer_entries, android.R.layout.simple_spinner_item);
@@ -89,7 +89,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
         Switch swEnablePatchCodes = view.findViewById(R.id.sw_enable_patch_codes);
         Switch swEnableCheats = view.findViewById(R.id.sw_enable_cheats);
 
-        // Load existing per-game settings from INI and prefill widgets
+        // Load existing per-game settings from INI and prefill widgets; if missing, use global
         try {
             String serial = gameSerial;
             if (serial == null || serial.isEmpty()) {
@@ -99,18 +99,30 @@ public class GameSettingsDialogFragment extends DialogFragment {
                 // Build INI path
                 String dataRoot = getContext().getExternalFilesDir(null).getAbsolutePath();
                 java.io.File ini = new java.io.File(new java.io.File(dataRoot, "gamesettings"), serial + ".ini");
+                boolean appliedRenderer = false;
+                boolean appliedBlend = false;
                 if (ini.exists()) {
-                    String content = new String(java.nio.file.Files.readAllBytes(ini.toPath()));
+                    String content = "";
+                    try {
+                        java.io.FileInputStream fis = new java.io.FileInputStream(ini);
+                        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+                        byte[] buf = new byte[4096];
+                        int n;
+                        while ((n = fis.read(buf)) != -1) baos.write(buf, 0, n);
+                        fis.close();
+                        content = baos.toString("UTF-8");
+                    } catch (Exception ignored) {}
                     // Very light parsing
                     java.util.regex.Matcher m;
                     m = java.util.regex.Pattern.compile("(?m)^Renderer=\\s*(.+)$").matcher(content);
                     if (m.find()) {
                         String rv = m.group(1).trim();
-                        int idx = 0;
-                        if ("Vulkan".equalsIgnoreCase(rv)) idx = 1;
-                        else if ("OpenGL".equalsIgnoreCase(rv)) idx = 2;
-                        else if ("Software".equalsIgnoreCase(rv)) idx = 3;
+                        int idx = 0; // 0=Vulkan,1=OpenGL,2=Software
+                        if ("Vulkan".equalsIgnoreCase(rv) || "14".equals(rv)) idx = 0;
+                        else if ("OpenGL".equalsIgnoreCase(rv) || "12".equals(rv)) idx = 1;
+                        else if ("Software".equalsIgnoreCase(rv) || "13".equals(rv)) idx = 2;
                         spRenderer.setSelection(idx);
+                        appliedRenderer = true;
                     }
                     m = java.util.regex.Pattern.compile("(?m)^upscale_multiplier=\\s*([0-9]+(?:\\.[0-9]+)?)$").matcher(content);
                     if (m.find()) {
@@ -132,6 +144,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
                             else if ("Maximum".equalsIgnoreCase(bv)) idx = 5;
                         }
                         spBlendingAccuracy.setSelection(idx);
+                        appliedBlend = true;
                     }
                     m = java.util.regex.Pattern.compile("(?m)^EnableWideScreenPatches=\\s*(true|false)$").matcher(content);
                     if (m.find()) swWidescreenPatches.setChecked(Boolean.parseBoolean(m.group(1)));
@@ -142,11 +155,29 @@ public class GameSettingsDialogFragment extends DialogFragment {
                     m = java.util.regex.Pattern.compile("(?m)^EnablePatches=\\s*(true|false)$").matcher(content);
                     if (m.find()) swEnablePatchCodes.setChecked(Boolean.parseBoolean(m.group(1)));
                 }
+
+                // If no per-game renderer specified, mirror the global renderer choice
+                if (!appliedRenderer) {
+                    android.content.SharedPreferences prefs = ctx.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+                    int globalRenderer = prefs.getInt("renderer", 14); // default Vulkan
+                    int idx = (globalRenderer == 14) ? 0 : (globalRenderer == 12 ? 1 : 2);
+                    spRenderer.setSelection(idx);
+                }
+                // If no per-game blending specified, mirror the global blending
+                if (!appliedBlend) {
+                    android.content.SharedPreferences prefs = ctx.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+                    int globalBlend = prefs.getInt("blending_accuracy", 1);
+                    spBlendingAccuracy.setSelection(Math.max(0, Math.min(5, globalBlend)));
+                }
             }
         } catch (Throwable ignored) {
             // Fallback to defaults if loading fails
             spBlendingAccuracy.setSelection(1);
-            spRenderer.setSelection(0);
+            // Mirror global default when error
+            android.content.SharedPreferences prefs = ctx.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+            int globalRenderer = prefs.getInt("renderer", 14);
+            int idx = (globalRenderer == 14) ? 0 : (globalRenderer == 12 ? 1 : 2);
+            spRenderer.setSelection(idx);
             spResolution.setSelection(0);
         }
 
@@ -158,19 +189,20 @@ public class GameSettingsDialogFragment extends DialogFragment {
                    // Apply blending to runtime as well for immediate effect
                    NativeApp.setBlendingAccuracy(spBlendingAccuracy.getSelectedItemPosition());
 
-                   saveGameSettings(gameSerial, gameCrc,
-                       spBlendingAccuracy.getSelectedItemPosition(),
-                       spRenderer.getSelectedItemPosition(),
-                       spResolution.getSelectedItemPosition(),
-                       swWidescreenPatches.isChecked(),
-                       swNoInterlacingPatches.isChecked(),
-                       /*enablePatches*/ swEnablePatchCodes.isChecked(),
-                       swEnableCheats.isChecked());
+                   // Persist per-game INI explicitly to mirror global defaults and avoid Auto
+                   writeGameSettingsIni(ctx, gameSerial, gameCrc,
+                           spBlendingAccuracy.getSelectedItemPosition(),
+                           spRenderer.getSelectedItemPosition(),
+                           spResolution.getSelectedItemPosition(),
+                           swWidescreenPatches.isChecked(),
+                           swNoInterlacingPatches.isChecked(),
+                           /*enablePatches*/ swEnablePatchCodes.isChecked(),
+                           swEnableCheats.isChecked());
                    d.dismiss();
                })
                .setNeutralButton("Reset to Global", (d, w) -> {
-                   // TODO: Delete game-specific settings file
-                   deleteGameSettings(gameSerial, gameCrc);
+                   // Delete game-specific settings file so globals apply
+                   deleteGameSettingsIni(ctx, gameSerial, gameCrc);
                    d.dismiss();
                });
 
@@ -255,5 +287,66 @@ public class GameSettingsDialogFragment extends DialogFragment {
         }
 
         NativeApp.deleteGameSettings(filename);
+    }
+
+    private static String pickSettingsFileName(String gameSerial, String gameCrc) {
+        if (gameSerial != null && !gameSerial.isEmpty()) return gameSerial + ".ini";
+        if (gameCrc != null && !gameCrc.isEmpty()) return gameCrc + ".ini";
+        return null;
+    }
+
+    private static void writeGameSettingsIni(Context ctx,
+                                             String gameSerial,
+                                             String gameCrc,
+                                             int blendingAccuracyIdx,
+                                             int rendererIdx,
+                                             int resolutionIdx,
+                                             boolean widescreenPatches,
+                                             boolean noInterlacingPatches,
+                                             boolean enablePatches,
+                                             boolean enableCheats) {
+        try {
+            String fileName = pickSettingsFileName(gameSerial, gameCrc);
+            if (fileName == null) return;
+            java.io.File baseDir = new java.io.File(ctx.getExternalFilesDir(null), "gamesettings");
+            if (!baseDir.exists()) baseDir.mkdirs();
+            java.io.File ini = new java.io.File(baseDir, fileName);
+
+            // Map indices
+            String rendererName = (rendererIdx == 0) ? "Vulkan" : (rendererIdx == 1 ? "OpenGL" : "Software");
+            float upscale = Math.max(1, Math.min(8, resolutionIdx + 1));
+            int abl = Math.max(0, Math.min(5, blendingAccuracyIdx));
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("[EmuCore/GS]\n");
+            sb.append("Renderer=").append(rendererName).append('\n');
+            sb.append("upscale_multiplier=").append((int) upscale).append('\n');
+            sb.append("accurate_blending_unit=").append(abl).append('\n');
+            sb.append('\n');
+            sb.append("[EmuCore]\n");
+            sb.append("EnableWideScreenPatches=").append(widescreenPatches).append('\n');
+            sb.append("EnableNoInterlacingPatches=").append(noInterlacingPatches).append('\n');
+            sb.append("EnablePatches=").append(enablePatches).append('\n');
+            sb.append("EnableCheats=").append(enableCheats).append('\n');
+
+            try {
+                java.io.FileOutputStream fos = new java.io.FileOutputStream(ini, false);
+                byte[] data = sb.toString().getBytes("UTF-8");
+                fos.write(data);
+                fos.flush();
+                fos.close();
+            } catch (Exception ignored) {}
+        } catch (Throwable ignored) {
+        }
+    }
+
+    private static void deleteGameSettingsIni(Context ctx, String gameSerial, String gameCrc) {
+        try {
+            String fileName = pickSettingsFileName(gameSerial, gameCrc);
+            if (fileName == null) return;
+            java.io.File ini = new java.io.File(new java.io.File(ctx.getExternalFilesDir(null), "gamesettings"), fileName);
+            if (ini.exists()) ini.delete();
+        } catch (Throwable ignored) {
+        }
     }
 }

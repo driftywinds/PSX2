@@ -35,6 +35,7 @@ public class SettingsDialogFragment extends DialogFragment {
         int renderer = prefs.getInt("renderer", RENDERER_VULKAN);
         float scale = prefs.getFloat("upscale_multiplier", 1.0f);
         int aspectRatio = prefs.getInt("aspect_ratio", 1);
+        int blendingAccuracy = prefs.getInt("blending_accuracy", 1); // 0..5
         boolean widescreenPatches = prefs.getBoolean("widescreen_patches", false);
         boolean noInterlacingPatches = prefs.getBoolean("no_interlacing_patches", false);
         boolean loadTextures = prefs.getBoolean("load_textures", false);
@@ -50,6 +51,7 @@ public class SettingsDialogFragment extends DialogFragment {
         android.util.Log.d("SettingsDialog", "Applied renderer: " + renderer);
         NativeApp.renderUpscalemultiplier(scale);
         NativeApp.setAspectRatio(aspectRatio);
+        NativeApp.setBlendingAccuracy(blendingAccuracy);
         NativeApp.setWidescreenPatches(widescreenPatches);
         NativeApp.setNoInterlacingPatches(noInterlacingPatches);
         NativeApp.setLoadTextures(loadTextures);
@@ -74,6 +76,7 @@ public class SettingsDialogFragment extends DialogFragment {
         RadioButton rbVk = view.findViewById(R.id.rb_renderer_vk);
         RadioButton rbSw = view.findViewById(R.id.rb_renderer_sw);
         Spinner spScale = view.findViewById(R.id.sp_scale);
+        Spinner spBlending = view.findViewById(R.id.sp_blending_accuracy);
         Spinner spAspectRatio = view.findViewById(R.id.sp_aspect_ratio);
         Switch swWidescreen = view.findViewById(R.id.sw_widescreen);
         Switch swNoInterlacing = view.findViewById(R.id.sw_no_interlacing);
@@ -180,6 +183,12 @@ public class SettingsDialogFragment extends DialogFragment {
         scaleAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spScale.setAdapter(scaleAdapter);
 
+        // Populate blending accuracy spinner (0..5)
+        ArrayAdapter<CharSequence> blendAdapter = ArrayAdapter.createFromResource(ctx,
+                R.array.blending_accuracy_entries, android.R.layout.simple_spinner_item);
+        blendAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spBlending.setAdapter(blendAdapter);
+
         // Populate aspect ratio spinner
         ArrayAdapter<CharSequence> aspectAdapter = ArrayAdapter.createFromResource(ctx,
                 R.array.aspect_ratio_entries, android.R.layout.simple_spinner_item);
@@ -195,6 +204,7 @@ public class SettingsDialogFragment extends DialogFragment {
         boolean savedLoadTextures = prefs.getBoolean("load_textures", false);
         boolean savedAsyncTextureLoading = prefs.getBoolean("async_texture_loading", true);
         boolean savedHud = prefs.getBoolean("hud_visible", false);
+        int savedBlending = prefs.getInt("blending_accuracy", 1);
 
         if (savedRenderer == RENDERER_VULKAN) rbVk.setChecked(true);
         else if (savedRenderer == RENDERER_SOFTWARE) rbSw.setChecked(true);
@@ -203,6 +213,9 @@ public class SettingsDialogFragment extends DialogFragment {
         int scaleIndex = scaleToIndex(savedScale);
         if (scaleIndex < 0 || scaleIndex >= scaleAdapter.getCount()) scaleIndex = 0;
         spScale.setSelection(scaleIndex);
+
+        if (savedBlending < 0 || savedBlending >= blendAdapter.getCount()) savedBlending = 1;
+        spBlending.setSelection(savedBlending);
 
         if (savedAspectRatio >= 0 && savedAspectRatio < aspectAdapter.getCount()) {
             spAspectRatio.setSelection(savedAspectRatio);
@@ -258,24 +271,28 @@ public class SettingsDialogFragment extends DialogFragment {
              }
              
              // Persist all other settings
-             prefs.edit()
-                     .putFloat("upscale_multiplier", scale)
-                     .putInt("aspect_ratio", aspectRatio)
-                     .putBoolean("widescreen_patches", widescreenPatches)
-                     .putBoolean("no_interlacing_patches", noInterlacingPatches)
-                     .putBoolean("load_textures", loadTextures)
-                     .putBoolean("async_texture_loading", asyncTextureLoading)
-                     .putBoolean("hud_visible", hudVisible)
-                     .apply();
+            int blendingLevel = spBlending.getSelectedItemPosition();
+
+            prefs.edit()
+                    .putFloat("upscale_multiplier", scale)
+                    .putInt("aspect_ratio", aspectRatio)
+                    .putInt("blending_accuracy", blendingLevel)
+                    .putBoolean("widescreen_patches", widescreenPatches)
+                    .putBoolean("no_interlacing_patches", noInterlacingPatches)
+                    .putBoolean("load_textures", loadTextures)
+                    .putBoolean("async_texture_loading", asyncTextureLoading)
+                    .putBoolean("hud_visible", hudVisible)
+                    .apply();
 
              // Apply other settings
-             NativeApp.renderUpscalemultiplier(scale);
-             NativeApp.setAspectRatio(aspectRatio);
-             NativeApp.setWidescreenPatches(widescreenPatches);
-             NativeApp.setNoInterlacingPatches(noInterlacingPatches);
-             NativeApp.setLoadTextures(loadTextures);
-             NativeApp.setAsyncTextureLoading(asyncTextureLoading);
-             NativeApp.setHudVisible(hudVisible);
+            NativeApp.renderUpscalemultiplier(scale);
+            NativeApp.setAspectRatio(aspectRatio);
+            NativeApp.setBlendingAccuracy(blendingLevel);
+            NativeApp.setWidescreenPatches(widescreenPatches);
+            NativeApp.setNoInterlacingPatches(noInterlacingPatches);
+            NativeApp.setLoadTextures(loadTextures);
+            NativeApp.setAsyncTextureLoading(asyncTextureLoading);
+            NativeApp.setHudVisible(hudVisible);
          });
 
         return b.create();

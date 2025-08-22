@@ -84,6 +84,22 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:text="Blending Accuracy"
+            android:textStyle="bold"
+            android:paddingBottom="8dp"/>
+
+        <Spinner
+            android:id="@+id/sp_blending_accuracy"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="12dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:text="Resolution scale"
             android:textStyle="bold"
             android:paddingBottom="8dp"/>
