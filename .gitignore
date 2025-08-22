@@ -1,0 +1,15 @@
+# Gradle
+.gradle/
+
+# Local configuration
+local.properties
+
+# Keystore files
+*.jks
+*.keystore
+
+# Build folder
+app/build/
+
+# NDK
+app/.cxx/
