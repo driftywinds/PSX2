@@ -32,7 +32,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_download"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Download Covers" />

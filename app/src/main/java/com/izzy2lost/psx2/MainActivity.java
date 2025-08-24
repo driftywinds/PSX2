@@ -342,7 +342,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
         setSurfaceView(new SDLSurface(this));
 
-        // Improve button outline contrast across all MaterialButtons
+        // Ensure consistent ripple across all MaterialButtons
         tintAllMaterialButtonOutlines();
 
         // Settings are already applied in Initialize() -> loadAndApplySettings()
@@ -426,29 +426,17 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             });
         }
 
-        // Toggle on-screen controls visibility
+        // Toggle all UI visibility (including controls)
         MaterialButton btnToggleControls = findViewById(R.id.btn_toggle_controls);
         if (btnToggleControls != null) {
             btnToggleControls.setOnClickListener(v -> {
-                View llDpad = findViewById(R.id.ll_pad_dpad);
-                View llRight = findViewById(R.id.ll_pad_right_buttons);
-                View llSelectStart = findViewById(R.id.ll_pad_select_start);
-                View llJoy = findViewById(R.id.ll_pad_joy);
-
-                boolean currentlyVisible = (llDpad != null && llDpad.getVisibility() == View.VISIBLE);
-                setControlsVisible(!currentlyVisible);
+                toggleAllUIVisibility();
             });
         }
 
         // HUD toggle moved to Settings (Developer section)
 
-        // Hide UI button
-        MaterialButton btn_hide_ui = findViewById(R.id.btn_hide_ui);
-        if(btn_hide_ui != null) {
-            btn_hide_ui.setOnClickListener(v -> {
-                toggleAllUIVisibility();
-            });
-        }
+        // Hide UI button (removed - functionality moved to toggle button)
 
         // Small unhide button (appears when all UI is hidden)
         MaterialButton btn_unhide_ui = findViewById(R.id.btn_unhide_ui);
@@ -780,20 +768,27 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         allUIHidden = !allUIHidden;
         int vis = allUIHidden ? View.GONE : View.VISIBLE;
         
-        // Hide/show all UI elements
+        // Hide/show all UI elements except the toggle button itself
         View btnSettings = findViewById(R.id.btn_settings);
-        View btnToggleControls = findViewById(R.id.btn_toggle_controls);
+        MaterialButton btnToggleControls = findViewById(R.id.btn_toggle_controls);
         View btnFile = findViewById(R.id.btn_file);
         View btnBios = findViewById(R.id.btn_bios);
         View btnSaves = findViewById(R.id.btn_saves);
         View btnHideUI = findViewById(R.id.btn_hide_ui);
+        View llQuickActions = findViewById(R.id.ll_quick_actions);
         
         if (btnSettings != null) btnSettings.setVisibility(vis);
-        if (btnToggleControls != null) btnToggleControls.setVisibility(vis);
+        // Keep toggle button visible but change its icon
+        if (btnToggleControls != null) {
+            // Change icon based on visibility state
+            int iconRes = allUIHidden ? R.drawable.visibility_24px : R.drawable.visibility_off_24px;
+            btnToggleControls.setIcon(ContextCompat.getDrawable(this, iconRes));
+        }
         if (btnFile != null) btnFile.setVisibility(vis);
         if (btnBios != null) btnBios.setVisibility(vis);
         if (btnSaves != null) btnSaves.setVisibility(vis);
         if (btnHideUI != null) btnHideUI.setVisibility(vis);
+        if (llQuickActions != null) llQuickActions.setVisibility(vis);
         
         // Hide/show on-screen controls
         if (!allUIHidden) {
@@ -804,68 +799,54 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             setControlsVisible(false);
         }
         
-        // Show a small unhide button when UI is hidden
+        // The unhide button is no longer needed since toggle button stays visible
         View unhideButton = findViewById(R.id.btn_unhide_ui);
         if (unhideButton != null) {
-            unhideButton.setVisibility(allUIHidden ? View.VISIBLE : View.GONE);
+            unhideButton.setVisibility(View.GONE);
         }
     }
 
     private void tintAllMaterialButtonOutlines() {
-        // Brand strokes
-        final ColorStateList strokeDefault = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_outline));
-        final ColorStateList strokePrimary = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_primary));
-        final ColorStateList strokeSecondary = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_secondary));
-
+        // Ripple + specific color tweaks, no strokes (transparent container style)
         View root = findViewById(android.R.id.content);
         if (root instanceof ViewGroup) {
-            traverseAndTintButtons((ViewGroup) root, strokeDefault, strokePrimary, strokeSecondary);
+            traverseAndTintButtons((ViewGroup) root);
         }
     }
 
-    private void traverseAndTintButtons(ViewGroup group, ColorStateList strokeDefault, ColorStateList strokePrimary, ColorStateList strokeSecondary) {
+    private void traverseAndTintButtons(ViewGroup group) {
         for (int i = 0; i < group.getChildCount(); i++) {
             View child = group.getChildAt(i);
             if (child instanceof ViewGroup) {
-                traverseAndTintButtons((ViewGroup) child, strokeDefault, strokePrimary, strokeSecondary);
+                traverseAndTintButtons((ViewGroup) child);
             }
             if (child instanceof MaterialButton) {
                 MaterialButton mb = (MaterialButton) child;
                 // Ensure ripple matches brand globally
                 mb.setRippleColor(ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_ripple)));
                 int id = mb.getId();
-                if (id == R.id.btn_settings || id == R.id.btn_toggle_controls) {
-                    mb.setStrokeColor(strokePrimary);
-                } else if (id == R.id.btn_file || id == R.id.btn_bios || id == R.id.btn_saves || id == R.id.btn_hide_ui) {
-                    mb.setStrokeColor(strokeSecondary);
-                } else if (id == R.id.btn_pad_y) { // Triangle = green
+                if (id == R.id.btn_pad_y) { // Triangle = green
                     final int base = ContextCompat.getColor(this, R.color.ps2_triangle_green);
                     ColorStateList stateful = pressedColorStateList(base);
-                    mb.setStrokeColor(stateful);
                     mb.setTextColor(stateful);
                 } else if (id == R.id.btn_pad_b) { // Circle = red
                     final int base = ContextCompat.getColor(this, R.color.ps2_circle_red);
                     ColorStateList stateful = pressedColorStateList(base);
-                    mb.setStrokeColor(stateful);
                     mb.setTextColor(stateful);
                 } else if (id == R.id.btn_pad_a) { // Cross = blue
                     final int base = ContextCompat.getColor(this, R.color.ps2_cross_blue);
                     ColorStateList stateful = pressedColorStateList(base);
-                    mb.setStrokeColor(stateful);
                     mb.setTextColor(stateful);
                 } else if (id == R.id.btn_pad_x) { // Square = pink
                     final int base = ContextCompat.getColor(this, R.color.ps2_square_pink);
                     ColorStateList stateful = pressedColorStateList(base);
-                    mb.setStrokeColor(stateful);
                     mb.setTextColor(stateful);
                 } else if (id == R.id.btn_pad_dir_top || id == R.id.btn_pad_dir_left || id == R.id.btn_pad_dir_right || id == R.id.btn_pad_dir_bottom) {
                     // D-pad arrow icon tint to brand accent
                     ColorStateList iconTint = ColorStateList.valueOf(ContextCompat.getColor(this, R.color.brand_accent));
                     mb.setIconTint(iconTint);
-                } else {
-                    mb.setStrokeColor(strokeDefault);
                 }
-                mb.setStrokeWidth(1);
+                // No stroke; background is transparent per style
             }
         }
     }

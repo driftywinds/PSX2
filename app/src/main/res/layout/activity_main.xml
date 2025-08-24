@@ -15,13 +15,12 @@
     <!-- Top-left Settings button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_settings"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        style="@style/PSX2.ElevatedTransparentButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="settings"
-        android:textColor="@color/white"
+        
         app:rippleColor="#80cdcdcd"
-        app:strokeColor="#80000000"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         android:layout_margin="12dp"/>
@@ -38,48 +37,44 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_ogl"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="60dip"
             android:layout_height="wrap_content"
             android:text="OGL"
             android:textSize="12dp"
-            android:textColor="@color/white"
-            app:rippleColor="#80cdcdcd"
-            app:strokeColor="#80000000" />
+            
+            app:rippleColor="#80cdcdcd" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_vulkan"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="60dip"
             android:layout_height="wrap_content"
             android:text="VK"
             android:textSize="12dp"
-            android:textColor="@color/white"
-            app:rippleColor="#80cdcdcd"
-            app:strokeColor="#80000000" />
+            
+            app:rippleColor="#80cdcdcd" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_sw"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="60dip"
             android:layout_height="wrap_content"
             android:text="SW"
             android:textSize="12dp"
-            android:textColor="@color/white"
-            app:rippleColor="#80cdcdcd"
-            app:strokeColor="#80000000" />
+            
+            app:rippleColor="#80cdcdcd" />
     </LinearLayout>
 
     <!-- Controls toggle (top-right) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_toggle_controls"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        style="@style/PSX2.ElevatedTransparentButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="controls"
-        android:textColor="@color/white"
+        
         app:rippleColor="#80cdcdcd"
-        app:strokeColor="#80000000"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_margin="12dp"/>
@@ -87,10 +82,9 @@
     <!-- Small unhide button (only visible when all UI is hidden) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_unhide_ui"
-        style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+        style="@style/PSX2.ElevatedTransparentButton"
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:backgroundTint="#33000000"
         android:visibility="gone"
         app:icon="@drawable/ic_unhide"
         app:iconSize="24dp"
@@ -130,43 +124,39 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_file"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="GAMES"
-            android:textColor="@color/white"
-            app:rippleColor="#80cdcdcd"
-            app:strokeColor="#80000000" />
+            
+            app:rippleColor="#80cdcdcd" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_bios"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="bios"
-            android:textColor="@color/white"
-            app:rippleColor="#80cdcdcd"
-            app:strokeColor="#80000000" />
+            
+            app:rippleColor="#80cdcdcd" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_saves"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="saves"
-            android:textColor="@color/white"
-            app:rippleColor="#80cdcdcd"
-            app:strokeColor="#80000000" />
+            
+            app:rippleColor="#80cdcdcd" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_hide_ui"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="hide"
-            android:textColor="@color/white"
-            app:rippleColor="#80cdcdcd"
-            app:strokeColor="#80000000" />
+            
+            app:rippleColor="#80cdcdcd" />
     </LinearLayout>
 
     <LinearLayout
@@ -182,23 +172,21 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_pad_select"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="select"
-            android:textColor="@color/white"
-            app:rippleColor="#80cdcdcd"
-            app:strokeColor="#80000000" />
+            
+            app:rippleColor="#80cdcdcd" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_pad_start"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="start"
-            android:textColor="@color/white"
-            app:rippleColor="#80cdcdcd"
-            app:strokeColor="#80000000" />
+            
+            app:rippleColor="#80cdcdcd" />
 
     </LinearLayout>
 
@@ -219,23 +207,19 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_l3"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="L3"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_r3"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="R3"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
         </LinearLayout>
 
         <LinearLayout
@@ -245,23 +229,19 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_l2"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="L2"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_r2"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="R2"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
         </LinearLayout>
 
         <LinearLayout
@@ -271,23 +251,19 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_l1"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="L1"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_r1"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="R1"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
         </LinearLayout>
 
         <LinearLayout
@@ -297,7 +273,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_x"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text=""
@@ -307,12 +283,11 @@
                 app:iconPadding="0dp"
                 app:iconSize="20dp"
                 app:iconGravity="textStart"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_y"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text=""
@@ -322,8 +297,7 @@
                 app:iconPadding="0dp"
                 app:iconSize="20dp"
                 app:iconGravity="textStart"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
         </LinearLayout>
 
         <LinearLayout
@@ -333,7 +307,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_a"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text=""
@@ -343,12 +317,11 @@
                 app:iconPadding="0dp"
                 app:iconSize="20dp"
                 app:iconGravity="textStart"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_b"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text=""
@@ -358,8 +331,7 @@
                 app:iconPadding="0dp"
                 app:iconSize="20dp"
                 app:iconGravity="textStart"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
         </LinearLayout>
     </LinearLayout>
 
@@ -380,33 +352,27 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_joy_lt"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="60dip"
                 android:layout_height="wrap_content"
                 android:text="↖"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_joy_t"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="60dip"
                 android:layout_height="wrap_content"
                 android:text="↑"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_joy_rt"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="60dip"
                 android:layout_height="wrap_content"
                 android:text="↗"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
         </LinearLayout>
 
@@ -417,33 +383,28 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_joy_l"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="60dip"
                 android:layout_height="wrap_content"
                 android:text="←"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_joy_center"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="60dip"
                 android:layout_height="wrap_content"
                 android:text=""
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_joy_r"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="60dip"
                 android:layout_height="wrap_content"
                 android:text="→"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                
+                app:rippleColor="#80cdcdcd" />
 
         </LinearLayout>
 
@@ -454,33 +415,30 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_joy_lb"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="60dip"
                 android:layout_height="wrap_content"
                 android:text="↙"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_joy_b"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="60dip"
                 android:layout_height="wrap_content"
                 android:text="↓"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_joy_rb"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="60dip"
                 android:layout_height="wrap_content"
                 android:text="↘"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeColor="#80000000" />
+                
+                app:rippleColor="#80cdcdcd" />
 
         </LinearLayout>
     </LinearLayout>
@@ -504,25 +462,21 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_dir_top"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="↑"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeWidth="0dp"
-                app:strokeColor="@android:color/transparent" />
+                
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_dir_bottom"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="↓"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeWidth="0dp"
-                app:strokeColor="@android:color/transparent" />
+                
+                app:rippleColor="#80cdcdcd" />
         </LinearLayout>
 
         <LinearLayout
@@ -532,25 +486,19 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_dir_left"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="←"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeWidth="0dp"
-                app:strokeColor="@android:color/transparent" />
+                app:rippleColor="#80cdcdcd" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btn_pad_dir_right"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/PSX2.ElevatedTransparentButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="→"
-                android:textColor="@color/white"
-                app:rippleColor="#80cdcdcd"
-                app:strokeWidth="0dp"
-                app:strokeColor="@android:color/transparent" />
+                app:rippleColor="#80cdcdcd" />
         </LinearLayout>
     </LinearLayout>
 

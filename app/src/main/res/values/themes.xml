@@ -1,22 +1,52 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.PSX2" parent="@style/Theme.MaterialComponents.Light.NoActionBar">
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowFullscreen">true</item>
-        <item name="android:windowIsTranslucent">false</item>
-        <item name="android:windowAnimationStyle">@android:style/Animation</item>
-        <!-- Apply custom outlined button style globally -->
+<resources>
+    <style name="AppTheme" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">#9ECAFF</item>
+        <item name="colorOnPrimary">#003258</item>
+        <item name="colorPrimaryContainer">#33A1FF</item>
+        <item name="colorOnPrimaryContainer">#00365E</item>
+        <item name="colorSecondary">#A9C9F2</item>
+        <item name="colorOnSecondary">#0C3253</item>
+        <item name="colorSecondaryContainer">#2A4B6E</item>
+        <item name="colorOnSecondaryContainer">#9BBBE3</item>
+        <item name="colorTertiary">#EEB1FF</item>
+        <item name="colorOnTertiary">#53006F</item>
+        <item name="colorTertiaryContainer">#CD7DE8</item>
+        <item name="colorOnTertiaryContainer">#580375</item>
+        <item name="colorError">#FFB4AB</item>
+        <item name="colorOnError">#690005</item>
+        <item name="colorErrorContainer">#93000A</item>
+        <item name="colorOnErrorContainer">#FFDAD6</item>
+        <item name="android:colorBackground">#0F1419</item>
+        <item name="colorOnBackground">#DFE2EA</item>
+        <item name="colorSurface">#0F1419</item>
+        <item name="colorOnSurface">#DFE2EA</item>
+        <item name="colorSurfaceVariant">#404752</item>
+        <item name="colorOnSurfaceVariant">#BFC7D4</item>
+        <item name="colorOutline">#89919E</item>
+        <item name="colorOutlineVariant">#404752</item>
+        <item name="colorSurfaceInverse">#DFE2EA</item>
+        <item name="colorOnSurfaceInverse">#2C3137</item>
+        <item name="colorPrimaryInverse">#0061A3</item>
+        <item name="colorPrimaryFixed">#D1E4FF</item>
+        <item name="colorOnPrimaryFixed">#001D36</item>
+        <item name="colorPrimaryFixedDim">#9ECAFF</item>
+        <item name="colorOnPrimaryFixedVariant">#00497D</item>
+        <item name="colorSecondaryFixed">#D1E4FF</item>
+        <item name="colorOnSecondaryFixed">#001D36</item>
+        <item name="colorSecondaryFixedDim">#A9C9F2</item>
+        <item name="colorOnSecondaryFixedVariant">#28496B</item>
+        <item name="colorTertiaryFixed">#F9D8FF</item>
+        <item name="colorOnTertiaryFixed">#330045</item>
+        <item name="colorTertiaryFixedDim">#EEB1FF</item>
+        <item name="colorOnTertiaryFixedVariant">#6E228A</item>
+        <item name="colorSurfaceDim">#0F1419</item>
+        <item name="colorSurfaceBright">#353940</item>
+        <item name="colorSurfaceContainerLowest">#0A0E14</item>
+        <item name="colorSurfaceContainerLow">#181C22</item>
+        <item name="colorSurfaceContainer">#1C2026</item>
+        <item name="colorSurfaceContainerHigh">#262A30</item>
+        <item name="colorSurfaceContainerHighest">#31353B</item>
+        <!-- Default MaterialButton styles -->
         <item name="materialButtonOutlinedStyle">@style/PSX2.OutlinedButton</item>
-        <!-- Brand blue for activated controls (RadioButton, Switch, etc.) -->
-        <item name="colorControlActivated">@color/brand_primary</item>
-        <!-- Fallback for platform widgets using accent -->
-        <item name="colorAccent">@color/brand_primary</item>
-    </style>
-
-    <!-- Custom outlined button style with light gray stroke for visibility on dark backgrounds -->
-    <style name="PSX2.OutlinedButton" parent="Widget.MaterialComponents.Button.OutlinedButton">
-        <item name="strokeColor">@color/brand_outline</item>
-        <item name="strokeWidth">1dp</item>
-        <item name="android:textColor">@color/white</item>
-        <item name="rippleColor">@color/brand_ripple</item>
     </style>
 </resources>

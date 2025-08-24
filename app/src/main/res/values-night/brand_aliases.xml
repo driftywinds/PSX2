@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Night aliases to Theme Builder tokens -->
+    <color name="brand_primary">@color/md_theme_primary</color>
+    <color name="brand_secondary">@color/md_theme_secondary</color>
+    <color name="brand_outline">@color/md_theme_outline</color>
+    <color name="brand_accent">@color/md_theme_secondary</color>
+    <!-- Ripple based on night primary (50% alpha) -->
+    <color name="brand_ripple">#809ECAFF</color>
+    
+    <!-- Semi-transparent surface container for buttons (70% alpha) -->
+    <color name="brand_surface_container_semi">#B3393F46</color>
+</resources>

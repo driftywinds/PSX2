@@ -137,7 +137,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_import_pnach"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Import Cheats / Patch Codes (.pnach)" />

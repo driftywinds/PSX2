@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Aliases to Material 3 Theme Builder tokens so existing code compiles -->
+    <color name="brand_primary">@color/md_theme_primary</color>
+    <color name="brand_secondary">@color/md_theme_secondary</color>
+    <color name="brand_outline">@color/md_theme_outline</color>
+    <color name="brand_accent">@color/md_theme_secondary</color>
+    <!-- Ripple based on primary (50% alpha) for light theme -->
+    <color name="brand_ripple">#800061A3</color>
+    
+    <!-- Semi-transparent surface container for buttons (70% alpha) - dark theme -->
+    <color name="brand_surface_container_semi">#B31C2026</color>
+
+    <!-- PS2 face button colors (static) -->
+    <color name="ps2_triangle_green">#00D000</color>
+    <color name="ps2_circle_red">#FF3030</color>
+    <color name="ps2_cross_blue">#4080FF</color>
+    <color name="ps2_square_pink">#FF80C0</color>
+</resources>

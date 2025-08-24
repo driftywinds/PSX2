@@ -54,7 +54,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_slot_save"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
             android:text="Save"
@@ -64,7 +64,7 @@
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_slot_load"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            style="@style/PSX2.ElevatedTransparentButton"
             android:layout_width="wrap_content"
             android:layout_height="36dp"
             android:text="Load"
