@@ -15,7 +15,8 @@ import android.content.res.ColorStateList;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
+// Use MaterialAlertDialogBuilder for Material 3 dialogs.
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.fragment.app.DialogFragment;
 import androidx.core.widget.CompoundButtonCompat;
 import androidx.core.content.ContextCompat;
@@ -138,7 +139,8 @@ public class SettingsDialogFragment extends DialogFragment {
 
         if (btnPower != null) {
             btnPower.setOnClickListener(v -> {
-                new AlertDialog.Builder(requireContext())
+                new MaterialAlertDialogBuilder(requireContext(),
+                        com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
                         .setTitle("Power Off")
                         .setMessage("Quit the app?")
                         .setNegativeButton("Cancel", null)
@@ -161,7 +163,8 @@ public class SettingsDialogFragment extends DialogFragment {
 
         if (btnReboot != null) {
             btnReboot.setOnClickListener(v -> {
-                new AlertDialog.Builder(requireContext())
+                new MaterialAlertDialogBuilder(requireContext(),
+                        com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
                         .setTitle("Reboot")
                         .setMessage("Restart the current game?")
                         .setNegativeButton("Cancel", null)
@@ -229,7 +232,8 @@ public class SettingsDialogFragment extends DialogFragment {
         swAsyncTextureLoading.setChecked(savedAsyncTextureLoading);
         if (swDevHud != null) swDevHud.setChecked(savedHud);
 
-        AlertDialog.Builder b = new AlertDialog.Builder(requireContext());
+        MaterialAlertDialogBuilder b = new MaterialAlertDialogBuilder(requireContext(),
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog);
         b.setTitle("Graphics Settings")
          .setView(view)
          .setNegativeButton("Cancel", (d, w) -> d.dismiss())

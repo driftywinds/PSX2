@@ -1,7 +1,8 @@
 package com.izzy2lost.psx2;
 
 import android.app.Activity;
-import android.app.AlertDialog;
+// Use MaterialAlertDialogBuilder to adopt Material 3 styling for all dialogs.
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.AssetManager;
@@ -242,7 +243,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         final String[] urisFinal = uris;
 
         if (namesFinal.length == 0) {
-            new AlertDialog.Builder(this)
+            new MaterialAlertDialogBuilder(this,
+                    com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
                     .setTitle("GAMES")
                     .setMessage("No games found. Pick a folder?")
                     .setNegativeButton("Cancel", null)
@@ -1324,7 +1326,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     }
 
     private void showExitDialog() {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this,
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
                 .setTitle("Exit App")
                 .setMessage("Do you want to exit PSX2?")
                 .setIcon(android.R.drawable.ic_dialog_alert)

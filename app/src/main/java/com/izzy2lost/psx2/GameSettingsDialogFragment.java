@@ -15,7 +15,8 @@ import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
+// Use Material 3 dialog builder for per‑game settings dialog
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.fragment.app.DialogFragment;
 
 public class GameSettingsDialogFragment extends DialogFragment {
@@ -181,7 +182,9 @@ public class GameSettingsDialogFragment extends DialogFragment {
             spResolution.setSelection(0);
         }
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(ctx);
+        // Use MaterialAlertDialogBuilder with Material 3 overlay for the main dialog
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(ctx,
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog);
         builder.setTitle("Per-Game Settings")
                .setView(view)
                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
@@ -211,7 +214,8 @@ public class GameSettingsDialogFragment extends DialogFragment {
         if (btnImport != null) {
             btnImport.setOnClickListener(v -> {
                 final String[] choices = new String[]{"Import as Cheats", "Import as Patch Codes"};
-                new AlertDialog.Builder(ctx)
+                new MaterialAlertDialogBuilder(ctx,
+                        com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
                         .setTitle("Import PNACH")
                         .setItems(choices, (dlg, which) -> {
                             boolean asCheats = (which == 0);

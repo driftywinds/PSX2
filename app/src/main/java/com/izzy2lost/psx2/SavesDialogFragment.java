@@ -13,7 +13,8 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
+// Import MaterialAlertDialogBuilder for Material 3 dialogs
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -126,7 +127,8 @@ public class SavesDialogFragment extends DialogFragment {
                 Bitmap bitmap = BitmapFactory.decodeByteArray(screenshotData, 0, screenshotData.length);
                 
                 // Create enlarged screenshot dialog
-                AlertDialog.Builder builder = new AlertDialog.Builder(context);
+                MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(context,
+                        com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog);
                 View dialogView = LayoutInflater.from(context).inflate(R.layout.dialog_screenshot_preview, null);
                 
                 ImageView enlargedImageView = dialogView.findViewById(R.id.iv_enlarged_screenshot);
@@ -195,7 +197,8 @@ public class SavesDialogFragment extends DialogFragment {
 
         recyclerView.setAdapter(adapter);
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(ctx);
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(ctx,
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog);
         builder.setTitle("Save States")
                .setView(view)
                .setNegativeButton("Cancel", (d, w) -> d.dismiss());

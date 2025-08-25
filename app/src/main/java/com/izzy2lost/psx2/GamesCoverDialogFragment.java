@@ -18,6 +18,8 @@ import android.view.WindowInsetsController;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
+// Import MaterialAlertDialogBuilder for Material 3 styling
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -150,7 +152,8 @@ public class GamesCoverDialogFragment extends DialogFragment {
         View btnDownload = root.findViewById(R.id.btn_download);
         if (btnDownload != null) btnDownload.setOnClickListener(v -> startDownloadCovers());
 
-        AlertDialog dialog = new AlertDialog.Builder(requireContext())
+        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext(),
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
                 .setView(root)
                 .create();
         return dialog;
