@@ -790,7 +790,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Keep toggle button visible but change its icon
         if (btnToggleControls != null) {
             // Change icon based on visibility state
-            int iconRes = allUIHidden ? R.drawable.visibility_24px : R.drawable.visibility_off_24px;
+            int iconRes = allUIHidden ? R.drawable.visibility_off_24px : R.drawable.visibility_24px;
             btnToggleControls.setIcon(ContextCompat.getDrawable(this, iconRes));
         }
         if (btnFile != null) btnFile.setVisibility(vis);
