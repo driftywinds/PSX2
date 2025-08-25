@@ -86,6 +86,7 @@ public class SettingsDialogFragment extends DialogFragment {
         Switch swDevHud = view.findViewById(R.id.sw_dev_hud);
         View btnPower = view.findViewById(R.id.btn_power);
         View btnReboot = view.findViewById(R.id.btn_reboot);
+        View btnTestController = view.findViewById(R.id.btn_test_controller);
 
         // Brand tints for checked/activated states to replace aqua
         int brand = ContextCompat.getColor(ctx, R.color.brand_primary);
@@ -177,6 +178,13 @@ public class SettingsDialogFragment extends DialogFragment {
                             dismissAllowingStateLoss();
                         })
                         .show();
+            });
+        }
+
+        if (btnTestController != null) {
+            btnTestController.setOnClickListener(v -> {
+                ControllerTestDialogFragment controllerDialog = new ControllerTestDialogFragment();
+                controllerDialog.show(getParentFragmentManager(), "controller_test");
             });
         }
 

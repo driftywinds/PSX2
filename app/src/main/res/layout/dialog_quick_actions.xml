@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Quick Actions"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp"
+        android:textColor="?android:attr/textColorPrimary" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_exit_to_menu"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Exit to Menu"
+        android:textAllCaps="false"
+        android:layout_marginBottom="8dp"
+        android:drawableStart="@drawable/ic_home"
+        android:drawablePadding="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_restart_game"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Restart Game"
+        android:textAllCaps="false"
+        android:layout_marginBottom="8dp"
+        android:drawableStart="@drawable/ic_reboot"
+        android:drawablePadding="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_quit_app"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Quit App"
+        android:textAllCaps="false"
+        android:layout_marginBottom="16dp"
+        android:drawableStart="@drawable/ic_power"
+        android:drawablePadding="8dp" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_cancel"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Cancel"
+        android:textAllCaps="false" />
+
+</LinearLayout>

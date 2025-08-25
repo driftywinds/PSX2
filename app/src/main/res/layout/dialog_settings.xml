@@ -214,5 +214,24 @@
                 android:text="Dev: HUD overlay"/>
         </LinearLayout>
 
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="16dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Controller"
+            android:textStyle="bold"
+            android:paddingBottom="8dp"/>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_test_controller"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Test Controller Input"
+            android:textAllCaps="false"/>
+
     </LinearLayout>
 </ScrollView>

@@ -50,10 +50,11 @@ import org.json.JSONException;
 import androidx.fragment.app.FragmentManager;
 import java.util.List;
 
-public class MainActivity extends AppCompatActivity implements GamesCoverDialogFragment.OnGameSelectedListener {
+public class MainActivity extends AppCompatActivity implements GamesCoverDialogFragment.OnGameSelectedListener, ControllerInputHandler.ControllerInputListener {
     private String m_szGamefile = "";
 
     private HIDDeviceManager mHIDDeviceManager;
+    private ControllerInputHandler mControllerInputHandler;
     private Thread mEmulationThread = null;
     private boolean mHudVisible = false;
     
@@ -344,6 +345,12 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         copyAssetAll(getApplicationContext(), "resources");
 
         Initialize();
+
+        // Initialize controller input handler
+        mControllerInputHandler = new ControllerInputHandler(this);
+        
+        // Log connected controllers for debugging
+        ControllerConfig.logControllerInfo(this);
 
         makeButtonTouch();
 
@@ -1153,6 +1160,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         SettingsDialogFragment.loadAndApplySettings(this);
 
         mHIDDeviceManager = HIDDeviceManager.acquire(this);
+        // Initialize HID device manager for USB and Bluetooth controllers
+        mHIDDeviceManager.initialize(true, true);
         
         // Apply renderer setting again after a delay to override any automatic detection
         new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
@@ -1217,38 +1226,40 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
-        if (SDLControllerManager.isDeviceSDLJoystick(event.getDeviceId())) {
-            SDLControllerManager.handleJoystickMotionEvent(event);
+        // Use only our controller handler - disable SDL fallback to avoid conflicts
+        if (mControllerInputHandler != null && mControllerInputHandler.handleMotionEvent(event)) {
             return true;
         }
+        
+        // Skip SDL controller manager to avoid mapping conflicts
         return super.onGenericMotionEvent(event);
     }
 
     @Override
     public boolean onKeyDown(int p_keyCode, KeyEvent p_event) {
-        if ((p_event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
-            if (p_event.getRepeatCount() == 0) {
-                SDLControllerManager.onNativePadDown(p_event.getDeviceId(), p_keyCode);
-                return true;
-            }
+        // Use only our controller handler - disable SDL fallback to avoid conflicts
+        if (mControllerInputHandler != null && mControllerInputHandler.handleKeyEvent(p_event)) {
+            return true;
         }
-        else {
-            if (p_keyCode == KeyEvent.KEYCODE_BACK) {
-                showExitDialog();
-                return true;
-            }
+        
+        // Handle back button for non-gamepad sources
+        if (p_keyCode == KeyEvent.KEYCODE_BACK) {
+            showExitDialog();
+            return true;
         }
+        
+        // Skip SDL controller manager to avoid mapping conflicts
         return super.onKeyDown(p_keyCode, p_event);
     }
 
     @Override
     public boolean onKeyUp(int p_keyCode, KeyEvent p_event) {
-        if ((p_event.getSource() & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD) {
-            if (p_event.getRepeatCount() == 0) {
-                SDLControllerManager.onNativePadUp(p_event.getDeviceId(), p_keyCode);
-                return true;
-            }
+        // Use only our controller handler - disable SDL fallback to avoid conflicts
+        if (mControllerInputHandler != null && mControllerInputHandler.handleKeyEvent(p_event)) {
+            return true;
         }
+        
+        // Skip SDL controller manager to avoid mapping conflicts
         return super.onKeyUp(p_keyCode, p_event);
     }
 
@@ -1342,5 +1353,105 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+
+
+    // ControllerInputHandler.ControllerInputListener implementation
+    @Override
+    public void onControllerButtonPressed(int controllerId, int button, boolean pressed) {
+        android.util.Log.d("Controller", "Controller " + controllerId + " button " + button + " (" + getButtonName(button) + ") " + (pressed ? "pressed" : "released"));
+        
+        // Send controller input to native code using existing setPadButton method
+        // Range 255 for pressed, 0 for released (matching PS2 button range)
+        int range = pressed ? 255 : 0;
+        NativeApp.setPadButton(button, range, pressed);
+    }
+    
+    private String getButtonName(int button) {
+        switch (button) {
+            case KeyEvent.KEYCODE_BUTTON_A: return "Cross";
+            case KeyEvent.KEYCODE_BUTTON_B: return "Circle";
+            case KeyEvent.KEYCODE_BUTTON_X: return "Square";
+            case KeyEvent.KEYCODE_BUTTON_Y: return "Triangle";
+            case KeyEvent.KEYCODE_BUTTON_L1: return "L1";
+            case KeyEvent.KEYCODE_BUTTON_R1: return "R1";
+            case KeyEvent.KEYCODE_BUTTON_L2: return "L2";
+            case KeyEvent.KEYCODE_BUTTON_R2: return "R2";
+            case KeyEvent.KEYCODE_BUTTON_SELECT: return "Select";
+            case KeyEvent.KEYCODE_BUTTON_START: return "Start";
+            case KeyEvent.KEYCODE_BUTTON_THUMBL: return "L3";
+            case KeyEvent.KEYCODE_BUTTON_THUMBR: return "R3";
+            case KeyEvent.KEYCODE_DPAD_UP: return "D-Up";
+            case KeyEvent.KEYCODE_DPAD_DOWN: return "D-Down";
+            case KeyEvent.KEYCODE_DPAD_LEFT: return "D-Left";
+            case KeyEvent.KEYCODE_DPAD_RIGHT: return "D-Right";
+            default: return "Unknown(" + button + ")";
+        }
+    }
+
+    @Override
+    public void onControllerAnalogInput(int controllerId, int axis, float value) {
+        android.util.Log.d("Controller", "Controller " + controllerId + " axis " + axis + " (" + getAxisName(axis) + ") value " + value);
+        
+        // Send analog input to native code using setPadButton
+        handleAnalogInput(axis, value);
+    }
+
+    @Override
+    public void onControllerCombo(int controllerId, String comboName) {
+        android.util.Log.d("Controller", "Controller " + controllerId + " combo: " + comboName);
+        
+        if ("select_start".equals(comboName)) {
+            // Show quick actions dialog
+            runOnUiThread(() -> {
+                QuickActionsDialogFragment dialog = new QuickActionsDialogFragment();
+                dialog.show(getSupportFragmentManager(), "quick_actions");
+            });
+        }
+    }
+    
+    private String getAxisName(int axis) {
+        switch (axis) {
+            case 110: return "L-Up";
+            case 111: return "L-Right";
+            case 112: return "L-Down";
+            case 113: return "L-Left";
+            case 120: return "R-Up";
+            case 121: return "R-Right";
+            case 122: return "R-Down";
+            case 123: return "R-Left";
+            case KeyEvent.KEYCODE_BUTTON_L2: return "L2-Trigger";
+            case KeyEvent.KEYCODE_BUTTON_R2: return "R2-Trigger";
+            default: return "Unknown(" + axis + ")";
+        }
+    }
+    
+    private void handleAnalogInput(int axis, float value) {
+        // Convert analog input to button presses for the native interface
+        // This matches how AetherSX2 handles analog input
+        
+        // For analog sticks, only send positive values (negative values are handled by opposite direction)
+        int intensity = Math.max(0, Math.round(Math.abs(value) * 255));
+        boolean pressed = Math.abs(value) > 0.1f;
+        
+        switch (axis) {
+            case ControllerInputHandler.PAD_L_UP:
+            case ControllerInputHandler.PAD_L_DOWN:
+            case ControllerInputHandler.PAD_L_LEFT:
+            case ControllerInputHandler.PAD_L_RIGHT:
+            case ControllerInputHandler.PAD_R_UP:
+            case ControllerInputHandler.PAD_R_DOWN:
+            case ControllerInputHandler.PAD_R_LEFT:
+            case ControllerInputHandler.PAD_R_RIGHT:
+                // Analog stick directions
+                NativeApp.setPadButton(axis, intensity, pressed);
+                break;
+            case ControllerInputHandler.PAD_L2:
+            case ControllerInputHandler.PAD_R2:
+                // Triggers: 0-255 range
+                NativeApp.setPadButton(axis, Math.round(value * 255), value > 0.1f);
+                break;
+        }
     }
 }
