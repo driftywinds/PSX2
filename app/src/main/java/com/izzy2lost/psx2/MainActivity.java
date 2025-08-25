@@ -11,6 +11,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.net.Uri;
 import android.view.InputDevice;
+import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
@@ -87,6 +88,10 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         hideStatusBar();
         applyConstraintsForOrientation(newConfig.orientation);
     }
+
+
+
+
 
     private void applyConstraintsForOrientation(int orientation) {
         // Views present in both layouts
@@ -364,6 +369,10 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         };
         getOnBackPressedDispatcher().addCallback(this, callback);
     }
+
+
+
+
 
     private void makeButtonTouch() {
         MaterialButton btn_file = findViewById(R.id.btn_file);
