@@ -36,10 +36,7 @@ public class SDLSurface extends SurfaceView implements SurfaceHolder.Callback {
     @Override
     public void surfaceChanged(@NonNull SurfaceHolder p_holder, int p_format, int p_width, int p_height) {
         NativeApp.onNativeSurfaceChanged(p_holder.getSurface(), p_width, p_height);
-        MainActivity _nativeActivity = (MainActivity) getContext();
-        if(_nativeActivity != null) {
-            _nativeActivity.startEmuThread();
-        }
+        // Don't automatically start emulation - let user choose when to start
     }
 
     // Called when we lose the surface
