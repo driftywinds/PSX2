@@ -19,3 +19,4 @@ app/.cxx/
 .idea/
 *.iml
 *.exe
+/PCSX2_ARM64

@@ -1,6 +1,7 @@
 package com.izzy2lost.psx2;
 
 import android.app.Activity;
+import androidx.appcompat.app.AlertDialog;
 // Use MaterialAlertDialogBuilder to adopt Material 3 styling for all dialogs.
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.content.Context;
@@ -64,6 +65,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private boolean joyDownPressed = false;
     private boolean joyLeftPressed = false;
     private boolean joyRightPressed = false;
+    private AlertDialog mBiosPromptDialog = null;
 
     private boolean isThread() {
         if (mEmulationThread != null) {
@@ -369,6 +371,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         ControllerConfig.logControllerInfo(this);
 
         makeButtonTouch();
+        updateRendererButtonLabel();
 
         setSurfaceView(new SDLSurface(this));
 
@@ -383,6 +386,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         applyConstraintsForOrientation(currentOrientation);
 
         
+        // Prompt for BIOS if missing
+        maybePromptForBios();
     }
 
     private void setupBackPressedHandler() {
@@ -428,18 +433,16 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             });
         }
 
-        // BIOS picker
+        // BIOS button repurposed: short tap toggles renderer, long-press picks BIOS folder
         MaterialButton btn_bios = findViewById(R.id.btn_bios);
         if (btn_bios != null) {
-            // Tap: pick multiple BIOS files
             btn_bios.setOnClickListener(v -> {
-                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                intent.setType("*/*");
-                startActivityResultBiosPick.launch(intent);
+                int current = getCurrentRendererPref();
+                int next;
+                // Cycle: OGL(12) -> VK(14) -> SW(13) -> OGL
+                if (current == 12) next = 14; else if (current == 14) next = 13; else next = 12;
+                setRendererAndSave(next);
             });
-            // Long-press: pick a BIOS folder
             btn_bios.setOnLongClickListener(v -> {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
                 intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -823,7 +826,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (btnSaves != null) btnSaves.setVisibility(vis);
         if (btnHideUI != null) btnHideUI.setVisibility(vis);
         if (llQuickActions != null) llQuickActions.setVisibility(vis);
-        
+
         // Hide/show on-screen controls
         if (!allUIHidden) {
             // When showing UI again, restore controls to their previous state
@@ -838,6 +841,39 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (unhideButton != null) {
             unhideButton.setVisibility(View.GONE);
         }
+
+        // Update renderer label when UI toggled back on
+        if (!allUIHidden) updateRendererButtonLabel();
+    }
+
+    private int getCurrentRendererPref() {
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        return prefs.getInt("renderer", 14);
+    }
+
+    private String rendererShortLabel(int r) {
+        if (r == 12) return "OGL";
+        if (r == 13) return "SW";
+        return "VK"; // 14
+    }
+
+    private void updateRendererButtonLabel() {
+        MaterialButton btn_bios = findViewById(R.id.btn_bios);
+        if (btn_bios != null) {
+            btn_bios.setText(rendererShortLabel(getCurrentRendererPref()));
+        }
+    }
+
+    private void setRendererAndSave(int renderer) {
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        prefs.edit().putInt("renderer", renderer).commit();
+        // Apply live if possible; this path has proven stable via top bar buttons
+        try {
+            NativeApp.renderGpu(renderer);
+        } catch (Throwable t) {
+            android.util.Log.e("MainActivity", "Renderer switch failed: " + t.getMessage());
+        }
+        updateRendererButtonLabel();
     }
 
     private void tintAllMaterialButtonOutlines() {
@@ -881,6 +917,86 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                     mb.setIconTint(iconTint);
                 }
                 // No stroke; background is transparent per style
+            }
+        }
+    }
+
+    // --- BIOS presence check and prompt ---
+    private boolean hasAnyBiosFiles(File dir) {
+        if (dir == null || !dir.exists()) return false;
+        File[] files = dir.listFiles();
+        if (files == null) return false;
+        for (File f : files) {
+            if (f == null) continue;
+            if (f.isDirectory()) {
+                if (hasAnyBiosFiles(f)) return true;
+            } else {
+                String name = f.getName();
+                // Common PCSX2 BIOS components: SCPH*.bin (main), and component ROMs ROM0/ROM1/ROM2/EROM
+                if (name != null) {
+                    String lower = name.toLowerCase();
+                    boolean isMainBios = lower.startsWith("scph") && (lower.endsWith(".bin") || lower.endsWith(".rom"));
+                    boolean isComponentSuffix = lower.endsWith(".rom0") || lower.endsWith(".rom1") || lower.endsWith(".rom2") || lower.endsWith(".erom");
+                    boolean isBareComponent = lower.equals("rom0") || lower.equals("rom1") || lower.equals("rom2") || lower.equals("erom");
+
+                    if (isMainBios) {
+                        if (f.length() >= 256 * 1024) return true; // main BIOS typically >= 2MB, but allow 256KB+
+                    } else if (isComponentSuffix || isBareComponent) {
+                        if (f.length() >= 64 * 1024) return true; // component ROMs can be smaller
+                    } else if (lower.endsWith(".bin") || lower.endsWith(".rom")) {
+                        // Fallback: any .bin/.rom over 256KB
+                        if (f.length() >= 256 * 1024) return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private void maybePromptForBios() {
+        File biosDir = new File(getApplicationContext().getExternalFilesDir(null), "bios");
+        if (hasAnyBiosFiles(biosDir)) return;
+        showBiosPrompt();
+    }
+
+    private boolean ensureBiosOrPrompt() {
+        File biosDir = new File(getApplicationContext().getExternalFilesDir(null), "bios");
+        if (hasAnyBiosFiles(biosDir)) return true;
+        showBiosPrompt();
+        return false;
+    }
+
+    private void showBiosPrompt() {
+        if (mBiosPromptDialog != null && mBiosPromptDialog.isShowing()) return;
+        mBiosPromptDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this,
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+                .setTitle("BIOS Required")
+                .setMessage("No PS2 BIOS detected. Import your BIOS files to run games.\n\nHint: Press Select+Start for Quick Actions.")
+                .setNegativeButton("Later", (d, w) -> { /* leave dialog dismiss */ })
+                .setPositiveButton("Pick Files", (d, w) -> {
+                    Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+                    intent.setType("*/*");
+                    startActivityResultBiosPick.launch(intent);
+                })
+                .setNeutralButton("Pick Folder", (d, w) -> {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
+                            | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+                            | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+                    startActivityResultBiosFolderPick.launch(intent);
+                })
+                .create();
+        mBiosPromptDialog.setOnDismissListener(dialog -> mBiosPromptDialog = null);
+        mBiosPromptDialog.show();
+    }
+
+    private void dismissBiosPromptIfResolved() {
+        File biosDir = new File(getApplicationContext().getExternalFilesDir(null), "bios");
+        if (hasAnyBiosFiles(biosDir)) {
+            if (mBiosPromptDialog != null && mBiosPromptDialog.isShowing()) {
+                try { mBiosPromptDialog.dismiss(); } catch (Exception ignored) {}
             }
         }
     }
@@ -993,7 +1109,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                                     importSingleBiosUri(uri, biosDir);
                                 }
                             }
-                            
+                            // If BIOS now present, dismiss the prompt
+                            dismissBiosPromptIfResolved();
                         }
                     } catch (Exception ignored) {}
                 }
@@ -1017,6 +1134,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                                     File biosDir = new File(getApplicationContext().getExternalFilesDir(null), "bios");
                                     if (!biosDir.exists()) biosDir.mkdirs();
                                     copyDocumentTreeToDirectory(pickedDir, biosDir);
+                                    // If BIOS now present, dismiss the prompt
+                                    dismissBiosPromptIfResolved();
                                 }
                             }
                         }
@@ -1202,6 +1321,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     }
 
     public void startEmuThread() {
+        // Ensure BIOS present before starting emulation
+        if (!ensureBiosOrPrompt()) return;
         if(!isThread()) {
             mEmulationThread = new Thread(() -> NativeApp.runVMThread(m_szGamefile));
             mEmulationThread.start();
@@ -1209,6 +1330,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     }
 
     private void restartEmuThread() {
+        // Ensure BIOS present before starting/restarting emulation
+        if (!ensureBiosOrPrompt()) return;
         NativeApp.shutdown();
         if (mEmulationThread != null) {
             try {
