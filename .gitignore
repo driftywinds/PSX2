@@ -18,3 +18,4 @@ app/.cxx/
 .vscode/
 .idea/
 *.iml
+*.exe

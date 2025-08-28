@@ -1236,6 +1236,15 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     }
 
     @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // Intercept controller DPAD/gamepad keys before focused views consume them
+        if (mControllerInputHandler != null && mControllerInputHandler.handleKeyEvent(event)) {
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
+    }
+
+    @Override
     public boolean onKeyDown(int p_keyCode, KeyEvent p_event) {
         // Use only our controller handler - disable SDL fallback to avoid conflicts
         if (mControllerInputHandler != null && mControllerInputHandler.handleKeyEvent(p_event)) {

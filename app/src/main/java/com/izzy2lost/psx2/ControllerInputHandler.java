@@ -97,9 +97,26 @@ public class ControllerInputHandler {
     }
     
     private ControllerInputListener mListener;
-    
+
     public ControllerInputHandler(ControllerInputListener listener) {
         mListener = listener;
+    }
+
+    // Track D-pad state per controller (for HAT axes)
+    private static class DpadState {
+        boolean up;
+        boolean down;
+        boolean left;
+        boolean right;
+    }
+    private final SparseArray<DpadState> mDpadStates = new SparseArray<>();
+    private DpadState getDpadState(int controllerId) {
+        DpadState s = mDpadStates.get(controllerId);
+        if (s == null) {
+            s = new DpadState();
+            mDpadStates.put(controllerId, s);
+        }
+        return s;
     }
     
     /**
@@ -180,7 +197,7 @@ public class ControllerInputHandler {
         if (!isFromController(event)) {
             return false;
         }
-        
+
         int controllerId = event.getDeviceId();
         
         // Handle left stick X axis
@@ -258,7 +275,36 @@ public class ControllerInputHandler {
         if (mListener != null) {
             mListener.onControllerAnalogInput(controllerId, PAD_R2, rightTrigger);
         }
-        
+
+        // Handle D-pad via HAT axes (some controllers report D-pad this way)
+        float hatX = event.getAxisValue(MotionEvent.AXIS_HAT_X);
+        float hatY = event.getAxisValue(MotionEvent.AXIS_HAT_Y);
+        if (mListener != null) {
+            boolean left = hatX < -0.5f;
+            boolean right = hatX > 0.5f;
+            boolean up = hatY < -0.5f;
+            boolean down = hatY > 0.5f;
+
+            DpadState state = getDpadState(controllerId);
+
+            if (state.left != left) {
+                mListener.onControllerButtonPressed(controllerId, PAD_LEFT, left);
+                state.left = left;
+            }
+            if (state.right != right) {
+                mListener.onControllerButtonPressed(controllerId, PAD_RIGHT, right);
+                state.right = right;
+            }
+            if (state.up != up) {
+                mListener.onControllerButtonPressed(controllerId, PAD_UP, up);
+                state.up = up;
+            }
+            if (state.down != down) {
+                mListener.onControllerButtonPressed(controllerId, PAD_DOWN, down);
+                state.down = down;
+            }
+        }
+
         return true;
     }
     
@@ -273,7 +319,8 @@ public class ControllerInputHandler {
         
         int sources = device.getSources();
         return (sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD ||
-               (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK;
+               (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK ||
+               (sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
     }
     
     /**
