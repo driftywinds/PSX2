@@ -19,6 +19,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="settings"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
         
         app:rippleColor="#80cdcdcd"
         app:layout_constraintTop_toTopOf="parent"
@@ -73,6 +75,8 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="controls"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
         
         app:rippleColor="#80cdcdcd"
         app:layout_constraintTop_toTopOf="parent"
@@ -86,6 +90,8 @@
         android:layout_width="40dp"
         android:layout_height="40dp"
         android:visibility="gone"
+        android:focusable="false"
+        android:focusableInTouchMode="false"
         app:icon="@drawable/ic_unhide"
         app:iconSize="24dp"
         app:iconGravity="textStart"
@@ -128,6 +134,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="GAMES"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
             
             app:rippleColor="#80cdcdcd" />
 
@@ -137,6 +145,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="bios"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
             
             app:rippleColor="#80cdcdcd" />
 
@@ -146,6 +156,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="saves"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
             
             app:rippleColor="#80cdcdcd" />
 
@@ -155,6 +167,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="hide"
+            android:focusable="false"
+            android:focusableInTouchMode="false"
             
             app:rippleColor="#80cdcdcd" />
     </LinearLayout>
