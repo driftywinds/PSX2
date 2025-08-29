@@ -217,6 +217,14 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Make immersive (hide status + navigation) and allow swipe to reveal temporarily
         Window w = getWindow();
         if (w == null) return;
+        // Request full screen window flags for additional assurance
+        w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        // Allow drawing into display cutouts (notches) on API 28+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams lp = w.getAttributes();
+            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            w.setAttributes(lp);
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Tell Window to lay out edge-to-edge and hide all system bars
             w.setDecorFitsSystemWindows(false);
@@ -358,6 +366,10 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        // Hide action bar to improve immersive appearance
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().hide();
+        }
         setContentView(R.layout.activity_main);
         hideStatusBar();
 
