@@ -20,3 +20,4 @@ app/.cxx/
 *.iml
 *.exe
 /PCSX2_ARM64
+build/reports/problems/problems-report.html

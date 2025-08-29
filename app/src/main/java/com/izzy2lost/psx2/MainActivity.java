@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.net.Uri;
 import android.view.InputDevice;
+import android.hardware.input.InputManager;
 import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -58,6 +59,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private ControllerInputHandler mControllerInputHandler;
     private Thread mEmulationThread = null;
     private boolean mHudVisible = false;
+    private InputManager mInputManager;
     
 
     // Track joystick directional pressed state to avoid duplicate down events
@@ -65,6 +67,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private boolean joyDownPressed = false;
     private boolean joyLeftPressed = false;
     private boolean joyRightPressed = false;
+    private boolean controllerUiApplied = false;
     private AlertDialog mBiosPromptDialog = null;
 
     private boolean isThread() {
@@ -160,8 +163,11 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             lp.bottomToBottom = ConstraintLayout.LayoutParams.UNSET;
             lp.topToTop = ConstraintLayout.LayoutParams.UNSET;
             lp.topToBottom = ConstraintLayout.LayoutParams.UNSET;
-            lp.setMargins(dp(0), dp(0), dp(0), dp(orientation == Configuration.ORIENTATION_LANDSCAPE ? 2 : 0));
+            // Shift the whole D-pad slightly to the right with a small start margin
+            lp.setMargins(dp(48), dp(0), dp(0), dp(orientation == Configuration.ORIENTATION_LANDSCAPE ? 2 : 0));
             llDpad.setLayoutParams(lp);
+            // Nudge D-pad downward a little
+            llDpad.setTranslationY(dp(14));
         }
 
         if (llRight != null) {
@@ -388,6 +394,24 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         
         // Prompt for BIOS if missing
         maybePromptForBios();
+
+        // Listen for controller attach/detach and update UI accordingly
+        mInputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
+        if (mInputManager != null) {
+            mInputManager.registerInputDeviceListener(mInputDeviceListener, null);
+        }
+        updateUiForControllerPresence();
+    }
+
+    // Public method to open the games covers dialog via controller quick actions
+    public void openGamesDialog() {
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        String folderUri = prefs.getString("games_folder_uri", null);
+        if (TextUtils.isEmpty(folderUri)) {
+            pickGamesFolder();
+        } else {
+            showGamesListOrReselect(Uri.parse(folderUri));
+        }
     }
 
     private void setupBackPressedHandler() {
@@ -452,6 +476,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 return true;
             });
         }
+
+        // Games button handled above
 
         // Settings button opens dialog
         MaterialButton btn_settings = findViewById(R.id.btn_settings);
@@ -804,6 +830,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private void toggleAllUIVisibility() {
         allUIHidden = !allUIHidden;
         int vis = allUIHidden ? View.GONE : View.VISIBLE;
+        boolean hasController = isAnyControllerConnected();
         
         // Hide/show all UI elements except the toggle button itself
         View btnSettings = findViewById(R.id.btn_settings);
@@ -829,8 +856,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
         // Hide/show on-screen controls
         if (!allUIHidden) {
-            // When showing UI again, restore controls to their previous state
-            setControlsVisible(true); // You might want to remember the previous state
+            // When showing with a controller connected, keep touch controls hidden
+            setControlsVisible(!hasController);
         } else {
             // When hiding all UI, also hide controls
             setControlsVisible(false);
@@ -844,6 +871,87 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
         // Update renderer label when UI toggled back on
         if (!allUIHidden) updateRendererButtonLabel();
+    }
+
+    // --- Controller presence handling ---
+    private final InputManager.InputDeviceListener mInputDeviceListener = new InputManager.InputDeviceListener() {
+        @Override public void onInputDeviceAdded(int deviceId) { updateUiForControllerPresence(); }
+        @Override public void onInputDeviceRemoved(int deviceId) { updateUiForControllerPresence(); }
+        @Override public void onInputDeviceChanged(int deviceId) { updateUiForControllerPresence(); }
+    };
+
+    private boolean isControllerDevice(InputDevice device) {
+        if (device == null) return false;
+
+        // Filter out virtual/built-in devices which can falsely report DPAD sources
+        try {
+            if (device.isVirtual()) return false;
+        } catch (Throwable ignored) {}
+
+        // Heuristic: devices with both vendor and product = 0 are often virtual
+        try {
+            if (device.getVendorId() == 0 && device.getProductId() == 0) return false;
+        } catch (Throwable ignored) {}
+
+        // Filter by name for common virtual/built-in inputs
+        String name = device.getName();
+        if (name != null) {
+            String lower = name.toLowerCase();
+            if (lower.contains("virtual") || lower.contains("uinput") || lower.contains("touch")
+                    || lower.contains("keyboard") || lower.contains("keypad") || lower.contains("gpio")) {
+                return false;
+            }
+        }
+
+        int sources = device.getSources();
+        boolean gamepad = (sources & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
+        boolean joystick = (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK;
+        boolean dpad = (sources & InputDevice.SOURCE_DPAD) == InputDevice.SOURCE_DPAD;
+
+        // Consider DPAD-only devices as controllers only if they are external (heuristic above)
+        return gamepad || joystick || dpad;
+    }
+
+    private boolean isAnyControllerConnected() {
+        try {
+            int[] ids = InputDevice.getDeviceIds();
+            for (int id : ids) {
+                InputDevice dev = InputDevice.getDevice(id);
+                if (isControllerDevice(dev)) return true;
+            }
+        } catch (Throwable ignored) {}
+        return false;
+    }
+
+    private void updateUiForControllerPresence() {
+        boolean hasController = isAnyControllerConnected();
+        // Show all UI when no controller; hide UI when a controller is connected.
+        int vis = hasController ? View.GONE : View.VISIBLE;
+
+        View btnSettings = findViewById(R.id.btn_settings);
+        View btnFile = findViewById(R.id.btn_file);
+        View btnBios = findViewById(R.id.btn_bios);
+        View btnSaves = findViewById(R.id.btn_saves);
+        View btnHideUI = findViewById(R.id.btn_hide_ui);
+        MaterialButton btnToggle = findViewById(R.id.btn_toggle_controls);
+        View llQuickActions = findViewById(R.id.ll_quick_actions);
+
+        if (btnSettings != null) btnSettings.setVisibility(vis);
+        if (btnFile != null) btnFile.setVisibility(vis);
+        if (btnBios != null) btnBios.setVisibility(vis);
+        if (btnSaves != null) btnSaves.setVisibility(vis);
+        if (btnHideUI != null) btnHideUI.setVisibility(vis);
+        if (llQuickActions != null) llQuickActions.setVisibility(vis);
+        if (btnToggle != null) btnToggle.setVisibility(View.VISIBLE); // always visible
+        // Set toggle icon and internal state
+        if (btnToggle != null) {
+            int iconRes = hasController ? R.drawable.visibility_off_24px : R.drawable.visibility_24px;
+            btnToggle.setIcon(ContextCompat.getDrawable(this, iconRes));
+        }
+        allUIHidden = hasController;
+
+        // Hide on-screen touch controls when a physical controller is connected
+        setControlsVisible(!hasController);
     }
 
     private int getCurrentRendererPref() {
@@ -1256,6 +1364,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         }
         // Re-assert full screen when returning to the activity
         hideStatusBar();
+        updateUiForControllerPresence();
     }
 
     @Override
@@ -1266,6 +1375,10 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (mHIDDeviceManager != null) {
             HIDDeviceManager.release(mHIDDeviceManager);
             mHIDDeviceManager = null;
+        }
+        if (mInputManager != null) {
+            try { mInputManager.unregisterInputDeviceListener(mInputDeviceListener); } catch (Exception ignored) {}
+            mInputManager = null;
         }
         ////
         if (mEmulationThread != null) {
@@ -1376,11 +1489,27 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent event) {
-        // Intercept controller DPAD/gamepad keys before focused views consume them
-        if (mControllerInputHandler != null && mControllerInputHandler.handleKeyEvent(event)) {
-            return true;
+        // Allow dialogs to receive DPAD navigation when visible
+        if (!isAnyAppDialogShowing()) {
+            // Intercept controller DPAD/gamepad keys before focused views consume them
+            if (mControllerInputHandler != null && mControllerInputHandler.handleKeyEvent(event)) {
+                return true;
+            }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private boolean isAnyAppDialogShowing() {
+        try {
+            java.util.List<androidx.fragment.app.Fragment> frags = getSupportFragmentManager().getFragments();
+            for (androidx.fragment.app.Fragment f : frags) {
+                if (f instanceof androidx.fragment.app.DialogFragment) {
+                    android.app.Dialog d = ((androidx.fragment.app.DialogFragment) f).getDialog();
+                    if (d != null && d.isShowing()) return true;
+                }
+            }
+        } catch (Throwable ignored) {}
+        return false;
     }
 
     @Override
@@ -1509,11 +1638,14 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     @Override
     public void onControllerButtonPressed(int controllerId, int button, boolean pressed) {
         android.util.Log.d("Controller", "Controller " + controllerId + " button " + button + " (" + getButtonName(button) + ") " + (pressed ? "pressed" : "released"));
-        
+
         // Send controller input to native code using existing setPadButton method
         // Range 255 for pressed, 0 for released (matching PS2 button range)
         int range = pressed ? 255 : 0;
         NativeApp.setPadButton(button, range, pressed);
+
+        // Hide touch controls as soon as controller activity is detected
+        maybeActivateControllerUi();
     }
     
     private String getButtonName(int button) {
@@ -1541,9 +1673,21 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     @Override
     public void onControllerAnalogInput(int controllerId, int axis, float value) {
         android.util.Log.d("Controller", "Controller " + controllerId + " axis " + axis + " (" + getAxisName(axis) + ") value " + value);
-        
+
         // Send analog input to native code using setPadButton
         handleAnalogInput(axis, value);
+
+        // Hide touch controls on analog movement as well
+        if (Math.abs(value) > 0.1f) {
+            maybeActivateControllerUi();
+        }
+    }
+
+    private void maybeActivateControllerUi() {
+        if (!controllerUiApplied) {
+            controllerUiApplied = true;
+            runOnUiThread(() -> setControlsVisible(false));
+        }
     }
 
     @Override

@@ -19,10 +19,21 @@ public class QuickActionsDialogFragment extends DialogFragment {
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_quick_actions, null, false);
 
+        MaterialButton btnOpenGames = view.findViewById(R.id.btn_open_games);
         MaterialButton btnExitToMenu = view.findViewById(R.id.btn_exit_to_menu);
         MaterialButton btnRestartGame = view.findViewById(R.id.btn_restart_game);
         MaterialButton btnQuitApp = view.findViewById(R.id.btn_quit_app);
         MaterialButton btnCancel = view.findViewById(R.id.btn_cancel);
+
+        // Open Games/Covers dialog
+        if (btnOpenGames != null) {
+            btnOpenGames.setOnClickListener(v -> {
+                if (requireActivity() instanceof MainActivity) {
+                    ((MainActivity) requireActivity()).openGamesDialog();
+                }
+                dismissAllowingStateLoss();
+            });
+        }
 
         // Exit to Menu - not implemented yet, show placeholder
         if (btnExitToMenu != null) {

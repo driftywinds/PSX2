@@ -348,6 +348,7 @@
         android:visibility="visible"
         app:layout_constraintBottom_toTopOf="@id/ll_pad_joy"
         app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginStart="12dp"
         android:layout_marginBottom="2dp">
 
         <GridLayout
