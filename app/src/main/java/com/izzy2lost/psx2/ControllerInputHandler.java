@@ -5,6 +5,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.util.Log;
 import android.util.SparseArray;
+import android.util.SparseIntArray;
 
 /**
  * Controller input handler based on AetherSX2's PAD implementation
@@ -50,10 +51,10 @@ public class ControllerInputHandler {
     private static final long COMBO_TIMEOUT_MS = 500; // 500ms window for combo
     
     // Key mapping from Android KeyEvent to PS2 buttons
-    private static final SparseArray<Integer> sKeyMapping = new SparseArray<>();
+    private static final SparseIntArray sKeyMapping = new SparseIntArray();
     
     // Motion axis mapping from Android MotionEvent to PS2 analog inputs
-    private static final SparseArray<Integer> sAxisMapping = new SparseArray<>();
+    private static final SparseIntArray sAxisMapping = new SparseIntArray();
     
     static {
         // Initialize key mappings (Android KeyEvent -> PS2 button)
@@ -128,9 +129,9 @@ public class ControllerInputHandler {
         }
         
         int keyCode = event.getKeyCode();
-        Integer ps2Button = sKeyMapping.get(keyCode);
+        int ps2Button = sKeyMapping.get(keyCode, Integer.MIN_VALUE);
         
-        if (ps2Button != null) {
+        if (ps2Button != Integer.MIN_VALUE) {
             int controllerId = event.getDeviceId();
             boolean pressed = (event.getAction() == KeyEvent.ACTION_DOWN);
             

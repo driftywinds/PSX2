@@ -51,6 +51,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import androidx.fragment.app.FragmentManager;
 import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements GamesCoverDialogFragment.OnGameSelectedListener, ControllerInputHandler.ControllerInputListener {
     private String m_szGamefile = "";
@@ -306,7 +307,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
     private static boolean hasGameExt(String name) {
         if (TextUtils.isEmpty(name)) return false;
-        String lower = name.toLowerCase();
+        String lower = name.toLowerCase(Locale.ROOT);
         for (String ext : GAME_EXTS) {
             if (lower.endsWith(ext)) return true;
         }
@@ -528,7 +529,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if(btn_ogl != null) {
             btn_ogl.setOnClickListener(v -> {
                 // Save setting first with commit() to ensure immediate write
-                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 12).commit();
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 12).apply();
                 
                 // Small delay to ensure setting is persisted
                 try {
@@ -546,7 +547,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if(btn_vulkan != null) {
             btn_vulkan.setOnClickListener(v -> {
                 // Save setting first with commit() to ensure immediate write
-                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 14).commit();
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 14).apply();
                 
                 // Small delay to ensure setting is persisted
                 try {
@@ -566,7 +567,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 android.util.Log.d("MainActivity", "SW button clicked - saving renderer 13");
                 
                 // Save setting first with commit() to ensure immediate write
-                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 13).commit();
+                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 13).apply();
                 android.util.Log.d("MainActivity", "SW renderer setting saved");
                 
                 // Small delay to ensure setting is persisted
@@ -908,7 +909,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Filter by name for common virtual/built-in inputs
         String name = device.getName();
         if (name != null) {
-            String lower = name.toLowerCase();
+            String lower = name.toLowerCase(Locale.ROOT);
             if (lower.contains("virtual") || lower.contains("uinput") || lower.contains("touch")
                     || lower.contains("keyboard") || lower.contains("keypad") || lower.contains("gpio")) {
                 return false;
@@ -986,7 +987,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
     private void setRendererAndSave(int renderer) {
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
-        prefs.edit().putInt("renderer", renderer).commit();
+        prefs.edit().putInt("renderer", renderer).apply();
         // Apply live if possible; this path has proven stable via top bar buttons
         try {
             NativeApp.renderGpu(renderer);
@@ -1054,7 +1055,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 String name = f.getName();
                 // Common PCSX2 BIOS components: SCPH*.bin (main), and component ROMs ROM0/ROM1/ROM2/EROM
                 if (name != null) {
-                    String lower = name.toLowerCase();
+                    String lower = name.toLowerCase(Locale.ROOT);
                     boolean isMainBios = lower.startsWith("scph") && (lower.endsWith(".bin") || lower.endsWith(".rom"));
                     boolean isComponentSuffix = lower.endsWith(".rom0") || lower.endsWith(".rom1") || lower.endsWith(".rom2") || lower.endsWith(".erom");
                     boolean isBareComponent = lower.equals("rom0") || lower.equals("rom1") || lower.equals("rom2") || lower.equals("erom");
@@ -1247,7 +1248,12 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                             if (treeUri != null) {
                                 // Persist read permission for future imports, optional
                                 final int takeFlags = (data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION));
-                                getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
+                                if ((takeFlags & Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0) {
+                                    getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                }
+                                if ((takeFlags & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0) {
+                                    getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                                }
 
                                 DocumentFile pickedDir = DocumentFile.fromTreeUri(this, treeUri);
                                 if (pickedDir != null && pickedDir.isDirectory()) {
@@ -1273,9 +1279,16 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                             Uri treeUri = data.getData();
                             if (treeUri != null) {
                                 final int takeFlags = (data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION));
-                                try {
-                                    getContentResolver().takePersistableUriPermission(treeUri, takeFlags);
-                                } catch (SecurityException ignored) {}
+                                if ((takeFlags & Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0) {
+                                    try {
+                                        getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                                    } catch (SecurityException ignored) {}
+                                }
+                                if ((takeFlags & Intent.FLAG_GRANT_WRITE_URI_PERMISSION) != 0) {
+                                    try {
+                                        getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                                    } catch (SecurityException ignored) {}
+                                }
                                 // Save folder and show games
                                 getSharedPreferences("app_prefs", MODE_PRIVATE)
                                         .edit()
@@ -1423,13 +1436,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Initialize HID device manager for USB and Bluetooth controllers
         mHIDDeviceManager.initialize(true, true);
         
-        // Apply renderer setting again after a delay to override any automatic detection
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-            SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
-            int renderer = prefs.getInt("renderer", 14); // Default to Vulkan if no setting
-            android.util.Log.d("MainActivity", "Re-applying renderer setting after delay: " + renderer);
-            NativeApp.renderGpu(renderer);
-        }, 1000); // 1 second delay
+        // Avoid forcing renderer init when no game/surface is active.
+        // Renderer is applied on game start (restartEmuThread) and from settings when appropriate.
     }
 
     private void setSurfaceView(Object p_value) {
@@ -1622,6 +1630,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     @Override
     public void onBackPressed() {
         // Fallback for older Android versions
+        super.onBackPressed();
         showExitDialog();
     }
 

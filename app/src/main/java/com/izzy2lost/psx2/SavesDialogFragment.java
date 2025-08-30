@@ -149,7 +149,7 @@ public class SavesDialogFragment extends DialogFragment {
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         Context ctx = requireContext();
-        View view = LayoutInflater.from(ctx).inflate(R.layout.dialog_saves, null, false);
+        View view = getLayoutInflater().inflate(R.layout.dialog_saves, null, false);
 
         RecyclerView recyclerView = view.findViewById(R.id.rv_save_slots);
         recyclerView.setLayoutManager(new LinearLayoutManager(ctx));

@@ -50,7 +50,7 @@
             android:layout_width="60dip"
             android:layout_height="wrap_content"
             android:text="OGL"
-            android:textSize="12dp"
+            android:textSize="12sp"
             
             app:rippleColor="#80cdcdcd" />
 
@@ -60,7 +60,7 @@
             android:layout_width="60dip"
             android:layout_height="wrap_content"
             android:text="VK"
-            android:textSize="12dp"
+            android:textSize="12sp"
             
             app:rippleColor="#80cdcdcd" />
 
@@ -70,7 +70,7 @@
             android:layout_width="60dip"
             android:layout_height="wrap_content"
             android:text="SW"
-            android:textSize="12dp"
+            android:textSize="12sp"
             
             app:rippleColor="#80cdcdcd" />
     </LinearLayout>

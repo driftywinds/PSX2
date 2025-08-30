@@ -10,7 +10,7 @@ import android.widget.ArrayAdapter;
 import android.widget.RadioButton;
 import android.widget.RadioGroup;
 import android.widget.Spinner;
-import android.widget.Switch;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import android.content.res.ColorStateList;
 
 import androidx.annotation.NonNull;
@@ -70,7 +70,7 @@ public class SettingsDialogFragment extends DialogFragment {
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         Context ctx = requireContext();
-        View view = LayoutInflater.from(ctx).inflate(R.layout.dialog_settings, null, false);
+        View view = getLayoutInflater().inflate(R.layout.dialog_settings, null, false);
 
         RadioGroup rgRenderer = view.findViewById(R.id.rg_renderer);
         RadioButton rbGl = view.findViewById(R.id.rb_renderer_gl);
@@ -79,11 +79,11 @@ public class SettingsDialogFragment extends DialogFragment {
         Spinner spScale = view.findViewById(R.id.sp_scale);
         Spinner spBlending = view.findViewById(R.id.sp_blending_accuracy);
         Spinner spAspectRatio = view.findViewById(R.id.sp_aspect_ratio);
-        Switch swWidescreen = view.findViewById(R.id.sw_widescreen);
-        Switch swNoInterlacing = view.findViewById(R.id.sw_no_interlacing);
-        Switch swLoadTextures = view.findViewById(R.id.sw_load_textures);
-        Switch swAsyncTextureLoading = view.findViewById(R.id.sw_async_texture_loading);
-        Switch swDevHud = view.findViewById(R.id.sw_dev_hud);
+        MaterialSwitch swWidescreen = view.findViewById(R.id.sw_widescreen);
+        MaterialSwitch swNoInterlacing = view.findViewById(R.id.sw_no_interlacing);
+        MaterialSwitch swLoadTextures = view.findViewById(R.id.sw_load_textures);
+        MaterialSwitch swAsyncTextureLoading = view.findViewById(R.id.sw_async_texture_loading);
+        MaterialSwitch swDevHud = view.findViewById(R.id.sw_dev_hud);
         View btnPower = view.findViewById(R.id.btn_power);
         View btnReboot = view.findViewById(R.id.btn_reboot);
         View btnTestController = view.findViewById(R.id.btn_test_controller);
@@ -106,37 +106,7 @@ public class SettingsDialogFragment extends DialogFragment {
         if (rbVk != null) CompoundButtonCompat.setButtonTintList(rbVk, brandChecked);
         if (rbSw != null) CompoundButtonCompat.setButtonTintList(rbSw, brandChecked);
 
-        // Switches (thumb = brand when checked; track = subtle brand when checked)
-        ColorStateList thumbTint = new ColorStateList(
-                new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
-                new int[]{brand, outline}
-        );
-        int brandTrack = ColorStateList.valueOf(brand).withAlpha(100).getDefaultColor();
-        int outlineTrack = ColorStateList.valueOf(outline).withAlpha(80).getDefaultColor();
-        ColorStateList trackTint = new ColorStateList(
-                new int[][]{new int[]{android.R.attr.state_checked}, new int[]{}},
-                new int[]{brandTrack, outlineTrack}
-        );
-        if (swWidescreen != null) {
-            swWidescreen.setThumbTintList(thumbTint);
-            swWidescreen.setTrackTintList(trackTint);
-        }
-        if (swNoInterlacing != null) {
-            swNoInterlacing.setThumbTintList(thumbTint);
-            swNoInterlacing.setTrackTintList(trackTint);
-        }
-        if (swLoadTextures != null) {
-            swLoadTextures.setThumbTintList(thumbTint);
-            swLoadTextures.setTrackTintList(trackTint);
-        }
-        if (swAsyncTextureLoading != null) {
-            swAsyncTextureLoading.setThumbTintList(thumbTint);
-            swAsyncTextureLoading.setTrackTintList(trackTint);
-        }
-        if (swDevHud != null) {
-            swDevHud.setThumbTintList(thumbTint);
-            swDevHud.setTrackTintList(trackTint);
-        }
+        // MaterialSwitch: rely on default Material3 theme styling from XML style/overlay
 
         if (btnPower != null) {
             btnPower.setOnClickListener(v -> {
@@ -264,7 +234,7 @@ public class SettingsDialogFragment extends DialogFragment {
                  " (12=OpenGL, 13=Software, 14=Vulkan)");
              
              // Save renderer setting first with commit() to ensure immediate write
-             prefs.edit().putInt("renderer", renderer).commit();
+             prefs.edit().putInt("renderer", renderer).apply();
              android.util.Log.d("SettingsDialog", "Renderer setting saved successfully");
              
              // Small delay to ensure setting is persisted

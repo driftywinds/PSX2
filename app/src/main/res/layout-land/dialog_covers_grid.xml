@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@drawable/bg_covers_gradient_blue"
     android:orientation="vertical">
 
     <LinearLayout
@@ -23,7 +25,7 @@
             android:contentDescription="Home"
             android:padding="4dp"
             android:src="@drawable/ic_home"
-            android:tint="@color/brand_primary" />
+            app:tint="@color/brand_primary" />
 
         <View
             android:layout_width="0dp"
@@ -38,29 +40,18 @@
             android:text="Download Covers" />
     </LinearLayout>
 
-    <LinearLayout
+    <TextView
+        android:id="@+id/tv_covers_hint"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
         android:paddingStart="12dp"
         android:paddingEnd="12dp"
-        android:paddingTop="4dp">
-        <ImageView
-            android:layout_width="20dp"
-            android:layout_height="20dp"
-            android:src="@drawable/ic_info"
-            android:contentDescription="Info" />
-        <TextView
-            android:id="@+id/tv_covers_hint"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/covers_hint_long_press"
-            android:textColor="@color/brand_primary"
-            android:textStyle="bold"
-            android:paddingStart="8dp"/>
-    </LinearLayout>
+        android:paddingTop="4dp"
+        android:text="@string/covers_hint_long_press"
+        android:textColor="@color/brand_primary"
+        android:textStyle="bold"
+        android:drawableStart="@drawable/ic_info"
+        android:drawablePadding="8dp"/>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_covers"

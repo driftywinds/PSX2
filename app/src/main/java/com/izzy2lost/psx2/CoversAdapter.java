@@ -53,22 +53,25 @@ public class CoversAdapter extends RecyclerView.Adapter<CoversAdapter.VH> {
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
         holder.title.setText(titles[position]);
-        String url = coverUrls[position];
         String local = (localPaths != null && position < localPaths.length) ? localPaths[position] : null;
-        Object source = null;
+        File localFile = null;
         if (local != null) {
             File f = new File(local);
-            if (f.exists() && f.length() > 0) source = f;
+            if (f.exists() && f.length() > 0) localFile = f;
         }
-        if (source == null) source = url;
 
-        Glide.with(context)
-                .load(source)
-                .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
-                .fitCenter()
-                .placeholder(android.R.color.transparent)
-                .error(android.R.color.transparent)
-                .into(holder.cover);
+        if (localFile != null) {
+            Glide.with(context)
+                    .load(localFile)
+                    .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                    .fitCenter()
+                    .placeholder(android.R.color.transparent)
+                    .error(android.R.color.transparent)
+                    .into(holder.cover);
+        } else {
+            // Do not load from network automatically; wait for explicit download
+            holder.cover.setImageDrawable(null);
+        }
         holder.itemView.setOnClickListener(v -> {
             if (onItemClick != null) onItemClick.onClick(position);
         });

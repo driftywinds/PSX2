@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:theme="@style/ThemeOverlay.Material3.MaterialAlertDialog"
     android:fillViewport="true"
     android:padding="16dp">
 
@@ -30,7 +32,7 @@
                 android:contentDescription="Reboot"
                 android:padding="8dp"
                 android:src="@drawable/ic_reboot"
-                android:tint="@android:color/holo_red_light"
+                app:tint="@android:color/holo_red_light"
                 android:layout_marginEnd="8dp" />
 
             <ImageButton
@@ -41,7 +43,7 @@
                 android:contentDescription="Power"
                 android:padding="8dp"
                 android:src="@drawable/ic_power"
-                android:tint="@android:color/holo_red_light" />
+                app:tint="@android:color/holo_red_light" />
         </LinearLayout>
 
         <TextView
@@ -146,18 +148,20 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <Switch
+            <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/sw_widescreen"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Widescreen Patches"/>
+                android:text="Widescreen Patches"
+                style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
 
-            <Switch
+            <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/sw_no_interlacing"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="No Interlacing Patches"
-                android:layout_marginTop="8dp"/>
+                android:layout_marginTop="8dp"
+                style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
         </LinearLayout>
 
         <View
@@ -176,18 +180,20 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <Switch
+            <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/sw_load_textures"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Load Texture Replacements"/>
+                android:text="Load Texture Replacements"
+                style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
 
-            <Switch
+            <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/sw_async_texture_loading"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Async Texture Loading"
-                android:layout_marginTop="8dp"/>
+                android:layout_marginTop="8dp"
+                style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
         </LinearLayout>
 
         <View
@@ -207,11 +213,12 @@
             android:orientation="horizontal"
             android:gravity="center_vertical">
 
-            <Switch
+            <com.google.android.material.materialswitch.MaterialSwitch
                 android:id="@+id/sw_dev_hud"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Dev: HUD overlay"/>
+                android:text="Dev: HUD overlay"
+                style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
         </LinearLayout>
 
         <View

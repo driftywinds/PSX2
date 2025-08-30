@@ -504,14 +504,23 @@ class SDLHapticHandler_API31 extends SDLHapticHandler {
             return;
         }
 
-        VibratorManager manager = device.getVibratorManager();
-        int[] vibrators = manager.getVibratorIds();
-        if (vibrators.length >= 2) {
-            vibrate(manager.getVibrator(vibrators[0]), low_frequency_intensity, length);
-            vibrate(manager.getVibrator(vibrators[1]), high_frequency_intensity, length);
-        } else if (vibrators.length == 1) {
-            float intensity = (low_frequency_intensity * 0.6f) + (high_frequency_intensity * 0.4f);
-            vibrate(manager.getVibrator(vibrators[0]), intensity, length);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            VibratorManager manager = device.getVibratorManager();
+            int[] vibrators = manager.getVibratorIds();
+            if (vibrators.length >= 2) {
+                vibrate(manager.getVibrator(vibrators[0]), low_frequency_intensity, length);
+                vibrate(manager.getVibrator(vibrators[1]), high_frequency_intensity, length);
+            } else if (vibrators.length == 1) {
+                float intensity = (low_frequency_intensity * 0.6f) + (high_frequency_intensity * 0.4f);
+                vibrate(manager.getVibrator(vibrators[0]), intensity, length);
+            }
+        } else {
+            // Fallback for older Android versions
+            Vibrator vibrator = device.getVibrator();
+            if (vibrator != null) {
+                float intensity = (low_frequency_intensity * 0.6f) + (high_frequency_intensity * 0.4f);
+                vibrate(vibrator, intensity, length);
+            }
         }
     }
 

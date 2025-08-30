@@ -49,4 +49,15 @@
         <!-- Default MaterialButton styles -->
         <item name="materialButtonOutlinedStyle">@style/PSX2.OutlinedButton</item>
     </style>
+
+    <!-- Fullscreen Material3 dialog theme with no frame and transparent window background -->
+    <style name="PSX2.FullScreenDialog" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowIsTranslucent">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
 </resources>

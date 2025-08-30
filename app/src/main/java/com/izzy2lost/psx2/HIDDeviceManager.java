@@ -12,6 +12,7 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.hardware.usb.UsbConstants;
+import androidx.core.content.ContextCompat;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
@@ -134,7 +135,7 @@ public class HIDDeviceManager {
         }
 
         spedit.putInt(identifier, result);
-        spedit.commit();
+        spedit.apply();
         return result;
     }
 
@@ -192,11 +193,7 @@ public class HIDDeviceManager {
         filter.addAction(UsbManager.ACTION_USB_DEVICE_ATTACHED);
         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
         filter.addAction(HIDDeviceManager.ACTION_USB_PERMISSION);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            mContext.registerReceiver(mUsbBroadcast, filter, Context.RECEIVER_EXPORTED);
-        } else {
-            mContext.registerReceiver(mUsbBroadcast, filter);
-        }
+        ContextCompat.registerReceiver(mContext, mUsbBroadcast, filter, ContextCompat.RECEIVER_NOT_EXPORTED);
 
         for (UsbDevice usbDevice : mUsbManager.getDeviceList().values()) {
             handleUsbDeviceAttached(usbDevice);
@@ -446,7 +443,13 @@ public class HIDDeviceManager {
         ArrayList<BluetoothDevice> disconnected = new ArrayList<BluetoothDevice>();
         ArrayList<BluetoothDevice> connected = new ArrayList<BluetoothDevice>();
 
-        List<BluetoothDevice> currentConnected = mBluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
+        List<BluetoothDevice> currentConnected;
+        try {
+            currentConnected = mBluetoothManager.getConnectedDevices(BluetoothProfile.GATT);
+        } catch (SecurityException e) {
+            Log.e(TAG, "Permission denied for getting connected devices: " + e.getMessage());
+            return;
+        }
 
         for (BluetoothDevice bluetoothDevice : currentConnected) {
             if (!mLastBluetoothDevices.contains(bluetoothDevice)) {
@@ -519,11 +522,21 @@ public class HIDDeviceManager {
         }
 
         // If the device has no local name, we really don't want to try an equality check against it.
-        if (bluetoothDevice.getName() == null) {
+        String deviceName;
+        int deviceType;
+        try {
+            deviceName = bluetoothDevice.getName();
+            deviceType = bluetoothDevice.getType();
+        } catch (SecurityException e) {
+            Log.e(TAG, "Permission denied for getting device info: " + e.getMessage());
+            return false;
+        }
+        
+        if (deviceName == null) {
             return false;
         }
 
-        return bluetoothDevice.getName().equals("SteamController") && ((bluetoothDevice.getType() & BluetoothDevice.DEVICE_TYPE_LE) != 0);
+        return deviceName.equals("SteamController") && ((deviceType & BluetoothDevice.DEVICE_TYPE_LE) != 0);
     }
 
     private void close() {

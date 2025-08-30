@@ -1,0 +1,422 @@
+    0: package com.izzy2lost.psx2;
+    1: 
+    2: import android.app.Dialog;
+    3: import android.content.Context;
+    4: import android.net.Uri;
+    5: import android.content.SharedPreferences;
+    6: import android.os.Bundle;
+    7: import android.view.LayoutInflater;
+    8: import android.view.View;
+    9: import android.view.ViewGroup;
+   10: import android.view.Window;
+   11: import android.view.WindowManager;
+   12: import android.widget.Toast;
+   13: import android.os.Build;
+   14: import android.view.WindowInsets;
+   15: import android.view.WindowInsetsController;
+   16: 
+   17: import androidx.annotation.NonNull;
+   18: import androidx.annotation.Nullable;
+   19: import androidx.appcompat.app.AlertDialog;
+   20: // Import MaterialAlertDialogBuilder for Material 3 styling
+   21: import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+   22: import androidx.fragment.app.DialogFragment;
+   23: import androidx.recyclerview.widget.GridLayoutManager;
+   24: import androidx.recyclerview.widget.RecyclerView;
+   25: import java.util.Locale;
+   26: 
+   27: public class GamesCoverDialogFragment extends DialogFragment {
+   28:     private CoversAdapter adapter;
+   29:     private String[] titles;
+   30:     private String[] uris;
+   31:     private String[] coverUrls;
+   32:     private String[] localPaths;
+   33:     private RecyclerView rv;
+   34:     private GridLayoutManager glm;
+   35: 
+   36:     public interface OnGameSelectedListener {
+   37:         void onGameSelected(String gameUri);
+   38:     }
+   39: 
+   40:     private static final String ARG_TITLES = "titles";
+   41:     private static final String ARG_URIS = "uris";
+   42: 
+   43:     public static GamesCoverDialogFragment newInstance(String[] titles, String[] uris) {
+   44:         GamesCoverDialogFragment f = new GamesCoverDialogFragment();
+   45:         Bundle b = new Bundle();
+   46:         b.putStringArray(ARG_TITLES, titles);
+   47:         b.putStringArray(ARG_URIS, uris);
+   48:         f.setArguments(b);
+   49:         return f;
+   50:     }
+   51: 
+   52:     private OnGameSelectedListener listener;
+   53: 
+   54:     @Override
+   55:     public void onAttach(@NonNull Context context) {
+   56:         super.onAttach(context);
+   57:         if (context instanceof OnGameSelectedListener) {
+   58:             listener = (OnGameSelectedListener) context;
+   59:         }
+   60:     }
+   61: 
+   62:     @Override
+   63:     public void onResume() {
+   64:         super.onResume();
+   65:         // Re-assert fixed span (2/4) after resume to avoid any flips
+   66:         if (rv != null && glm != null) {
+   67:             int currentOrientation = getResources().getConfiguration().orientation;
+   68:             int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
+   69:             if (fixedSpan != glm.getSpanCount()) {
+   70:                 glm.setSpanCount(fixedSpan);
+   71:             }
+   72:         }
+   73:     }
+   74: 
+   75:     @NonNull
+   76:     @Override
+   77:     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
+   78:         LayoutInflater inflater = getLayoutInflater();
+   79:         View root = inflater.inflate(R.layout.dialog_covers_grid, null, false);
+   80: 
+   81:         rv = root.findViewById(R.id.recycler_covers);
+   82:         rv.setHasFixedSize(true);
+   83:         glm = new GridLayoutManager(requireContext(), 3);
+   84:         rv.setLayoutManager(glm);
+   85:         // spacing decoration (8dp) using half on each side so the gap between items is exactly spacingPx
+   86:         final int spacingPx = (int) (8 * getResources().getDisplayMetrics().density);
+   87:         final int half = Math.max(1, spacingPx / 2);
+   88:         rv.addItemDecoration(new RecyclerView.ItemDecoration() {
+   89:             @Override
+   90:             public void getItemOffsets(android.graphics.Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
+   91:                 outRect.set(half, half, half, half);
+   92:             }
+   93:         });
+   94:         // Hard lock spans based on orientation only
+   95:         rv.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+   96:             int currentOrientation = getResources().getConfiguration().orientation;
+   97:             int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
+   98:             if (fixedSpan != glm.getSpanCount()) { glm.setSpanCount(fixedSpan); }
+   99:         });
+  100:         // Set initial fixed span as soon as possible
+  101:         root.post(() -> {
+  102:             int currentOrientation = getResources().getConfiguration().orientation;
+  103:             int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
+  104:             if (fixedSpan != glm.getSpanCount()) { glm.setSpanCount(fixedSpan); }
+  105:         });
+  106: 
+  107:         titles = getArguments() != null ? getArguments().getStringArray(ARG_TITLES) : new String[0];
+  108:         uris = getArguments() != null ? getArguments().getStringArray(ARG_URIS) : new String[0];
+  109:         coverUrls = new String[uris.length];
+  110:         localPaths = new String[uris.length];
+  111:         SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+  112:         for (int i = 0; i < uris.length; i++) {
+  113:             String saved = prefs.getString("serial:" + uris[i], null);
+  114:             String serial = saved;
+  115:             if (serial == null || serial.isEmpty()) {
+  116:                 // Ask native core for the real serial (supports ISO/CHD and content://)
+  117:                 try {
+  118:                     String nativeSerial = NativeApp.getGameSerial(uris[i]);
+  119:                     if (nativeSerial != null && !nativeSerial.isEmpty()) {
+  120:                         serial = normalizeSerial(nativeSerial);
+  121:                         prefs.edit().putString("serial:" + uris[i], serial).apply();
+  122:                     }
+  123:                 } catch (Throwable ignored) {}
+  124:             }
+  125:             if (serial == null || serial.isEmpty()) {
+  126:                 // Heuristic fallback from filename
+  127:                 serial = buildSerialFromUri(uris[i]);
+  128:             }
+  129:             coverUrls[i] = buildCoverUrlFromSerial(serial);
+  130:             localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+  131:         }
+  132: 
+  133:         adapter = new CoversAdapter(requireContext(), titles, coverUrls, localPaths, 
+  134:             position -> {
+  135:                 // Regular click - start game
+  136:                 if (listener != null && position >= 0 && position < uris.length) {
+  137:                     listener.onGameSelected(uris[position]);
+  138:                     dismissAllowingStateLoss();
+  139:                 }
+  140:             },
+  141:             position -> {
+  142:                 // Long click - show game settings
+  143:                 if (position >= 0 && position < uris.length) {
+  144:                     showGameSettings(titles[position], uris[position]);
+  145:                 }
+  146:             });
+  147:         rv.setAdapter(adapter);
+  148: 
+  149:         // Toolbar buttons
+  150:         View btnHome = root.findViewById(R.id.btn_home);
+  151:         if (btnHome != null) btnHome.setOnClickListener(v -> dismissAllowingStateLoss());
+  152:         View btnDownload = root.findViewById(R.id.btn_download);
+  153:         if (btnDownload != null) btnDownload.setOnClickListener(v -> startDownloadCovers());
+  154: 
+  155:         AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext(),
+  156:                 com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+  157:                 .setView(root)
+  158:                 .create();
+  159:         return dialog;
+  160:     }
+  161: 
+  162:     @Override
+  163:     public void onStart() {
+  164:         super.onStart();
+  165:         Dialog d = getDialog();
+  166:         if (d == null) return;
+  167:         Window w = d.getWindow();
+  168:         if (w == null) return;
+  169:         // Make dialog fullscreen
+  170:         w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+  171:         // Enter immersive fullscreen to avoid showing system navigation buttons
+  172:         if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+  173:             w.setDecorFitsSystemWindows(false);
+  174:             WindowInsetsController c = w.getInsetsController();
+  175:             if (c != null) {
+  176:                 c.hide(WindowInsets.Type.systemBars());
+  177:                 c.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+  178:             }
+  179:         } else {
+  180:             View decor = w.getDecorView();
+  181:             int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+  182:                     | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+  183:                     | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+  184:                     | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+  185:                     | View.SYSTEM_UI_FLAG_FULLSCREEN
+  186:                     | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+  187:             decor.setSystemUiVisibility(flags);
+  188:             w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+  189:         }
+  190:     }
+  191: 
+  192:     @Override
+  193:     public void onStart() {
+  194:         super.onStart();
+  195:         Dialog d = getDialog();
+  196:         if (d != null) {
+  197:             Window w = d.getWindow();
+  198:             if (w != null) {
+  199:                 w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+  200:                 w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+  201:                 // Hide status bar for true full-screen dialog
+  202:                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+  203:                     w.setDecorFitsSystemWindows(false);
+  204:                     WindowInsetsController controller = w.getInsetsController();
+  205:                     if (controller != null) {
+  206:                         controller.hide(WindowInsets.Type.statusBars());
+  207:                         controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+  208:                     }
+  209:                 } else {
+  210:                     w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+  211:                 }
+  212:             }
+  213:         }
+  214:     }
+  215: 
+  216:     private int calculateSpanForWidth(int rvWidthPx, int itemDp, int spacingPx) {
+  217:         float density = getResources().getDisplayMetrics().density;
+  218:         int usable = Math.max(0, rvWidthPx);
+  219:         int itemPx = (int) (itemDp * density);
+  220:         // Include spacing in the packing calculation to avoid oscillation
+  221:         // span = floor((usable + spacing) / (itemPx + spacing))
+  222:         int span = (itemPx > 0) ? (int) Math.floor((usable + (double) spacingPx) / (itemPx + (double) spacingPx)) : 1;
+  223:         return Math.max(2, Math.max(1, span));
+  224:     }
+  225: 
+  226:     private void preloadCovers(String[] urls) {
+  227:         // Use Glide to warm cache
+  228:         for (String url : urls) {
+  229:             if (url == null) continue;
+  230:             com.bumptech.glide.Glide.with(requireContext()).load(url).preload();
+  231:         }
+  232:     }
+  233: 
+  234:     private void startDownloadCovers() {
+  235:         Toast.makeText(requireContext(), "Downloading covers in background", Toast.LENGTH_SHORT).show();
+  236:         new Thread(() -> {
+  237:             // Try to refine serials/URLs by scanning disc contents first
+  238:             SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+  239:             SharedPreferences.Editor editor = prefs.edit();
+  240:             for (int i = 0; i < uris.length; i++) {
+  241:                 try {
+  242:                     // Prefer native serial extraction so CHDs work
+  243:                     String better = null;
+  244:                     try { better = NativeApp.getGameSerial(uris[i]); } catch (Throwable ignored) {}
+  245:                     if (better == null) better = extractSerialFromUri(uris[i]);
+  246:                     if (better != null && !better.equalsIgnoreCase(serialFromUrl(coverUrls[i]))) {
+  247:                         String serial = normalizeSerial(better);
+  248:                         coverUrls[i] = buildCoverUrlFromSerial(serial);
+  249:                         localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+  250:                         editor.putString("serial:" + uris[i], serial);
+  251:                     }
+  252:                 } catch (Exception ignored) { }
+  253:             }
+  254:             editor.apply();
+  255: 
+  256:             int total = coverUrls.length;
+  257:             int ok = 0;
+  258:             java.io.File dir = getCoversDir();
+  259:             if (!dir.exists()) dir.mkdirs();
+  260:             for (int i = 0; i < total; i++) {
+  261:                 String url = coverUrls[i];
+  262:                 String outPath = localPaths[i];
+  263:                 if (isFileValid(outPath)) { ok++; continue; }
+  264:                 try {
+  265:                     if (downloadToFile(url, outPath)) ok++;
+  266:                 } catch (Exception ignored) { }
+  267:             }
+  268:             final int downloaded = ok;
+  269:             if (isAdded()) requireActivity().runOnUiThread(() -> {
+  270:                 Toast.makeText(requireContext(), "Covers ready: " + downloaded + "/" + total, Toast.LENGTH_SHORT).show();
+  271:                 // refresh adapter to prefer local files now
+  272:                 if (adapter != null) adapter.notifyDataSetChanged();
+  273:             });
+  274:         }).start();
+  275:     }
+  276: 
+  277:     private static String serialFromUrl(String url) {
+  278:         if (url == null) return null;
+  279:         int slash = url.lastIndexOf('/');
+  280:         int dot = url.lastIndexOf('.');
+  281:         if (slash >= 0 && dot > slash) return url.substring(slash + 1, dot);
+  282:         return null;
+  283:     }
+  284: 
+  285:     private java.io.File getCoversDir() {
+  286:         java.io.File base = requireContext().getExternalFilesDir("covers");
+  287:         if (base == null) base = new java.io.File(requireContext().getFilesDir(), "covers");
+  288:         return base;
+  289:     }
+  290: 
+  291:     private static boolean isFileValid(String path) {
+  292:         if (path == null) return false;
+  293:         java.io.File f = new java.io.File(path);
+  294:         return f.exists() && f.length() > 0;
+  295:     }
+  296: 
+  297:     private static boolean downloadToFile(String urlStr, String outPath) throws Exception {
+  298:         java.net.URL url = new java.net.URL(urlStr);
+  299:         java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
+  300:         conn.setConnectTimeout(10000);
+  301:         conn.setReadTimeout(15000);
+  302:         conn.setInstanceFollowRedirects(true);
+  303:         conn.connect();
+  304:         int code = conn.getResponseCode();
+  305:         if (code != 200) { conn.disconnect(); return false; }
+  306:         java.io.File outFile = new java.io.File(outPath);
+  307:         java.io.File parent = outFile.getParentFile();
+  308:         if (parent != null && !parent.exists()) parent.mkdirs();
+  309:         java.io.InputStream in = conn.getInputStream();
+  310:         java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
+  311:         byte[] buf = new byte[8192];
+  312:         int n;
+  313:         while ((n = in.read(buf)) != -1) fos.write(buf, 0, n);
+  314:         fos.flush();
+  315:         fos.close();
+  316:         in.close();
+  317:         conn.disconnect();
+  318:         return true;
+  319:     }
+  320: 
+  321:     private static String buildSerialFromUri(String gameUri) {
+  322:         // Try to infer PS2 serial from file name: e.g., SLUS-20312 or SLPS_123.45 style
+  323:         String last = Uri.parse(gameUri).getLastPathSegment();
+  324:         if (last == null) last = "";
+  325:         last = last.replace('_', '-');
+  326:         // remove extension
+  327:         int dot = last.lastIndexOf('.');
+  328:         if (dot > 0) last = last.substring(0, dot);
+  329:         String serial = null;
+  330:         // Very simple heuristic: find token like XXXX-XXXXX
+  331:         String upper = last.toUpperCase(Locale.ROOT);
+  332:         java.util.regex.Matcher m = java.util.regex.Pattern.compile("([A-Z]{4,5}-[0-9]{3,5})").matcher(upper);
+  333:         if (m.find()) {
+  334:             serial = m.group(1);
+  335:         }
+  336:         if (serial == null) {
+  337:             serial = upper;
+  338:         }
+  339:         return serial;
+  340:     }
+  341: 
+  342:     private static String buildCoverUrlFromSerial(String serial) {
+  343:         return "https://raw.githubusercontent.com/izzy2lost/ps2-covers/main/covers/3d/" + serial + ".png";
+  344:     }
+  345: 
+  346:     private String extractSerialFromUri(String gameUri) {
+  347:         try {
+  348:             java.io.InputStream in = requireContext().getContentResolver().openInputStream(Uri.parse(gameUri));
+  349:             if (in == null) return null;
+  350:             // Read first 8MB searching for SYSTEM.CNF contents, e.g., "BOOT2 = cdrom0:\\SLUS_203.12;1"
+  351:             final int MAX_BYTES = 8 * 1024 * 1024;
+  352:             final byte[] buf = new byte[64 * 1024];
+  353:             int read;
+  354:             int total = 0;
+  355:             StringBuilder sb = new StringBuilder();
+  356:             while ((read = in.read(buf)) != -1 && total < MAX_BYTES) {
+  357:                 total += read;
+  358:                 // append as ASCII
+  359:                 sb.append(new String(buf, 0, read));
+  360:                 // try to match as we go to avoid huge strings
+  361:                 String found = findSerialInString(sb);
+  362:                 if (found != null) { in.close(); return found; }
+  363:                 if (sb.length() > 512 * 1024) sb.delete(0, sb.length() - 128 * 1024); // keep window
+  364:             }
+  365:             in.close();
+  366:         } catch (Exception ignored) { }
+  367:         return null;
+  368:     }
+  369: 
+  370:     private static String findSerialInString(CharSequence cs) {
+  371:         // Match common forms: SLUS_203.12, SLPM_650.51, SCES_123.45 etc.
+  372:         java.util.regex.Matcher m = java.util.regex.Pattern
+  373:                 .compile("([A-Z]{4,5})[_-]([0-9]{3})\\.([0-9]{2})")
+  374:                 .matcher(cs);
+  375:         if (m.find()) {
+  376:             String prefix = m.group(1);
+  377:             String part1 = m.group(2);
+  378:             String part2 = m.group(3);
+  379:             return prefix + "-" + part1 + part2; // SLUS-20312
+  380:         }
+  381:         return null;
+  382:     }
+  383: 
+  384:     private static String normalizeSerial(String serial) {
+  385:         if (serial == null) return null;
+  386:         String s = serial.toUpperCase(Locale.ROOT).replace('_', '-');
+  387:         // If form like XXXX-123.45 -> XXXX-12345
+  388:         s = s.replaceAll("([A-Z]{4,5})-([0-9]{3})\\.([0-9]{2})", "$1-$2$3");
+  389:         return s;
+  390:     }
+  391: 
+  392:     private void showGameSettings(String gameTitle, String gameUri) {
+  393:         // Prefer native extraction so CHDs work
+  394:         String gameSerial = null;
+  395:         try { gameSerial = NativeApp.getGameSerial(gameUri); } catch (Throwable ignored) {}
+  396:         if (gameSerial == null || gameSerial.isEmpty()) {
+  397:             gameSerial = extractSerialFromUri(gameUri);
+  398:         }
+  399:         if (gameSerial == null || gameSerial.isEmpty()) {
+  400:             gameSerial = buildSerialFromUri(gameUri);
+  401:         }
+  402:         gameSerial = normalizeSerial(gameSerial);
+  403: 
+  404:         // CRC (native if available)
+  405:         String gameCrc = null;
+  406:         try { gameCrc = NativeApp.getGameCrc(gameUri); } catch (Throwable ignored) {}
+  407:         if (gameCrc == null || gameCrc.isEmpty()) {
+  408:             gameCrc = String.format("%08X", Math.abs(gameUri.hashCode()));
+  409:         }
+  410: 
+  411:         // Debug logging
+  412:         android.util.Log.d("GameSettings", "Opening game settings for: " + gameTitle);
+  413:         android.util.Log.d("GameSettings", "URI: " + gameUri);
+  414:         android.util.Log.d("GameSettings", "Extracted Serial: " + gameSerial);
+  415:         android.util.Log.d("GameSettings", "Generated CRC: " + gameCrc);
+  416: 
+  417:         GameSettingsDialogFragment dialog = GameSettingsDialogFragment.newInstance(
+  418:             gameTitle, gameUri, gameSerial, gameCrc);
+  419:         dialog.show(getParentFragmentManager(), "game_settings");
+  420:     }
+  421: }

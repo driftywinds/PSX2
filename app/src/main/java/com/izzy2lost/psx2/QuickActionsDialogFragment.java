@@ -17,7 +17,7 @@ public class QuickActionsDialogFragment extends DialogFragment {
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        View view = LayoutInflater.from(requireContext()).inflate(R.layout.dialog_quick_actions, null, false);
+        View view = getLayoutInflater().inflate(R.layout.dialog_quick_actions, null, false);
 
         MaterialButton btnOpenGames = view.findViewById(R.id.btn_open_games);
         MaterialButton btnExitToMenu = view.findViewById(R.id.btn_exit_to_menu);

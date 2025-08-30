@@ -9,7 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Spinner;
-import android.widget.Switch;
+import com.google.android.material.materialswitch.MaterialSwitch;
 import android.widget.TextView;
 import android.net.Uri;
 
@@ -41,7 +41,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         Context ctx = requireContext();
-        View view = LayoutInflater.from(ctx).inflate(R.layout.dialog_game_settings, null, false);
+        View view = getLayoutInflater().inflate(R.layout.dialog_game_settings, null, false);
 
         Bundle args = getArguments();
         String gameTitle = args != null ? args.getString(ARG_GAME_TITLE, "Unknown Game") : "Unknown Game";
@@ -85,10 +85,10 @@ public class GameSettingsDialogFragment extends DialogFragment {
         spResolution.setAdapter(resolutionAdapter);
 
         // Switches
-        Switch swWidescreenPatches = view.findViewById(R.id.sw_widescreen_patches);
-        Switch swNoInterlacingPatches = view.findViewById(R.id.sw_no_interlacing_patches);
-        Switch swEnablePatchCodes = view.findViewById(R.id.sw_enable_patch_codes);
-        Switch swEnableCheats = view.findViewById(R.id.sw_enable_cheats);
+        MaterialSwitch swWidescreenPatches = view.findViewById(R.id.sw_widescreen_patches);
+        MaterialSwitch swNoInterlacingPatches = view.findViewById(R.id.sw_no_interlacing_patches);
+        MaterialSwitch swEnablePatchCodes = view.findViewById(R.id.sw_enable_patch_codes);
+        MaterialSwitch swEnableCheats = view.findViewById(R.id.sw_enable_cheats);
 
         // Load existing per-game settings from INI and prefill widgets; if missing, use global
         try {

@@ -11,6 +11,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Dialog for testing controller input
@@ -29,7 +30,7 @@ public class ControllerTestDialogFragment extends DialogFragment implements Cont
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        View view = LayoutInflater.from(getContext()).inflate(R.layout.dialog_controller_test, null);
+        View view = getLayoutInflater().inflate(R.layout.dialog_controller_test, null);
         
         mControllerListText = view.findViewById(R.id.tv_controller_list);
         mInputLogText = view.findViewById(R.id.tv_input_log);
@@ -66,7 +67,7 @@ public class ControllerTestDialogFragment extends DialogFragment implements Cont
     public void onControllerButtonPressed(int controllerId, int button, boolean pressed) {
         String buttonName = getButtonName(button);
         String action = pressed ? "PRESSED" : "RELEASED";
-        String logEntry = String.format("Controller %d: %s %s\n", controllerId, buttonName, action);
+        String logEntry = String.format(Locale.ROOT, "Controller %d: %s %s\n", controllerId, buttonName, action);
         
         mInputLog.append(logEntry);
         
@@ -88,7 +89,7 @@ public class ControllerTestDialogFragment extends DialogFragment implements Cont
     public void onControllerAnalogInput(int controllerId, int axis, float value) {
         if (Math.abs(value) > 0.1f) { // Only log significant analog input
             String axisName = getAxisName(axis);
-            String logEntry = String.format("Controller %d: %s %.2f\n", controllerId, axisName, value);
+            String logEntry = String.format(Locale.ROOT, "Controller %d: %s %.2f\n", controllerId, axisName, value);
             
             mInputLog.append(logEntry);
             
@@ -145,7 +146,7 @@ public class ControllerTestDialogFragment extends DialogFragment implements Cont
     
     @Override
     public void onControllerCombo(int controllerId, String comboName) {
-        String logEntry = String.format("Controller %d: COMBO %s\n", controllerId, comboName);
+        String logEntry = String.format(Locale.ROOT, "Controller %d: COMBO %s\n", controllerId, comboName);
         
         mInputLog.append(logEntry);
         

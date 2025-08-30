@@ -21,3 +21,4 @@ app/.cxx/
 *.exe
 /PCSX2_ARM64
 build/reports/problems/problems-report.html
+crash.txt

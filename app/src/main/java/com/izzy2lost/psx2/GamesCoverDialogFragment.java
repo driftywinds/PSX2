@@ -17,14 +17,18 @@ import android.view.WindowInsetsController;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.app.AlertDialog;
-// Import MaterialAlertDialogBuilder for Material 3 styling
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import android.app.Dialog;
 import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import java.util.Locale;
 
 public class GamesCoverDialogFragment extends DialogFragment {
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setStyle(DialogFragment.STYLE_NO_FRAME, R.style.AppTheme);
+    }
     private CoversAdapter adapter;
     private String[] titles;
     private String[] uris;
@@ -75,14 +79,19 @@ public class GamesCoverDialogFragment extends DialogFragment {
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
-        LayoutInflater inflater = LayoutInflater.from(requireContext());
-        View root = inflater.inflate(R.layout.dialog_covers_grid, null, false);
+        // Return a styled dialog; content is provided by onCreateView
+        return new Dialog(requireContext(), R.style.PSX2_FullScreenDialog);
+    }
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        View root = inflater.inflate(R.layout.dialog_covers_grid, container, false);
 
         rv = root.findViewById(R.id.recycler_covers);
         rv.setHasFixedSize(true);
         glm = new GridLayoutManager(requireContext(), 3);
         rv.setLayoutManager(glm);
-        // spacing decoration (8dp) using half on each side so the gap between items is exactly spacingPx
         final int spacingPx = (int) (8 * getResources().getDisplayMetrics().density);
         final int half = Math.max(1, spacingPx / 2);
         rv.addItemDecoration(new RecyclerView.ItemDecoration() {
@@ -91,13 +100,11 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 outRect.set(half, half, half, half);
             }
         });
-        // Hard lock spans based on orientation only
         rv.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
             int currentOrientation = getResources().getConfiguration().orientation;
             int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
             if (fixedSpan != glm.getSpanCount()) { glm.setSpanCount(fixedSpan); }
         });
-        // Set initial fixed span as soon as possible
         root.post(() -> {
             int currentOrientation = getResources().getConfiguration().orientation;
             int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
@@ -113,7 +120,6 @@ public class GamesCoverDialogFragment extends DialogFragment {
             String saved = prefs.getString("serial:" + uris[i], null);
             String serial = saved;
             if (serial == null || serial.isEmpty()) {
-                // Ask native core for the real serial (supports ISO/CHD and content://)
                 try {
                     String nativeSerial = NativeApp.getGameSerial(uris[i]);
                     if (nativeSerial != null && !nativeSerial.isEmpty()) {
@@ -123,63 +129,58 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 } catch (Throwable ignored) {}
             }
             if (serial == null || serial.isEmpty()) {
-                // Heuristic fallback from filename
                 serial = buildSerialFromUri(uris[i]);
             }
             coverUrls[i] = buildCoverUrlFromSerial(serial);
             localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
         }
 
-        adapter = new CoversAdapter(requireContext(), titles, coverUrls, localPaths, 
-            position -> {
-                // Regular click - start game
-                if (listener != null && position >= 0 && position < uris.length) {
-                    listener.onGameSelected(uris[position]);
-                    dismissAllowingStateLoss();
-                }
-            },
-            position -> {
-                // Long click - show game settings
-                if (position >= 0 && position < uris.length) {
-                    showGameSettings(titles[position], uris[position]);
-                }
-            });
+        adapter = new CoversAdapter(requireContext(), titles, coverUrls, localPaths,
+                position -> {
+                    if (listener != null && position >= 0 && position < uris.length) {
+                        listener.onGameSelected(uris[position]);
+                        dismissAllowingStateLoss();
+                    }
+                },
+                position -> {
+                    if (position >= 0 && position < uris.length) {
+                        showGameSettings(titles[position], uris[position]);
+                    }
+                });
         rv.setAdapter(adapter);
 
-        // Toolbar buttons
         View btnHome = root.findViewById(R.id.btn_home);
         if (btnHome != null) btnHome.setOnClickListener(v -> dismissAllowingStateLoss());
         View btnDownload = root.findViewById(R.id.btn_download);
         if (btnDownload != null) btnDownload.setOnClickListener(v -> startDownloadCovers());
 
-        AlertDialog dialog = new MaterialAlertDialogBuilder(requireContext(),
-                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setView(root)
-                .create();
-        return dialog;
+        return root;
     }
 
-    @Override
     public void onStart() {
         super.onStart();
         Dialog d = getDialog();
-        if (d != null) {
-            Window w = d.getWindow();
-            if (w != null) {
-                w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-                w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-                // Hide status bar for true full-screen dialog
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    w.setDecorFitsSystemWindows(false);
-                    WindowInsetsController controller = w.getInsetsController();
-                    if (controller != null) {
-                        controller.hide(WindowInsets.Type.statusBars());
-                        controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-                    }
-                } else {
-                    w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-                }
+        if (d == null) return;
+        Window w = d.getWindow();
+        if (w == null) return;
+        w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            w.setDecorFitsSystemWindows(false);
+            WindowInsetsController controller = w.getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.systemBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
+        } else {
+            w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+            View decor = w.getDecorView();
+            int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+            decor.setSystemUiVisibility(flags);
         }
     }
 
@@ -298,7 +299,7 @@ public class GamesCoverDialogFragment extends DialogFragment {
         if (dot > 0) last = last.substring(0, dot);
         String serial = null;
         // Very simple heuristic: find token like XXXX-XXXXX
-        String upper = last.toUpperCase();
+        String upper = last.toUpperCase(Locale.ROOT);
         java.util.regex.Matcher m = java.util.regex.Pattern.compile("([A-Z]{4,5}-[0-9]{3,5})").matcher(upper);
         if (m.find()) {
             serial = m.group(1);
@@ -353,7 +354,7 @@ public class GamesCoverDialogFragment extends DialogFragment {
 
     private static String normalizeSerial(String serial) {
         if (serial == null) return null;
-        String s = serial.toUpperCase().replace('_', '-');
+        String s = serial.toUpperCase(Locale.ROOT).replace('_', '-');
         // If form like XXXX-123.45 -> XXXX-12345
         s = s.replaceAll("([A-Z]{4,5})-([0-9]{3})\\.([0-9]{2})", "$1-$2$3");
         return s;

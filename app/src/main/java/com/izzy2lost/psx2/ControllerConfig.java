@@ -5,6 +5,7 @@ import android.view.InputDevice;
 import android.util.Log;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Controller configuration and detection utility
@@ -43,7 +44,7 @@ public class ControllerConfig {
      * Get controller type description
      */
     private static String getControllerType(InputDevice device) {
-        String name = device.getName().toLowerCase();
+        String name = device.getName().toLowerCase(Locale.ROOT);
         
         if (name.contains("xbox")) {
             return "Xbox Controller";

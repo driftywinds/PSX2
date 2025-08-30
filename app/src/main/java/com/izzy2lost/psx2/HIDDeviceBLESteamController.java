@@ -9,11 +9,13 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.hardware.usb.UsbDevice;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
+import androidx.core.content.ContextCompat;
 
 import java.util.Arrays;
 import java.util.LinkedList;
@@ -80,23 +82,33 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
                 case CHR_READ:
                     chr = getCharacteristic(mUuid);
                     //Log.v(TAG, "Reading characteristic " + chr.getUuid());
-                    if (!mGatt.readCharacteristic(chr)) {
-                        Log.e(TAG, "Unable to read characteristic " + mUuid.toString());
+                    try {
+                        if (!mGatt.readCharacteristic(chr)) {
+                            Log.e(TAG, "Unable to read characteristic " + mUuid.toString());
+                            mResult = false;
+                            break;
+                        }
+                        mResult = true;
+                    } catch (SecurityException e) {
+                        Log.e(TAG, "Permission denied for reading characteristic: " + e.getMessage());
                         mResult = false;
-                        break;
                     }
-                    mResult = true;
                     break;
                 case CHR_WRITE:
                     chr = getCharacteristic(mUuid);
                     //Log.v(TAG, "Writing characteristic " + chr.getUuid() + " value=" + HexDump.toHexString(value));
                     chr.setValue(mValue);
-                    if (!mGatt.writeCharacteristic(chr)) {
-                        Log.e(TAG, "Unable to write characteristic " + mUuid.toString());
+                    try {
+                        if (!mGatt.writeCharacteristic(chr)) {
+                            Log.e(TAG, "Unable to write characteristic " + mUuid.toString());
+                            mResult = false;
+                            break;
+                        }
+                        mResult = true;
+                    } catch (SecurityException e) {
+                        Log.e(TAG, "Permission denied for writing characteristic: " + e.getMessage());
                         mResult = false;
-                        break;
                     }
-                    mResult = true;
                     break;
                 case ENABLE_NOTIFICATION:
                     chr = getCharacteristic(mUuid);
@@ -116,14 +128,19 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
                                 return;
                             }
 
-                            mGatt.setCharacteristicNotification(chr, true);
-                            cccd.setValue(value);
-                            if (!mGatt.writeDescriptor(cccd)) {
-                                Log.e(TAG, "Unable to write descriptor " + mUuid.toString());
+                            try {
+                                mGatt.setCharacteristicNotification(chr, true);
+                                cccd.setValue(value);
+                                if (!mGatt.writeDescriptor(cccd)) {
+                                    Log.e(TAG, "Unable to write descriptor " + mUuid.toString());
+                                    mResult = false;
+                                    return;
+                                }
+                                mResult = true;
+                            } catch (SecurityException e) {
+                                Log.e(TAG, "Permission denied for notification setup: " + e.getMessage());
                                 mResult = false;
-                                return;
                             }
-                            mResult = true;
                         }
                     }
             }
@@ -176,6 +193,14 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
         return String.format("SteamController.%s", mDevice.getAddress());
     }
 
+    private boolean hasBluetoothPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return ContextCompat.checkSelfPermission(mManager.getContext(), 
+                android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED;
+        }
+        return true; // Pre-Android 12 doesn't need runtime permission
+    }
+
     BluetoothGatt getGatt() {
         return mGatt;
     }
@@ -183,14 +208,19 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
     // Because on Chromebooks we show up as a dual-mode device, it will attempt to connect TRANSPORT_AUTO, which will use TRANSPORT_BREDR instead
     // of TRANSPORT_LE.  Let's force ourselves to connect low energy.
     private BluetoothGatt connectGatt(boolean managed) {
-        if (Build.VERSION.SDK_INT >= 23 /* Android 6.0 (M) */) {
-            try {
-                return mDevice.connectGatt(mManager.getContext(), managed, this, TRANSPORT_LE);
-            } catch (Exception e) {
+        try {
+            if (Build.VERSION.SDK_INT >= 23 /* Android 6.0 (M) */) {
+                try {
+                    return mDevice.connectGatt(mManager.getContext(), managed, this, TRANSPORT_LE);
+                } catch (Exception e) {
+                    return mDevice.connectGatt(mManager.getContext(), managed, this);
+                }
+            } else {
                 return mDevice.connectGatt(mManager.getContext(), managed, this);
             }
-        } else {
-            return mDevice.connectGatt(mManager.getContext(), managed, this);
+        } catch (SecurityException e) {
+            Log.e(TAG, "Permission denied for GATT connection: " + e.getMessage());
+            return null;
         }
     }
 
@@ -213,13 +243,22 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
             return BluetoothProfile.STATE_DISCONNECTED;
         }
 
-        return btManager.getConnectionState(mDevice, BluetoothProfile.GATT);
+        try {
+            return btManager.getConnectionState(mDevice, BluetoothProfile.GATT);
+        } catch (SecurityException e) {
+            Log.e(TAG, "Permission denied for getting connection state: " + e.getMessage());
+            return BluetoothProfile.STATE_DISCONNECTED;
+        }
     }
 
     void reconnect() {
 
         if (getConnectionState() != BluetoothProfile.STATE_CONNECTED) {
-            mGatt.disconnect();
+            try {
+                mGatt.disconnect();
+            } catch (SecurityException e) {
+                Log.e(TAG, "Permission denied for disconnect: " + e.getMessage());
+            }
             mGatt = connectGatt();
         }
 
@@ -241,7 +280,11 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
                     // to try to recover.
                     Log.v(TAG, "Chromebook: We are in a very bad state; the controller shows as connected in the underlying Bluetooth layer, but we never received a callback.  Forcing a reconnect.");
                     mIsReconnecting = true;
-                    mGatt.disconnect();
+                    try {
+                        mGatt.disconnect();
+                    } catch (SecurityException e) {
+                        Log.e(TAG, "Permission denied for disconnect: " + e.getMessage());
+                    }
                     mGatt = connectGatt(false);
                     break;
                 }
@@ -253,7 +296,11 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
                     else {
                         Log.v(TAG, "Chromebook: We are connected to a controller, but never discovered services.  Trying to recover.");
                         mIsReconnecting = true;
-                        mGatt.disconnect();
+                        try {
+                            mGatt.disconnect();
+                        } catch (SecurityException e) {
+                            Log.e(TAG, "Permission denied for disconnect: " + e.getMessage());
+                        }
                         mGatt = connectGatt(false);
                         break;
                     }
@@ -268,7 +315,11 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
                 Log.v(TAG, "Chromebook: We have either been disconnected, or the Chromebook BtGatt.ContextMap bug has bitten us.  Attempting a disconnect/reconnect, but we may not be able to recover.");
 
                 mIsReconnecting = true;
-                mGatt.disconnect();
+                try {
+                    mGatt.disconnect();
+                } catch (SecurityException e) {
+                    Log.e(TAG, "Permission denied for disconnect: " + e.getMessage());
+                }
                 mGatt = connectGatt(false);
                 break;
 
@@ -328,7 +379,11 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
             Log.e(TAG, "Chromebook: Discovered services were empty; this almost certainly means the BtGatt.ContextMap bug has bitten us.");
             mIsConnected = false;
             mIsReconnecting = true;
-            mGatt.disconnect();
+            try {
+                mGatt.disconnect();
+            } catch (SecurityException e) {
+                Log.e(TAG, "Permission denied for disconnect: " + e.getMessage());
+            }
             mGatt = connectGatt(false);
         }
 
@@ -423,7 +478,11 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
                 mHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        mGatt.discoverServices();
+                        try {
+                            mGatt.discoverServices();
+                        } catch (SecurityException e) {
+                            Log.e(TAG, "Permission denied for service discovery: " + e.getMessage());
+                        }
                     }
                 });
             }
@@ -443,7 +502,11 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
                 Log.v(TAG, "onServicesDiscovered returned zero services; something has gone horribly wrong down in Android's Bluetooth stack.");
                 mIsReconnecting = true;
                 mIsConnected = false;
-                gatt.disconnect();
+                try {
+                    gatt.disconnect();
+                } catch (SecurityException e) {
+                    Log.e(TAG, "Permission denied for disconnect: " + e.getMessage());
+                }
                 mGatt = connectGatt(false);
             }
             else {
@@ -505,7 +568,11 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
             if (reportChr != null) {
                 Log.v(TAG, "Writing report characteristic to enter valve mode");
                 reportChr.setValue(enterValveMode);
-                gatt.writeCharacteristic(reportChr);
+                try {
+                    gatt.writeCharacteristic(reportChr);
+                } catch (SecurityException e) {
+                    Log.e(TAG, "Permission denied for writing report characteristic: " + e.getMessage());
+                }
             }
         }
 
@@ -638,8 +705,12 @@ class HIDDeviceBLESteamController extends BluetoothGattCallback implements HIDDe
 
         BluetoothGatt g = mGatt;
         if (g != null) {
-            g.disconnect();
-            g.close();
+            try {
+                g.disconnect();
+                g.close();
+            } catch (SecurityException e) {
+                Log.e(TAG, "Permission denied for shutdown operations: " + e.getMessage());
+            }
             mGatt = null;
         }
         mManager = null;
