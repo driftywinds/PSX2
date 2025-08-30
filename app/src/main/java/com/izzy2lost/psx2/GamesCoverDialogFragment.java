@@ -20,10 +20,13 @@ import androidx.annotation.Nullable;
 import android.app.Dialog;
 import androidx.fragment.app.DialogFragment;
 import androidx.recyclerview.widget.GridLayoutManager;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.PagerSnapHelper;
 import androidx.recyclerview.widget.RecyclerView;
 import java.util.Locale;
 
 public class GamesCoverDialogFragment extends DialogFragment {
+    private boolean didInitialNudge = false;
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -35,7 +38,10 @@ public class GamesCoverDialogFragment extends DialogFragment {
     private String[] coverUrls;
     private String[] localPaths;
     private RecyclerView rv;
-    private GridLayoutManager glm;
+    private LinearLayoutManager llm;
+    private PagerSnapHelper snapHelper;
+    private int lastRvW = -1, lastRvH = -1;
+    private boolean pendingResnap = false;
 
     public interface OnGameSelectedListener {
         void onGameSelected(String gameUri);
@@ -66,14 +72,7 @@ public class GamesCoverDialogFragment extends DialogFragment {
     @Override
     public void onResume() {
         super.onResume();
-        // Re-assert fixed span (2/4) after resume to avoid any flips
-        if (rv != null && glm != null) {
-            int currentOrientation = getResources().getConfiguration().orientation;
-            int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
-            if (fixedSpan != glm.getSpanCount()) {
-                glm.setSpanCount(fixedSpan);
-            }
-        }
+        if (rv != null) applyCoverflowTransforms(rv);
     }
 
     @NonNull
@@ -90,25 +89,33 @@ public class GamesCoverDialogFragment extends DialogFragment {
 
         rv = root.findViewById(R.id.recycler_covers);
         rv.setHasFixedSize(true);
-        glm = new GridLayoutManager(requireContext(), 3);
-        rv.setLayoutManager(glm);
-        final int spacingPx = (int) (8 * getResources().getDisplayMetrics().density);
-        final int half = Math.max(1, spacingPx / 2);
-        rv.addItemDecoration(new RecyclerView.ItemDecoration() {
+        llm = new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false);
+        rv.setLayoutManager(llm);
+        rv.setClipToPadding(false);
+        int sidePad = (int) (48 * getResources().getDisplayMetrics().density);
+        int vertPad = (int) (24 * getResources().getDisplayMetrics().density);
+        rv.setPadding(sidePad, vertPad, sidePad, vertPad);
+        // Snap to center item
+        snapHelper = new PagerSnapHelper();
+        snapHelper.attachToRecyclerView(rv);
+        // Scale/alpha transform based on distance from center
+        rv.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
-            public void getItemOffsets(android.graphics.Rect outRect, View view, RecyclerView parent, RecyclerView.State state) {
-                outRect.set(half, half, half, half);
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+                applyCoverflowTransforms(recyclerView);
             }
-        });
-        rv.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
-            int currentOrientation = getResources().getConfiguration().orientation;
-            int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
-            if (fixedSpan != glm.getSpanCount()) { glm.setSpanCount(fixedSpan); }
-        });
-        root.post(() -> {
-            int currentOrientation = getResources().getConfiguration().orientation;
-            int fixedSpan = (currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) ? 4 : 2;
-            if (fixedSpan != glm.getSpanCount()) { glm.setSpanCount(fixedSpan); }
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                    if (pendingResnap) {
+                        resnapToCenter(recyclerView);
+                        pendingResnap = false;
+                    }
+                    applyCoverflowTransforms(recyclerView);
+                }
+            }
         });
 
         titles = getArguments() != null ? getArguments().getStringArray(ARG_TITLES) : new String[0];
@@ -135,7 +142,7 @@ public class GamesCoverDialogFragment extends DialogFragment {
             localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
         }
 
-        adapter = new CoversAdapter(requireContext(), titles, coverUrls, localPaths,
+        adapter = new CoversAdapter(requireContext(), titles, coverUrls, localPaths, R.layout.item_coverflow,
                 position -> {
                     if (listener != null && position >= 0 && position < uris.length) {
                         listener.onGameSelected(uris[position]);
@@ -148,6 +155,80 @@ public class GamesCoverDialogFragment extends DialogFragment {
                     }
                 });
         rv.setAdapter(adapter);
+        // One-time tiny nudge to force snap/transform on some devices
+        rv.post(() -> {
+            if (!isAdded() || didInitialNudge) return;
+            // Anchor to a large middle position for "infinite" scroll
+            int n = titles != null ? titles.length : 0;
+            if (n > 0) {
+                int center = (1 << 29); // ~536 million
+                int startPos = center - (center % n);
+                llm.scrollToPosition(startPos);
+            }
+            rv.scrollBy(1, 0);
+            rv.scrollBy(-1, 0);
+            applyCoverflowTransforms(rv);
+            didInitialNudge = true;
+        });
+        // Reduce resize flicker and keep a few views ready
+        rv.setItemAnimator(null);
+        rv.setItemViewCacheSize(12);
+
+        // Ensure initial measurement + transforms run after first layout
+        rv.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+            @Override public void onGlobalLayout() {
+                if (!isAdded()) return;
+                applyCoverflowTransforms(rv);
+                rv.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+            }
+        });
+
+        // Resolve proper game titles using local YAML index if available (GameIndex/Redump).
+        // Falls back to native URI API, then filename if needed.
+        new Thread(() -> {
+            boolean changed = false;
+            for (int i = 0; i < uris.length; i++) {
+                try {
+                    String t = TitleResolver.resolveTitleForUri(requireContext(), uris[i], titles[i]);
+                    if (t != null && !t.isEmpty() && i < titles.length && !t.equals(titles[i])) {
+                        titles[i] = t;
+                        changed = true;
+                    }
+                } catch (Throwable ignored) {}
+            }
+            if (changed && isAdded()) requireActivity().runOnUiThread(() -> adapter.notifyDataSetChanged());
+        }).start();
+
+        // Dynamically size items based on RecyclerView size and orientation
+        rv.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
+            final int rvW = right - left;
+            final int rvH = bottom - top;
+            if (rvW <= 0 || rvH <= 0) return;
+            if (rvW == lastRvW && rvH == lastRvH) return; // no real size change
+            lastRvW = rvW;
+            lastRvH = rvH;
+            rv.post(() -> {
+                if (!isAdded()) return;
+                boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+                int titleDp = 36;
+                int extraDp = 16;
+                float density = getResources().getDisplayMetrics().density;
+                int reservedH = (int) ((titleDp + extraDp) * density) + (vertPad * 2);
+                int availableH = Math.max(0, rvH - reservedH);
+                float ratio = 567f / 878f;
+                int widthFromHeight = (int) (availableH * ratio);
+                int widthFromWidth = (int) (rvW * (landscape ? 0.35f : 0.55f));
+                int itemWidth = Math.max(160, Math.min(widthFromHeight, widthFromWidth));
+                adapter.setItemWidthPx(itemWidth);
+                // If user is scrolling, defer resnap until idle to avoid fighting gesture
+                if (rv.getScrollState() == RecyclerView.SCROLL_STATE_IDLE) {
+                    resnapToCenter(rv);
+                    applyCoverflowTransforms(rv);
+                } else {
+                    pendingResnap = true;
+                }
+            });
+        });
 
         View btnHome = root.findViewById(R.id.btn_home);
         if (btnHome != null) btnHome.setOnClickListener(v -> dismissAllowingStateLoss());
@@ -155,6 +236,59 @@ public class GamesCoverDialogFragment extends DialogFragment {
         if (btnDownload != null) btnDownload.setOnClickListener(v -> startDownloadCovers());
 
         return root;
+    }
+
+    private void applyCoverflowTransforms(@NonNull RecyclerView recyclerView) {
+        int rvCenterX = (recyclerView.getLeft() + recyclerView.getRight()) / 2;
+        boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+        final float maxScale = 1.0f;
+        final float minScale = landscape ? 0.70f : 0.82f;
+        final float maxAlpha = 1.0f;
+        final float minAlpha = landscape ? 0.50f : 0.60f;
+        final float maxTiltDeg = landscape ? 22f : 16f;
+        final float density = getResources().getDisplayMetrics().density;
+        final float maxParallax = (landscape ? 14f : 18f) * density;
+        for (int i = 0; i < recyclerView.getChildCount(); i++) {
+            View child = recyclerView.getChildAt(i);
+            int childCenterX = (child.getLeft() + child.getRight()) / 2;
+            float dx = childCenterX - rvCenterX;
+            float dist = Math.abs(dx);
+            float norm = Math.min(1f, dist / (recyclerView.getWidth() * 0.5f));
+            float scale = maxScale - (maxScale - minScale) * norm;
+            float alpha = maxAlpha - (maxAlpha - minAlpha) * norm;
+            float tilt = Math.signum(dx) * maxTiltDeg * norm; // tilt away from center
+            child.setCameraDistance(8000f * density);
+            child.setScaleX(scale);
+            child.setScaleY(scale);
+            child.setAlpha(alpha);
+            child.setTranslationZ((1f - norm) * 10f);
+            child.setRotationY(tilt);
+
+            // Title parallax (gentle)
+            View title = child.findViewById(R.id.text_title);
+            if (title != null) {
+                float parallax = Math.max(-maxParallax, Math.min(maxParallax, -dx / (recyclerView.getWidth() * 0.5f) * maxParallax));
+                title.setTranslationX(parallax);
+                title.setAlpha(0.85f + 0.15f * (1f - norm));
+            }
+
+            // Shadow intensity scales with centeredness
+            View shadow = child.findViewById(R.id.view_shadow);
+            if (shadow != null) {
+                shadow.setAlpha((1f - norm) * 0.7f);
+                shadow.setScaleX(scale + 0.2f);
+            }
+        }
+    }
+
+    private void resnapToCenter(@NonNull RecyclerView rv) {
+        if (snapHelper == null || llm == null) return;
+        View snapView = snapHelper.findSnapView(llm);
+        if (snapView == null) return;
+        int[] dist = snapHelper.calculateDistanceToFinalSnap(llm, snapView);
+        if (dist != null && (dist[0] != 0 || dist[1] != 0)) {
+            rv.scrollBy(dist[0], dist[1]);
+        }
     }
 
     public void onStart() {

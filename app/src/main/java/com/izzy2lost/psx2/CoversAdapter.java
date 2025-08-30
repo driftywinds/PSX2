@@ -29,31 +29,57 @@ public class CoversAdapter extends RecyclerView.Adapter<CoversAdapter.VH> {
     private final String[] localPaths; // absolute file paths for cached covers (may be null)
     private final OnItemClick onItemClick;
     private final OnItemLongClick onItemLongClick;
+    private final int itemLayoutResId;
+    private int overrideItemWidthPx = 0;
 
     public CoversAdapter(Context context, String[] titles, String[] coverUrls, String[] localPaths, OnItemClick click) {
-        this(context, titles, coverUrls, localPaths, click, null);
+        this(context, titles, coverUrls, localPaths, R.layout.item_cover, click, null);
     }
 
-    public CoversAdapter(Context context, String[] titles, String[] coverUrls, String[] localPaths, OnItemClick click, OnItemLongClick longClick) {
+    public CoversAdapter(Context context, String[] titles, String[] coverUrls, String[] localPaths, int itemLayoutResId, OnItemClick click, OnItemLongClick longClick) {
         this.context = context;
         this.titles = titles;
         this.coverUrls = coverUrls;
         this.localPaths = localPaths;
+        this.itemLayoutResId = itemLayoutResId;
         this.onItemClick = click;
         this.onItemLongClick = longClick;
+        setHasStableIds(true);
+    }
+
+    public void setItemWidthPx(int widthPx) {
+        if (widthPx != overrideItemWidthPx) {
+            overrideItemWidthPx = widthPx;
+            notifyDataSetChanged();
+        }
     }
 
     @NonNull
     @Override
     public VH onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.item_cover, parent, false);
+        View v = LayoutInflater.from(parent.getContext()).inflate(itemLayoutResId, parent, false);
+        if (overrideItemWidthPx > 0) {
+            RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) v.getLayoutParams();
+            lp.width = overrideItemWidthPx;
+            v.setLayoutParams(lp);
+        }
         return new VH(v);
     }
 
     @Override
     public void onBindViewHolder(@NonNull VH holder, int position) {
-        holder.title.setText(titles[position]);
-        String local = (localPaths != null && position < localPaths.length) ? localPaths[position] : null;
+        int count = titles.length;
+        int real = (count == 0) ? 0 : (position % count);
+        // Ensure dynamic width is applied
+        if (overrideItemWidthPx > 0) {
+            RecyclerView.LayoutParams lp = (RecyclerView.LayoutParams) holder.itemView.getLayoutParams();
+            if (lp.width != overrideItemWidthPx) {
+                lp.width = overrideItemWidthPx;
+                holder.itemView.setLayoutParams(lp);
+            }
+        }
+        holder.title.setText(titles[real]);
+        String local = (localPaths != null && real < localPaths.length) ? localPaths[real] : null;
         File localFile = null;
         if (local != null) {
             File f = new File(local);
@@ -69,15 +95,28 @@ public class CoversAdapter extends RecyclerView.Adapter<CoversAdapter.VH> {
                     .error(android.R.color.transparent)
                     .into(holder.cover);
         } else {
-            // Do not load from network automatically; wait for explicit download
-            holder.cover.setImageDrawable(null);
+            // Show a default placeholder from resources/no-cover.png if present
+            File resDir = context.getExternalFilesDir("resources");
+            File placeholder = (resDir != null) ? new File(resDir, "no-cover.png") : null;
+            if (placeholder != null && placeholder.exists() && placeholder.length() > 0) {
+                Glide.with(context)
+                        .load(placeholder)
+                        .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                        .fitCenter()
+                        .placeholder(android.R.color.transparent)
+                        .error(android.R.color.transparent)
+                        .into(holder.cover);
+            } else {
+                // Fallback to logo if placeholder not found
+                holder.cover.setImageResource(R.drawable.psx2_logo2_fixed);
+            }
         }
         holder.itemView.setOnClickListener(v -> {
-            if (onItemClick != null) onItemClick.onClick(position);
+            if (onItemClick != null) onItemClick.onClick(real);
         });
         holder.itemView.setOnLongClickListener(v -> {
             if (onItemLongClick != null) {
-                onItemLongClick.onLongClick(position);
+                onItemLongClick.onLongClick(real);
                 return true;
             }
             return false;
@@ -86,7 +125,15 @@ public class CoversAdapter extends RecyclerView.Adapter<CoversAdapter.VH> {
 
     @Override
     public int getItemCount() {
-        return titles.length;
+        return titles.length == 0 ? 0 : Integer.MAX_VALUE;
+    }
+
+    @Override
+    public long getItemId(int position) {
+        if (titles.length == 0) return RecyclerView.NO_ID;
+        int real = position % titles.length;
+        String t = titles[real];
+        return t != null ? t.hashCode() : real;
     }
 
     static class VH extends RecyclerView.ViewHolder {

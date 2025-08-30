@@ -22,3 +22,5 @@ app/.cxx/
 /PCSX2_ARM64
 build/reports/problems/problems-report.html
 crash.txt
+/AetherSX2-main
+crash-NEW.txt

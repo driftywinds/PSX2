@@ -36,7 +36,9 @@ public class NativeApp {
 	}
 
 	public static native void initialize(String path, int apiVer);
-	public static native String getGameTitle(String path);
+    public static native String getGameTitle(String path);
+    // New: Resolve game title from a URI (content:// or file://). Implement in native when available.
+    public static native String getGameTitleFromUri(String gameUri);
 	public static native String getGameSerial();
 	public static native float getFPS();
 
