@@ -25,6 +25,7 @@ public class SettingsDialogFragment extends DialogFragment {
 
     private static final String PREFS = "app_prefs";
     // Renderer constants (match native GSRendererType values used elsewhere)
+    private static final int RENDERER_AUTO = -1;
     private static final int RENDERER_OPENGL = 12;
     private static final int RENDERER_SOFTWARE = 13;
     private static final int RENDERER_VULKAN = 14;
@@ -33,7 +34,8 @@ public class SettingsDialogFragment extends DialogFragment {
     public static void loadAndApplySettings(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
         
-        int renderer = prefs.getInt("renderer", RENDERER_VULKAN);
+        // Default to Automatic if no renderer has been chosen yet
+        int renderer = prefs.getInt("renderer", RENDERER_AUTO);
         float scale = prefs.getFloat("upscale_multiplier", 1.0f);
         int aspectRatio = prefs.getInt("aspect_ratio", 1);
         int blendingAccuracy = prefs.getInt("blending_accuracy", 1); // 0..5
@@ -44,8 +46,8 @@ public class SettingsDialogFragment extends DialogFragment {
         boolean hudVisible = prefs.getBoolean("hud_visible", false);
         
         // Debug logging
-        android.util.Log.d("SettingsDialog", "Loading renderer setting: " + renderer + 
-            " (12=OpenGL, 13=Software, 14=Vulkan)");
+        android.util.Log.d("SettingsDialog", "Loading renderer setting: " + renderer +
+            " (-1=Auto, 12=OpenGL, 13=Software, 14=Vulkan)");
         
         // Apply all settings
         NativeApp.renderGpu(renderer);
@@ -73,6 +75,7 @@ public class SettingsDialogFragment extends DialogFragment {
         View view = getLayoutInflater().inflate(R.layout.dialog_settings, null, false);
 
         RadioGroup rgRenderer = view.findViewById(R.id.rg_renderer);
+        RadioButton rbAuto = view.findViewById(R.id.rb_renderer_auto);
         RadioButton rbGl = view.findViewById(R.id.rb_renderer_gl);
         RadioButton rbVk = view.findViewById(R.id.rb_renderer_vk);
         RadioButton rbSw = view.findViewById(R.id.rb_renderer_sw);
@@ -102,6 +105,7 @@ public class SettingsDialogFragment extends DialogFragment {
         ColorStateList brandChecked = new ColorStateList(states, colors);
 
         // RadioButtons
+        if (rbAuto != null) CompoundButtonCompat.setButtonTintList(rbAuto, brandChecked);
         if (rbGl != null) CompoundButtonCompat.setButtonTintList(rbGl, brandChecked);
         if (rbVk != null) CompoundButtonCompat.setButtonTintList(rbVk, brandChecked);
         if (rbSw != null) CompoundButtonCompat.setButtonTintList(rbSw, brandChecked);
@@ -177,7 +181,7 @@ public class SettingsDialogFragment extends DialogFragment {
         spAspectRatio.setAdapter(aspectAdapter);
 
         SharedPreferences prefs = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        int savedRenderer = prefs.getInt("renderer", RENDERER_VULKAN);
+        int savedRenderer = prefs.getInt("renderer", RENDERER_AUTO);
         float savedScale = prefs.getFloat("upscale_multiplier", 1.0f);
         int savedAspectRatio = prefs.getInt("aspect_ratio", 1); // 1 = Auto 4:3/3:2 (recommended)
         boolean savedWidescreen = prefs.getBoolean("widescreen_patches", false);
@@ -187,9 +191,10 @@ public class SettingsDialogFragment extends DialogFragment {
         boolean savedHud = prefs.getBoolean("hud_visible", false);
         int savedBlending = prefs.getInt("blending_accuracy", 1);
 
-        if (savedRenderer == RENDERER_VULKAN) rbVk.setChecked(true);
-        else if (savedRenderer == RENDERER_SOFTWARE) rbSw.setChecked(true);
-        else rbGl.setChecked(true);
+        if (savedRenderer == RENDERER_VULKAN && rbVk != null) rbVk.setChecked(true);
+        else if (savedRenderer == RENDERER_SOFTWARE && rbSw != null) rbSw.setChecked(true);
+        else if (savedRenderer == RENDERER_OPENGL && rbGl != null) rbGl.setChecked(true);
+        else if (rbAuto != null) rbAuto.setChecked(true);
 
         int scaleIndex = scaleToIndex(savedScale);
         if (scaleIndex < 0 || scaleIndex >= scaleAdapter.getCount()) scaleIndex = 0;
@@ -216,9 +221,11 @@ public class SettingsDialogFragment extends DialogFragment {
          .setView(view)
          .setNegativeButton("Cancel", (d, w) -> d.dismiss())
          .setPositiveButton("Save", (d, w) -> {
-             int renderer = RENDERER_OPENGL;
+             int renderer = RENDERER_AUTO;
              int checked = rgRenderer.getCheckedRadioButtonId();
-             if (checked == R.id.rb_renderer_vk) renderer = RENDERER_VULKAN;
+             if (checked == R.id.rb_renderer_auto) renderer = RENDERER_AUTO;
+             else if (checked == R.id.rb_renderer_vk) renderer = RENDERER_VULKAN;
+             else if (checked == R.id.rb_renderer_gl) renderer = RENDERER_OPENGL;
              else if (checked == R.id.rb_renderer_sw) renderer = RENDERER_SOFTWARE;
 
              float scale = indexToScale(spScale.getSelectedItemPosition());
@@ -230,8 +237,8 @@ public class SettingsDialogFragment extends DialogFragment {
              boolean hudVisible = (swDevHud != null && swDevHud.isChecked());
 
              // Debug logging
-             android.util.Log.d("SettingsDialog", "Saving renderer setting: " + renderer + 
-                 " (12=OpenGL, 13=Software, 14=Vulkan)");
+            android.util.Log.d("SettingsDialog", "Saving renderer setting: " + renderer + 
+                " (-1=Auto, 12=OpenGL, 13=Software, 14=Vulkan)");
              
              // Save renderer setting first with commit() to ensure immediate write
              prefs.edit().putInt("renderer", renderer).apply();

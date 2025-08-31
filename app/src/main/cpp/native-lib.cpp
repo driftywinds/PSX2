@@ -724,8 +724,8 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_com_izzy2lost_psx2_NativeApp_renderGpu(JNIEnv *env, jclass clazz,
                                                jint p_value) {
-    // Accept 12(OpenGL), 13(Software), 14(Vulkan)
-    if (p_value != 12 && p_value != 13 && p_value != 14)
+    // Accept -1(Auto), 12(OpenGL), 13(Software), 14(Vulkan)
+    if (p_value != -1 && p_value != 12 && p_value != 13 && p_value != 14)
         return;
 
     // Persist to base settings and apply immediately if possible

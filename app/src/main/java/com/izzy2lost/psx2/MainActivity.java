@@ -476,8 +476,11 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             btn_bios.setOnClickListener(v -> {
                 int current = getCurrentRendererPref();
                 int next;
-                // Cycle: OGL(12) -> VK(14) -> SW(13) -> OGL
-                if (current == 12) next = 14; else if (current == 14) next = 13; else next = 12;
+                // Cycle: AUTO(-1) -> VK(14) -> OGL(12) -> SW(13) -> AUTO
+                if (current == -1) next = 14;
+                else if (current == 14) next = 12;
+                else if (current == 12) next = 13;
+                else next = -1;
                 setRendererAndSave(next);
             });
             btn_bios.setOnLongClickListener(v -> {
@@ -969,10 +972,12 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
     private int getCurrentRendererPref() {
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
-        return prefs.getInt("renderer", 14);
+        // Default to -1 (Automatic) if not set
+        return prefs.getInt("renderer", -1);
     }
 
     private String rendererShortLabel(int r) {
+        if (r == -1) return "AUTO";
         if (r == 12) return "OGL";
         if (r == 13) return "SW";
         return "VK"; // 14

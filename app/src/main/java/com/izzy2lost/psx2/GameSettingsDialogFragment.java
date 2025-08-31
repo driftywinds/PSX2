@@ -70,7 +70,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
         blendingAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         spBlendingAccuracy.setAdapter(blendingAdapter);
 
-        // Renderer Spinner (no Auto; entries: Vulkan, OpenGL, Software)
+        // Renderer Spinner (now includes Auto)
         Spinner spRenderer = view.findViewById(R.id.sp_renderer);
         ArrayAdapter<CharSequence> rendererAdapter = ArrayAdapter.createFromResource(ctx,
                 R.array.renderer_entries, android.R.layout.simple_spinner_item);
@@ -118,10 +118,11 @@ public class GameSettingsDialogFragment extends DialogFragment {
                     m = java.util.regex.Pattern.compile("(?m)^Renderer=\\s*(.+)$").matcher(content);
                     if (m.find()) {
                         String rv = m.group(1).trim();
-                        int idx = 0; // 0=Vulkan,1=OpenGL,2=Software
-                        if ("Vulkan".equalsIgnoreCase(rv) || "14".equals(rv)) idx = 0;
-                        else if ("OpenGL".equalsIgnoreCase(rv) || "12".equals(rv)) idx = 1;
-                        else if ("Software".equalsIgnoreCase(rv) || "13".equals(rv)) idx = 2;
+                        int idx = 0; // 0=Auto,1=Vulkan,2=OpenGL,3=Software
+                        if ("Auto".equalsIgnoreCase(rv) || "-1".equals(rv)) idx = 0;
+                        else if ("Vulkan".equalsIgnoreCase(rv) || "14".equals(rv)) idx = 1;
+                        else if ("OpenGL".equalsIgnoreCase(rv) || "12".equals(rv)) idx = 2;
+                        else if ("Software".equalsIgnoreCase(rv) || "13".equals(rv)) idx = 3;
                         spRenderer.setSelection(idx);
                         appliedRenderer = true;
                     }
@@ -160,8 +161,13 @@ public class GameSettingsDialogFragment extends DialogFragment {
                 // If no per-game renderer specified, mirror the global renderer choice
                 if (!appliedRenderer) {
                     android.content.SharedPreferences prefs = ctx.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
-                    int globalRenderer = prefs.getInt("renderer", 14); // default Vulkan
-                    int idx = (globalRenderer == 14) ? 0 : (globalRenderer == 12 ? 1 : 2);
+                    int globalRenderer = prefs.getInt("renderer", -1); // default Auto
+                    int idx;
+                    if (globalRenderer == -1) idx = 0; // Auto
+                    else if (globalRenderer == 14) idx = 1; // Vulkan
+                    else if (globalRenderer == 12) idx = 2; // OpenGL
+                    else if (globalRenderer == 13) idx = 3; // Software
+                    else idx = 0;
                     spRenderer.setSelection(idx);
                 }
                 // If no per-game blending specified, mirror the global blending
@@ -176,8 +182,13 @@ public class GameSettingsDialogFragment extends DialogFragment {
             spBlendingAccuracy.setSelection(1);
             // Mirror global default when error
             android.content.SharedPreferences prefs = ctx.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
-            int globalRenderer = prefs.getInt("renderer", 14);
-            int idx = (globalRenderer == 14) ? 0 : (globalRenderer == 12 ? 1 : 2);
+            int globalRenderer = prefs.getInt("renderer", -1);
+            int idx;
+            if (globalRenderer == -1) idx = 0;
+            else if (globalRenderer == 14) idx = 1;
+            else if (globalRenderer == 12) idx = 2;
+            else if (globalRenderer == 13) idx = 3;
+            else idx = 0;
             spRenderer.setSelection(idx);
             spResolution.setSelection(0);
         }
@@ -192,7 +203,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
                    // Apply blending to runtime as well for immediate effect
                    NativeApp.setBlendingAccuracy(spBlendingAccuracy.getSelectedItemPosition());
 
-                   // Persist per-game INI explicitly to mirror global defaults and avoid Auto
+                   // Persist per-game INI explicitly (supports Auto as well)
                    writeGameSettingsIni(ctx, gameSerial, gameCrc,
                            spBlendingAccuracy.getSelectedItemPosition(),
                            spRenderer.getSelectedItemPosition(),
@@ -317,7 +328,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
             java.io.File ini = new java.io.File(baseDir, fileName);
 
             // Map indices
-            String rendererName = (rendererIdx == 0) ? "Vulkan" : (rendererIdx == 1 ? "OpenGL" : "Software");
+            String rendererName = (rendererIdx == 0) ? "Auto" : (rendererIdx == 1 ? "Vulkan" : (rendererIdx == 2 ? "OpenGL" : "Software"));
             float upscale = Math.max(1, Math.min(8, resolutionIdx + 1));
             int abl = Math.max(0, Math.min(5, blendingAccuracyIdx));
 

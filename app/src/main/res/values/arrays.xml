@@ -29,6 +29,7 @@
     </string-array>
 
     <string-array name="renderer_entries">
+        <item>Automatic (Default)</item>
         <item>Hardware (Vulkan)</item>
         <item>Hardware (OpenGL)</item>
         <item>Software (Slow, accurate)</item>
