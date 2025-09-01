@@ -246,6 +246,11 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         }
     }
 
+    // Enable immersive mode to hide navigation and status bars
+    private void enableImmersiveMode() {
+        hideStatusBar();
+    }
+
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
@@ -297,6 +302,11 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (!TextUtils.isEmpty(gameUri)) {
             // Avoid any pre-VM native calls here; just set the game and launch.
             m_szGamefile = gameUri;
+            // Record last played timestamp for sorting
+            try {
+                SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+                prefs.edit().putLong("last_played:" + gameUri, System.currentTimeMillis()).apply();
+            } catch (Throwable ignored) {}
             restartEmuThread();
         }
     }
@@ -372,7 +382,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             getSupportActionBar().hide();
         }
         setContentView(R.layout.activity_main);
-        hideStatusBar();
+        enableImmersiveMode();
 
         // Setup back button handler
         setupBackPressedHandler();
@@ -397,14 +407,10 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Ensure consistent ripple across all MaterialButtons
         tintAllMaterialButtonOutlines();
 
-        // Settings are already applied in Initialize() -> loadAndApplySettings()
-        // No need to call applySavedSettings() again here
-
         // Apply orientation-specific constraints once at startup
         int currentOrientation = getResources().getConfiguration().orientation;
         applyConstraintsForOrientation(currentOrientation);
-
-        
+      
         // Prompt for BIOS if missing
         maybePromptForBios();
 
@@ -436,10 +442,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         };
         getOnBackPressedDispatcher().addCallback(this, callback);
     }
-
-
-
-
 
     private void makeButtonTouch() {
         MaterialButton btn_file = findViewById(R.id.btn_file);
@@ -493,8 +495,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             });
         }
 
-        // Games button handled above
-
         // Settings button opens dialog
         MaterialButton btn_settings = findViewById(R.id.btn_settings);
         if (btn_settings != null) {
@@ -513,10 +513,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             });
         }
 
-        // HUD toggle moved to Settings (Developer section)
-
-        // Hide UI button (removed - functionality moved to toggle button)
-
         // Small unhide button (appears when all UI is hidden)
         MaterialButton btn_unhide_ui = findViewById(R.id.btn_unhide_ui);
         if(btn_unhide_ui != null) {
@@ -525,9 +521,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             });
         }
 
-        //////
         // RENDERER
-
         MaterialButton btn_ogl = findViewById(R.id.btn_ogl);
         if(btn_ogl != null) {
             btn_ogl.setOnClickListener(v -> {
@@ -588,9 +582,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             });
         }
 
-        //////
         // PAD
-
         MaterialButton btn_pad_select = findViewById(R.id.btn_pad_select);
         if(btn_pad_select != null) {
             btn_pad_select.setOnTouchListener((v, event) -> {
@@ -605,7 +597,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 return true;
             });
         }
-
          MaterialButton btn_pad_a = findViewById(R.id.btn_pad_a);
         if(btn_pad_a != null) {
             btn_pad_a.setOnTouchListener((v, event) -> {
@@ -635,8 +626,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             });
         }
 
-        ////
-
+        //// Shoulder buttons
         MaterialButton btn_pad_l1 = findViewById(R.id.btn_pad_l1);
         if(btn_pad_l1 != null) {
             btn_pad_l1.setOnTouchListener((v, event) -> {
@@ -682,8 +672,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             });
         }
 
-        ////
-
+        //// D-Pad
         final int PAD_L_UP = 110;
         final int PAD_L_RIGHT = 111;
         final int PAD_L_DOWN = 112;
@@ -796,8 +785,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             });
         }
 
-        ////
-
+        //// D-Pad buttons
         MaterialButton btn_pad_dir_top = findViewById(R.id.btn_pad_dir_top);
         if(btn_pad_dir_top != null) {
             btn_pad_dir_top.setOnTouchListener((v, event) -> {
@@ -1204,6 +1192,10 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                         if(_intent != null) {
                             m_szGamefile = _intent.getDataString();
                             if(!TextUtils.isEmpty(m_szGamefile)) {
+                                try {
+                                    SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+                                    prefs.edit().putLong("last_played:" + m_szGamefile, System.currentTimeMillis()).apply();
+                                } catch (Throwable ignored) {}
                                 restartEmuThread();
                             }
                         }
@@ -1393,7 +1385,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             mHIDDeviceManager.setFrozen(false);
         }
         // Re-assert full screen when returning to the activity
-        hideStatusBar();
+        enableImmersiveMode();
         updateUiForControllerPresence();
     }
 
@@ -1423,8 +1415,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         android.os.Process.killProcess(appPid);
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////
-
     public void Initialize() {
         NativeApp.initializeOnce(getApplicationContext());
 
@@ -1441,8 +1431,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Initialize HID device manager for USB and Bluetooth controllers
         mHIDDeviceManager.initialize(true, true);
         
-        // Avoid forcing renderer init when no game/surface is active.
-        // Renderer is applied on game start (restartEmuThread) and from settings when appropriate.
     }
 
     private void setSurfaceView(Object p_value) {
@@ -1498,8 +1486,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             NativeApp.shutdown();
         }
     }
-
-    //////////////////////////////////////////////////////////////////////////////////////////////
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
@@ -1581,7 +1567,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         }
     }
 
-    //////////////////////////////////////////////////////////////////////////////////////////////
     // Asset copy helpers used on first launch to seed default resources
     private void copyAssetAll(Context context, String srcPath) {
         AssetManager assetMgr = context.getAssets();
@@ -1630,8 +1615,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         }
     }
 
-
-
     @Override
     public void onBackPressed() {
         // Fallback for older Android versions
@@ -1657,8 +1640,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 .setNegativeButton("Cancel", null)
                 .show();
     }
-
-
 
     // ControllerInputHandler.ControllerInputListener implementation
     @Override
@@ -1746,9 +1727,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     }
     
     private void handleAnalogInput(int axis, float value) {
-        // Convert analog input to button presses for the native interface
-        // This matches how AetherSX2 handles analog input
-        
+        // Convert analog input to button presses for the native interface    
         // For analog sticks, only send positive values (negative values are handled by opposite direction)
         int intensity = Math.max(0, Math.round(Math.abs(value) * 255));
         boolean pressed = Math.abs(value) > 0.1f;

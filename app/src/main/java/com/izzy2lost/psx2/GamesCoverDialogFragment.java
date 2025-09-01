@@ -14,6 +14,9 @@ import android.widget.Toast;
 import android.os.Build;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -24,6 +27,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.PagerSnapHelper;
 import androidx.recyclerview.widget.RecyclerView;
 import java.util.Locale;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 
 public class GamesCoverDialogFragment extends DialogFragment {
     private boolean didInitialNudge = false;
@@ -37,11 +43,34 @@ public class GamesCoverDialogFragment extends DialogFragment {
     private String[] uris;
     private String[] coverUrls;
     private String[] localPaths;
+    private String[] origTitles;
+    private String[] origUris;
+    private String[] origCoverUrls;
+    private String[] origLocalPaths;
     private RecyclerView rv;
     private LinearLayoutManager llm;
     private PagerSnapHelper snapHelper;
     private int lastRvW = -1, lastRvH = -1;
     private boolean pendingResnap = false;
+    private int lastItemWidthPx = 0;
+    private RecyclerView rvLetters;
+    private LinearLayoutManager llmLetters;
+    private PagerSnapHelper lettersSnapHelper;
+    private LettersAdapter lettersAdapter;
+    private java.util.ArrayList<Character> letters = new java.util.ArrayList<>();
+    private Character pendingLetterJump = null;
+    private static final int SORT_ALPHA = 0;
+    private static final int SORT_RECENT = 1;
+    private int sortMode = SORT_ALPHA;
+    private String query = null;
+    // Simpler grouping/sort helpers (revert)
+    private static char firstLetter(String t) {
+        if (t == null) return '#';
+        String s = t.trim();
+        if (s.isEmpty()) return '#';
+        char c = Character.toUpperCase(s.charAt(0));
+        return Character.isLetter(c) ? c : '#';
+    }
 
     public interface OnGameSelectedListener {
         void onGameSelected(String gameUri);
@@ -98,6 +127,55 @@ public class GamesCoverDialogFragment extends DialogFragment {
         // Snap to center item
         snapHelper = new PagerSnapHelper();
         snapHelper.attachToRecyclerView(rv);
+        // Letters row setup
+        rvLetters = root.findViewById(R.id.recycler_letters);
+        if (rvLetters != null) {
+            rvLetters.setHasFixedSize(true);
+            llmLetters = new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false);
+            rvLetters.setLayoutManager(llmLetters);
+            rvLetters.setClipToPadding(false);
+            int basePad = (int)(24*getResources().getDisplayMetrics().density);
+            rvLetters.setPadding(basePad, 0, basePad, 0);
+            lettersSnapHelper = new PagerSnapHelper();
+            lettersSnapHelper.attachToRecyclerView(rvLetters);
+            // Add spacing between letters for off-screen effect
+            final int letterSpace = (int)(12 * getResources().getDisplayMetrics().density);
+            rvLetters.addItemDecoration(new RecyclerView.ItemDecoration() {
+                @Override
+                public void getItemOffsets(@NonNull android.graphics.Rect outRect, @NonNull View view, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
+                    int pos = parent.getChildAdapterPosition(view);
+                    if (pos == RecyclerView.NO_POSITION) return;
+                    outRect.left = letterSpace;
+                    outRect.right = letterSpace;
+                }
+            });
+            rvLetters.addOnScrollListener(new RecyclerView.OnScrollListener() {
+                @Override public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                    super.onScrolled(recyclerView, dx, dy);
+                    applyLetterTransforms(recyclerView);
+                }
+                @Override public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                    super.onScrollStateChanged(recyclerView, newState);
+                    if (newState == RecyclerView.SCROLL_STATE_IDLE) applyLetterTransforms(recyclerView);
+                }
+            });
+            // Initial snap + dynamic side padding after first layout to keep center item centered
+            rvLetters.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
+                @Override public void onGlobalLayout() {
+                    int w = rvLetters.getWidth();
+                    if (w > 0) {
+                        float d = getResources().getDisplayMetrics().density;
+                        int itemPx = (int) (72 * d); // item_letter width
+                        int letterSpace = (int) (12 * d);
+                        int totalItem = itemPx + 2 * letterSpace;
+                        int side = Math.max((int)(24 * d), (w - totalItem) / 2);
+                        rvLetters.setPadding(side, 0, side, 0);
+                    }
+                    rvLetters.getViewTreeObserver().removeOnGlobalLayoutListener(this);
+                    rvLetters.post(() -> { resnapLetters(); applyLetterTransforms(rvLetters); });
+                }
+            });
+        }
         // Scale/alpha transform based on distance from center
         rv.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
@@ -142,6 +220,14 @@ public class GamesCoverDialogFragment extends DialogFragment {
             localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
         }
 
+        // cache originals for sorting/filtering
+        origTitles = Arrays.copyOf(titles, titles.length);
+        origUris = Arrays.copyOf(uris, uris.length);
+        origCoverUrls = Arrays.copyOf(coverUrls, coverUrls.length);
+        origLocalPaths = Arrays.copyOf(localPaths, localPaths.length);
+        // restore sort pref if any
+        sortMode = prefs.getInt("covers_sort_mode", SORT_ALPHA);
+
         adapter = new CoversAdapter(requireContext(), titles, coverUrls, localPaths, R.layout.item_coverflow,
                 position -> {
                     if (listener != null && position >= 0 && position < uris.length) {
@@ -155,6 +241,30 @@ public class GamesCoverDialogFragment extends DialogFragment {
                     }
                 });
         rv.setAdapter(adapter);
+        // Build letters list if row present (RecyclerView variant)
+        if (rvLetters != null) buildLettersAndBind();
+        
+        // Hook sort/search buttons if present
+        View btnSortV = root.findViewById(R.id.btn_sort);
+        if (btnSortV instanceof com.google.android.material.button.MaterialButton) {
+            com.google.android.material.button.MaterialButton btnSort = (com.google.android.material.button.MaterialButton) btnSortV;
+            updateSortButtonUi(btnSort);
+            btnSort.setOnClickListener(v -> {
+                sortMode = (sortMode == SORT_ALPHA) ? SORT_RECENT : SORT_ALPHA;
+                requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                        .edit().putInt("covers_sort_mode", sortMode).apply();
+                applyFilterAndSort();
+                updateSortButtonUi(btnSort);
+            });
+        }
+        View btnSearch = root.findViewById(R.id.btn_search);
+        if (btnSearch != null) {
+            btnSearch.setOnClickListener(v -> showSearchDialog());
+        }
+        // apply initial sort/filter if needed
+        if (sortMode != SORT_ALPHA || (query != null && !query.isEmpty())) {
+            applyFilterAndSort();
+        }
         // One-time tiny nudge to force snap/transform on some devices
         rv.post(() -> {
             if (!isAdded() || didInitialNudge) return;
@@ -192,11 +302,19 @@ public class GamesCoverDialogFragment extends DialogFragment {
                     String t = TitleResolver.resolveTitleForUri(requireContext(), uris[i], titles[i]);
                     if (t != null && !t.isEmpty() && i < titles.length && !t.equals(titles[i])) {
                         titles[i] = t;
+                        if (origTitles != null && i < origTitles.length) origTitles[i] = t;
                         changed = true;
                     }
                 } catch (Throwable ignored) {}
             }
-            if (changed && isAdded()) requireActivity().runOnUiThread(() -> adapter.notifyDataSetChanged());
+            if (changed && isAdded()) requireActivity().runOnUiThread(() -> {
+                if (sortMode != SORT_ALPHA || (query != null && !query.isEmpty())) {
+                    applyFilterAndSort();
+                } else {
+                    adapter.notifyDataSetChanged();
+                    if (rvLetters != null) buildLettersAndBind();
+                }
+            });
         }).start();
 
         // Dynamically size items based on RecyclerView size and orientation
@@ -219,7 +337,18 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 int widthFromHeight = (int) (availableH * ratio);
                 int widthFromWidth = (int) (rvW * (landscape ? 0.35f : 0.55f));
                 int itemWidth = Math.max(160, Math.min(widthFromHeight, widthFromWidth));
+                lastItemWidthPx = itemWidth;
                 adapter.setItemWidthPx(itemWidth);
+                // Center vertically in portrait by adjusting top/bottom padding
+                if (!landscape) {
+                    int imageH = (int) (itemWidth / (567f / 878f));
+                    int titlePx = (int) ((titleDp + extraDp) * density);
+                    int contentH = imageH + titlePx;
+                    int desiredPad = Math.max(vertPad, Math.max(0, (rvH - contentH) / 2));
+                    rv.setPadding(sidePad, desiredPad, sidePad, desiredPad);
+                } else {
+                    rv.setPadding(sidePad, vertPad, sidePad, vertPad);
+                }
                 // If user is scrolling, defer resnap until idle to avoid fighting gesture
                 if (rv.getScrollState() == RecyclerView.SCROLL_STATE_IDLE) {
                     resnapToCenter(rv);
@@ -236,6 +365,267 @@ public class GamesCoverDialogFragment extends DialogFragment {
         if (btnDownload != null) btnDownload.setOnClickListener(v -> startDownloadCovers());
 
         return root;
+    }
+
+    private void buildLettersAndBind() {
+        letters.clear();
+        boolean hasHash = false;
+        boolean[] present = new boolean[26];
+        if (titles != null) {
+            for (String t : titles) {
+                if (t == null) continue;
+                char c = firstLetter(t);
+                if (c >= 'A' && c <= 'Z') present[c - 'A'] = true;
+                else hasHash = true;
+            }
+        }
+        if (hasHash) letters.add('#');
+        for (int i = 0; i < 26; i++) if (present[i]) letters.add((char)('A'+i));
+        if (rvLetters != null) {
+            lettersAdapter = new LettersAdapter(letters, this::onLetterTapped);
+            rvLetters.setAdapter(lettersAdapter);
+            // Anchor to a large middle position for infinite wrap-around
+            int n = letters.size();
+            if (n > 0) {
+                int center = (1 << 29);
+                int startPos = center - (center % n);
+                llmLetters.scrollToPosition(startPos);
+            }
+            rvLetters.post(() -> { resnapLetters(); applyLetterTransforms(rvLetters); });
+        }
+    }
+
+    private void applyLetterTransforms(@NonNull RecyclerView recyclerView) {
+        int rvCenterX = (recyclerView.getLeft() + recyclerView.getRight()) / 2;
+        final float maxScale = 1.0f;
+        final float minScale = 0.85f;
+        final float maxAlpha = 1.0f;
+        final float minAlpha = 0.6f;
+        for (int i = 0; i < recyclerView.getChildCount(); i++) {
+            View child = recyclerView.getChildAt(i);
+            int childCenterX = (child.getLeft() + child.getRight()) / 2;
+            float dx = Math.abs(childCenterX - rvCenterX);
+            float norm = Math.min(1f, dx / (recyclerView.getWidth() * 0.5f));
+            float scale = maxScale - (maxScale - minScale) * norm;
+            float alpha = maxAlpha - (maxAlpha - minAlpha) * norm;
+            child.setScaleX(scale);
+            child.setScaleY(scale);
+            child.setAlpha(alpha);
+        }
+    }
+
+    private void buildLetterIndexLinear(@NonNull LinearLayout container) {
+        container.removeAllViews();
+        // Build present letters with normalization
+        java.util.LinkedHashSet<Character> set = new java.util.LinkedHashSet<>();
+        if (titles != null) {
+            for (String t : titles) {
+                char c = firstLetter(t);
+                if (c == '#') { set.add('#'); }
+                else if (c >= 'A' && c <= 'Z') set.add(c);
+            }
+        }
+        float d = getResources().getDisplayMetrics().density;
+        int padH = (int) (14 * d);
+        int padV = (int) (6 * d);
+        for (Character ch : set) {
+            TextView tv = new TextView(requireContext());
+            tv.setText(String.valueOf(ch));
+            tv.setTextSize(18);
+            tv.setTextColor(getResources().getColor(R.color.brand_primary));
+            tv.setPadding(padH, padV, padH, padV);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            lp.setMargins((int)(8*d), 0, (int)(8*d), 0); // extra spacing
+            tv.setLayoutParams(lp);
+            tv.setOnClickListener(v -> onLetterTapped(ch));
+            container.addView(tv);
+        }
+    }
+
+    private void onLetterTapped(char letter) {
+        android.util.Log.d("LetterTap", "Letter tapped: " + letter + ", sortMode: " + sortMode + ", titles.length: " + (titles != null ? titles.length : 0));
+        // Force A–Z sorting for predictable letter navigation
+        if (sortMode != SORT_ALPHA) {
+            android.util.Log.d("LetterTap", "Switching to ALPHA sort mode");
+            sortMode = SORT_ALPHA;
+            requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                    .edit().putInt("covers_sort_mode", sortMode).apply();
+            pendingLetterJump = letter;
+            applyFilterAndSort();
+        } else {
+            android.util.Log.d("LetterTap", "Already in ALPHA mode, jumping to letter");
+            // Jump to first index for that letter in the current (alphabetical) list
+            jumpToLetter(letter);
+        }
+        // Center letters row on selected
+        if (rvLetters != null && letters != null && !letters.isEmpty()) {
+            int idx = letters.indexOf(letter);
+            if (idx >= 0) {
+                centerLettersOnIndex(idx);
+            }
+        }
+    }
+
+    private void centerLettersOnIndex(int idx) {
+        if (rvLetters == null || llmLetters == null) return;
+        View snapView = lettersSnapHelper != null ? lettersSnapHelper.findSnapView(llmLetters) : null;
+        int centerPos = (snapView != null) ? rvLetters.getChildAdapterPosition(snapView) : llmLetters.findFirstVisibleItemPosition();
+        if (centerPos == RecyclerView.NO_POSITION) centerPos = 0;
+        int n = letters != null ? letters.size() : 0;
+        if (n <= 0) return;
+        int centerIdx = centerPos % n;
+        int forward = (idx - centerIdx + n) % n;
+        int backward = (centerIdx - idx + n) % n;
+        int delta = (forward <= backward) ? forward : -backward;
+        llmLetters.scrollToPosition(centerPos + delta);
+        rvLetters.post(() -> { resnapLetters(); applyLetterTransforms(rvLetters); });
+    }
+
+    private void resnapLetters() {
+        if (rvLetters == null || llmLetters == null || lettersSnapHelper == null) return;
+        View snap = lettersSnapHelper.findSnapView(llmLetters);
+        if (snap == null) return;
+        int[] dist = lettersSnapHelper.calculateDistanceToFinalSnap(llmLetters, snap);
+        if (dist != null && (dist[0] != 0 || dist[1] != 0)) rvLetters.scrollBy(dist[0], dist[1]);
+    }
+
+    private void updateSortButtonUi(@NonNull com.google.android.material.button.MaterialButton btn) {
+        btn.setIconResource(R.drawable.sort_24px);
+        boolean alpha = (sortMode == SORT_ALPHA);
+        btn.setText(alpha ? "A–Z" : "RECENT");
+        btn.setContentDescription(alpha ? "Sort A–Z" : "Sort Recent");
+    }
+
+    private void showSearchDialog() {
+        final EditText input = new EditText(requireContext());
+        input.setHint("Search games");
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        input.setPadding(pad, pad, pad, pad);
+        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext(),
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+                .setTitle("Search")
+                .setView(input)
+                .setNegativeButton("Clear", (d, w) -> {
+                    query = null;
+                    applyFilterAndSort();
+                })
+                .setPositiveButton("Apply", (d, w) -> {
+                    query = input.getText() != null ? input.getText().toString().trim() : null;
+                    if (query != null && query.isEmpty()) query = null;
+                    applyFilterAndSort();
+                })
+                .show();
+    }
+
+    private void jumpToLetter(char letterRaw) {
+        android.util.Log.d("LetterJump", "jumpToLetter called with: " + letterRaw);
+        if (titles == null || titles.length == 0) {
+            android.util.Log.d("LetterJump", "No titles available");
+            return;
+        }
+        char letter = Character.toUpperCase(letterRaw);
+        int target = -1;
+        for (int i = 0; i < titles.length; i++) {
+            char c = firstLetter(titles[i]);
+            if ((letter == '#') ? (c == '#') : (c == letter)) { 
+                target = i; 
+                android.util.Log.d("LetterJump", "Found target at index " + i + " for letter " + letter + ", title: " + titles[i]);
+                break; 
+            }
+        }
+        if (target >= 0) {
+            android.util.Log.d("LetterJump", "Scrolling to index: " + target);
+            scrollToIndex(target);
+        } else {
+            android.util.Log.d("LetterJump", "No target found for letter: " + letter);
+        }
+    }
+
+    private void scrollToIndex(int idx) {
+        if (llm == null || rv == null || titles == null || titles.length == 0) return;
+        View snap = snapHelper != null ? snapHelper.findSnapView(llm) : null;
+        int centerPos = (snap != null) ? rv.getChildAdapterPosition(snap) : llm.findFirstVisibleItemPosition();
+        if (centerPos == RecyclerView.NO_POSITION) centerPos = 0;
+        int n = titles.length;
+        int centerIdx = centerPos % n;
+        int forward = (idx - centerIdx + n) % n;
+        int backward = (centerIdx - idx + n) % n;
+        int delta = (forward <= backward) ? forward : -backward;
+        llm.scrollToPosition(centerPos + delta);
+        rv.post(() -> { resnapToCenter(rv); applyCoverflowTransforms(rv); });
+    }
+
+    private void applyFilterAndSort() {
+        int n = origTitles != null ? origTitles.length : 0;
+        ArrayList<Integer> idxs = new ArrayList<>(n);
+        for (int i = 0; i < n; i++) {
+            if (query == null || query.isEmpty()) {
+                idxs.add(i);
+            } else {
+                String t = origTitles[i] != null ? origTitles[i] : "";
+                if (t.toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT))) idxs.add(i);
+            }
+        }
+        SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+        if (sortMode == SORT_RECENT) {
+            idxs.sort((a, b) -> {
+                long ta = prefs.getLong("last_played:" + origUris[a], 0L);
+                long tb = prefs.getLong("last_played:" + origUris[b], 0L);
+                if (ta == tb) return origTitles[a].compareToIgnoreCase(origTitles[b]);
+                return Long.compare(tb, ta);
+            });
+        } else {
+            idxs.sort(Comparator.comparing(i -> {
+                String t = origTitles[i];
+                return t == null ? "" : t.toLowerCase(Locale.ROOT);
+            }));
+        }
+        titles = new String[idxs.size()];
+        uris = new String[idxs.size()];
+        coverUrls = new String[idxs.size()];
+        localPaths = new String[idxs.size()];
+        for (int k = 0; k < idxs.size(); k++) {
+            int i = idxs.get(k);
+            titles[k] = origTitles[i];
+            uris[k] = origUris[i];
+            coverUrls[k] = origCoverUrls[i];
+            localPaths[k] = origLocalPaths[i];
+        }
+        adapter = new CoversAdapter(requireContext(), titles, coverUrls, localPaths, R.layout.item_coverflow,
+                position -> {
+                    if (listener != null && position >= 0 && position < uris.length) {
+                        listener.onGameSelected(uris[position]);
+                        dismissAllowingStateLoss();
+                    }
+                },
+                position -> {
+                    if (position >= 0 && position < uris.length) {
+                        showGameSettings(titles[position], uris[position]);
+                    }
+                });
+        rv.setAdapter(adapter);
+        if (lastItemWidthPx > 0) adapter.setItemWidthPx(lastItemWidthPx);
+        int n2 = titles.length;
+        if (n2 > 0) {
+            int center = (1 << 29);
+            int startPos = center - (center % n2);
+            llm.scrollToPosition(startPos);
+        }
+        rv.post(() -> { resnapToCenter(rv); applyCoverflowTransforms(rv); });
+        if (rvLetters != null) {
+            buildLettersAndBind();
+            if (pendingLetterJump != null) {
+                final char l = pendingLetterJump;
+                pendingLetterJump = null;
+                rv.postDelayed(() -> {
+                    jumpToLetter(l);
+                    if (letters != null) {
+                        int idx = letters.indexOf(l);
+                        if (idx >= 0) centerLettersOnIndex(idx);
+                    }
+                }, 10);
+            }
+        }
     }
 
     private void applyCoverflowTransforms(@NonNull RecyclerView recyclerView) {

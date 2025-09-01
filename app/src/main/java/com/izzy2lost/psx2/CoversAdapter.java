@@ -112,11 +112,21 @@ public class CoversAdapter extends RecyclerView.Adapter<CoversAdapter.VH> {
             }
         }
         holder.itemView.setOnClickListener(v -> {
-            if (onItemClick != null) onItemClick.onClick(real);
+            if (onItemClick != null) {
+                int pos = holder.getBindingAdapterPosition();
+                if (pos == RecyclerView.NO_POSITION) pos = position; // fallback
+                int count2 = titles.length;
+                int realNow = (count2 == 0) ? 0 : (pos % count2);
+                onItemClick.onClick(realNow);
+            }
         });
         holder.itemView.setOnLongClickListener(v -> {
             if (onItemLongClick != null) {
-                onItemLongClick.onLongClick(real);
+                int pos = holder.getBindingAdapterPosition();
+                if (pos == RecyclerView.NO_POSITION) pos = position; // fallback
+                int count2 = titles.length;
+                int realNow = (count2 == 0) ? 0 : (pos % count2);
+                onItemLongClick.onLongClick(realNow);
                 return true;
             }
             return false;
