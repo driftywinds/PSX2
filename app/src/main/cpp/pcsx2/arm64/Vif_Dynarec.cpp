@@ -10,6 +10,58 @@
 
 namespace a64 = vixl::aarch64;
 
+// Precomputed per-lane write masks for XYZW selection.
+// Index bits: X=8, Y=4, Z=2, W=1. Lane value = 0xFFFFFFFF if selected, else 0x00000000.
+alignas(16) static const u32 sLaneWriteMask[16][4] = {
+    /* 0b0000 */ {0x00000000, 0x00000000, 0x00000000, 0x00000000},
+    /* 0b0001 W*/ {0x00000000, 0x00000000, 0x00000000, 0xFFFFFFFF},
+    /* 0b0010 Z*/ {0x00000000, 0x00000000, 0xFFFFFFFF, 0x00000000},
+    /* 0b0011 ZW*/{0x00000000, 0x00000000, 0xFFFFFFFF, 0xFFFFFFFF},
+    /* 0b0100 Y*/ {0x00000000, 0xFFFFFFFF, 0x00000000, 0x00000000},
+    /* 0b0101 YW*/{0x00000000, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF},
+    /* 0b0110 YZ*/{0x00000000, 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000},
+    /* 0b0111 YZW*/{0x00000000, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF},
+    /* 0b1000 X*/ {0xFFFFFFFF, 0x00000000, 0x00000000, 0x00000000},
+    /* 0b1001 XW*/{0xFFFFFFFF, 0x00000000, 0x00000000, 0xFFFFFFFF},
+    /* 0b1010 XZ*/{0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0x00000000},
+    /* 0b1011 XZW*/{0xFFFFFFFF, 0x00000000, 0xFFFFFFFF, 0xFFFFFFFF},
+    /* 0b1100 XY*/{0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0x00000000},
+    /* 0b1101 XYW*/{0xFFFFFFFF, 0xFFFFFFFF, 0x00000000, 0xFFFFFFFF},
+    /* 0b1110 XYZ*/{0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0x00000000},
+    /* 0b1111 XYZW*/{0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF},
+};
+
+static inline void emitLoadLaneMask(const a64::VRegister& target, int xyzw)
+{
+    armMoveAddressToReg(RXVIXLSCRATCH, sLaneWriteMask);
+    const uptr base = (uptr)sLaneWriteMask;
+    const uptr offs = (uptr)&sLaneWriteMask[xyzw][0] - base;
+    armAsm->Ldr(target, a64::MemOperand(RXVIXLSCRATCH, offs));
+}
+
+// Merge selected lanes from src into dest using a mask derived from xyzw.
+// Equivalent to dest = (mask & src) | (~mask & dest).
+static void mVUMergeRegsVBsl(const a64::VRegister& dest, const a64::VRegister& src, int xyzw)
+{
+    xyzw &= 0xf;
+    if (dest.GetCode() == src.GetCode() || xyzw == 0)
+        return;
+    if (xyzw == 0xf)
+    {
+        armAsm->Mov(dest.Q(), src.Q());
+        return;
+    }
+
+    const a64::VRegister vMask = a64::q28;
+    const a64::VRegister vTmp1 = a64::q29;
+    const a64::VRegister vTmp2 = a64::q30;
+
+    emitLoadLaneMask(vMask, xyzw);
+    armAsm->And(vTmp1.V16B(), src.V16B(), vMask.V16B());   // new & mask
+    armAsm->Bic(vTmp2.V16B(), dest.V16B(), vMask.V16B());  // dest & ~mask
+    armAsm->Orr(dest.V16B(), vTmp1.V16B(), vTmp2.V16B());  // combine
+}
+
 static void mVUmergeRegs(const vixl::aarch64::VRegister& dest, const vixl::aarch64::VRegister& src, int xyzw, bool modXYZW = false, bool canModifySrc = false)
 {
 	xyzw &= 0xf;
@@ -83,90 +135,25 @@ static void mVUmergeRegs(const vixl::aarch64::VRegister& dest, const vixl::aarch
 
 static void maskedVecWrite(const a64::VRegister& reg, const a64::MemOperand& addr, int xyzw)
 {
-	switch (xyzw)
-	{
-		case 5: // YW
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 4);
-			armAsm->St1(reg.V4S(), 1, a64::MemOperand(RSCRATCHADDR)); // Y
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 12);
-			armAsm->St1(reg.V4S(), 3, a64::MemOperand(RSCRATCHADDR)); // W
-			break;
+    const int lanes = (xyzw & 0xF);
+    if (lanes == 0)
+        return; // nothing to write
+    if (lanes == 0xF)
+    {
+        armAsm->Str(reg, addr);
+        return;
+    }
 
-		case 9: // XW
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 12);
-			armAsm->Str(reg.S(), addr); // X
-			armAsm->St1(reg.V4S(), 3, a64::MemOperand(RSCRATCHADDR)); // W
-			break;
+    const a64::VRegister vMask = a64::q28;
+    const a64::VRegister vOld  = a64::q29;
+    const a64::VRegister vTmp  = a64::q30;
 
-		case 10: //XZ
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 8);
-			armAsm->Str(reg.S(), addr); // X
-			armAsm->St1(reg.V4S(), 2, a64::MemOperand(RSCRATCHADDR)); // Z
-			break;
-
-		case 3: // ZW
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 8);
-			armAsm->St1(reg.V2D(), 1, a64::MemOperand(RSCRATCHADDR));
-			break;
-
-		case 11: //XZW
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 8);
-			armAsm->Str(reg.S(), addr); // X
-			armAsm->St1(reg.V2D(), 1, a64::MemOperand(RSCRATCHADDR)); // ZW
-			break;
-
-		case 13: // XYW
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 12);
-			armAsm->Str(reg.D(), addr);
-			armAsm->St1(reg.V4S(), 3, a64::MemOperand(RSCRATCHADDR));
-			break;
-
-		case 6: // YZ
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 4);
-			armAsm->St1(reg.V4S(), 1, a64::MemOperand(RSCRATCHADDR, 4, a64::PostIndex));
-			armAsm->St1(reg.V4S(), 2, a64::MemOperand(RSCRATCHADDR));
-			break;
-
-		case 7: // YZW
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 4);
-			armAsm->St1(reg.V4S(), 1, a64::MemOperand(RSCRATCHADDR, 4, a64::PostIndex));
-			armAsm->St1(reg.V2D(), 1, a64::MemOperand(RSCRATCHADDR));
-			break;
-
-		case 12: // XY
-			armAsm->Str(reg.D(), addr);
-			break;
-
-		case 14: // XYZ
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 8);
-			armAsm->Str(reg.D(), addr);
-			armAsm->St1(reg.V4S(), 2, a64::MemOperand(RSCRATCHADDR)); // Z
-			break;
-
-		case 4:
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 4);
-			armAsm->St1(reg.V4S(), 1, a64::MemOperand(RSCRATCHADDR));
-			break; // Y
-		case 2:
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 8);
-			armAsm->St1(reg.V4S(), 2, a64::MemOperand(RSCRATCHADDR));
-			break; // Z
-		case 1:
-			armGetMemOperandInRegister(RSCRATCHADDR, addr, 12);
-			armAsm->St1(reg.V4S(), 3, a64::MemOperand(RSCRATCHADDR));
-			break; // W
-		case 8:
-			armAsm->Str(reg.S(), addr);
-			break; // X
-
-		case 0:
-			Console.Error("maskedVecWrite case 0!");
-			break;
-
-		default:
-			armAsm->Str(reg.Q(), addr);
-			break; // XYZW
-	}
+    emitLoadLaneMask(vMask, lanes);
+    armAsm->Ldr(vOld, addr);
+    armAsm->And(vTmp.V16B(), reg.V16B(), vMask.V16B());   // new & mask
+    armAsm->Bic(vOld.V16B(), vOld.V16B(), vMask.V16B());  // old & ~mask
+    armAsm->Orr(vTmp.V16B(), vTmp.V16B(), vOld.V16B());   // combine
+    armAsm->Str(vTmp, addr);
 }
 
 void dVifReset(int idx)
@@ -247,15 +234,15 @@ void VifUnpackNEON_Dynarec::doMaskWrite(const vixl::aarch64::VRegister& regX) co
 	makeMergeMask(m3);
 	makeMergeMask(m4);
 
-	if (doMask && m2) // Merge MaskRow
-	{
-		mVUmergeRegs(regX, xmmRow, m2);
-	}
+    if (doMask && m2) // Merge MaskRow
+    {
+        mVUMergeRegsVBsl(regX, xmmRow, m2);
+    }
 
-	if (doMask && m3) // Merge MaskCol
-	{
-		mVUmergeRegs(regX, armQRegister(xmmCol0.GetCode() + cc), m3);
-	}
+    if (doMask && m3) // Merge MaskCol
+    {
+        mVUMergeRegsVBsl(regX, armQRegister(xmmCol0.GetCode() + cc), m3);
+    }
 
 	if (doMode)
 	{
@@ -267,17 +254,17 @@ void VifUnpackNEON_Dynarec::doMaskWrite(const vixl::aarch64::VRegister& regX) co
 		if (m5 < 0xf)
 		{
 			armAsm->Movi(xmmTemp.V4S(), 0);
-			if (doMode == 3)
-			{
-				mVUmergeRegs(xmmRow, regX, m5, false, false);
-			}
-			else
-			{
-				mVUmergeRegs(xmmTemp, xmmRow, m5, false, false);
-				armAsm->Add(regX.V4S(), regX.V4S(), xmmTemp.V4S());
-				if (doMode == 2)
-					mVUmergeRegs(xmmRow, regX, m5, false, false);
-			}
+                if (doMode == 3)
+                {
+                    mVUMergeRegsVBsl(xmmRow, regX, m5);
+                }
+                else
+                {
+                    mVUMergeRegsVBsl(xmmTemp, xmmRow, m5);
+                    armAsm->Add(regX.V4S(), regX.V4S(), xmmTemp.V4S());
+                    if (doMode == 2)
+                        mVUMergeRegsVBsl(xmmRow, regX, m5);
+                }
 		}
 		else
 		{

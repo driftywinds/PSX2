@@ -9,6 +9,7 @@ project(oboe)
 set (oboe_sources
     src/aaudio/AAudioLoader.cpp
     src/aaudio/AudioStreamAAudio.cpp
+    src/common/AdpfWrapper.cpp
     src/common/AudioSourceCaller.cpp
     src/common/AudioStream.cpp
     src/common/AudioStreamBuilder.cpp
@@ -18,6 +19,7 @@ set (oboe_sources
     src/common/FixedBlockReader.cpp
     src/common/FixedBlockWriter.cpp
     src/common/LatencyTuner.cpp
+    src/common/OboeExtensions.cpp
     src/common/SourceFloatCaller.cpp
     src/common/SourceI16Caller.cpp
     src/common/SourceI24Caller.cpp
@@ -31,8 +33,11 @@ set (oboe_sources
     src/flowgraph/FlowGraphNode.cpp
     src/flowgraph/ChannelCountConverter.cpp
     src/flowgraph/ClipToRange.cpp
+    src/flowgraph/Limiter.cpp
     src/flowgraph/ManyToMultiConverter.cpp
+    src/flowgraph/MonoBlend.cpp
     src/flowgraph/MonoToMultiConverter.cpp
+    src/flowgraph/MultiToManyConverter.cpp
     src/flowgraph/MultiToMonoConverter.cpp
     src/flowgraph/RampLinear.cpp
     src/flowgraph/SampleRateConverter.cpp
@@ -40,10 +45,12 @@ set (oboe_sources
     src/flowgraph/SinkI16.cpp
     src/flowgraph/SinkI24.cpp
     src/flowgraph/SinkI32.cpp
+    src/flowgraph/SinkI8_24.cpp
     src/flowgraph/SourceFloat.cpp
     src/flowgraph/SourceI16.cpp
     src/flowgraph/SourceI24.cpp
     src/flowgraph/SourceI32.cpp
+    src/flowgraph/SourceI8_24.cpp
     src/flowgraph/resampler/IntegerRatio.cpp
     src/flowgraph/resampler/LinearResampler.cpp
     src/flowgraph/resampler/MultiChannelResampler.cpp
@@ -81,13 +88,21 @@ target_compile_options(oboe
         -Wextra-semi
         -Wshadow
         -Wshadow-field
-        -Ofast
+        "$<$<CONFIG:RELEASE>:-Ofast>"
+        "$<$<CONFIG:DEBUG>:-O3>"
         "$<$<CONFIG:DEBUG>:-Werror>")
 
 # Enable logging of D,V for debug builds
-target_compile_definitions(oboe PUBLIC $<$<CONFIG:DEBUG>:OBOE_ENABLE_LOGGING=1>)
+# Enable logging for debug and set a custom tag so logcat shows "obeomod"
+target_compile_definitions(oboe
+        PUBLIC $<$<CONFIG:DEBUG>:OBOE_ENABLE_LOGGING=1>
+        PRIVATE MODULE_NAME="obeomod")
+
+option(OBOE_DO_NOT_DEFINE_OPENSL_ES_CONSTANTS "Do not define OpenSLES constants" OFF)
+target_compile_definitions(oboe PRIVATE $<$<BOOL:${OBOE_DO_NOT_DEFINE_OPENSL_ES_CONSTANTS}>:DO_NOT_DEFINE_OPENSL_ES_CONSTANTS=1>)
 
 target_link_libraries(oboe PRIVATE log OpenSLES)
+target_link_options(oboe PRIVATE "-Wl,-z,max-page-size=16384")
 
 # When installing oboe put the libraries in the lib/<ABI> folder e.g. lib/arm64-v8a
 install(TARGETS oboe

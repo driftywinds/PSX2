@@ -34,5 +34,8 @@
 #include "oboe/Version.h"
 #include "oboe/StabilizedCallback.h"
 #include "oboe/FifoBuffer.h"
+#include "oboe/OboeExtensions.h"
+#include "oboe/FullDuplexStream.h"
+#include "oboe/AudioClock.h"
 
 #endif //OBOE_OBOE_H
