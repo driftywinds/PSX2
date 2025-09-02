@@ -683,67 +683,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         final int PAD_R_DOWN = 122;
         final int PAD_R_LEFT = 123;
 
-        MaterialButton btn_pad_joy_lt = findViewById(R.id.btn_pad_joy_lt);
-        if(btn_pad_joy_lt != null) {
-            btn_pad_joy_lt.setOnTouchListener((v, event) -> {
-                sendKeyAction(v, event.getAction(), PAD_L_UP);
-                sendKeyAction(v, event.getAction(), PAD_L_LEFT);
-                return true;
-            });
-        }
-        MaterialButton btn_pad_joy_t = findViewById(R.id.btn_pad_joy_t);
-        if(btn_pad_joy_t != null) {
-            btn_pad_joy_t.setOnTouchListener((v, event) -> {
-                sendKeyAction(v, event.getAction(), PAD_L_UP);
-                return true;
-            });
-        }
-        MaterialButton btn_pad_joy_rt = findViewById(R.id.btn_pad_joy_rt);
-        if(btn_pad_joy_rt != null) {
-            btn_pad_joy_rt.setOnTouchListener((v, event) -> {
-                sendKeyAction(v, event.getAction(), PAD_L_UP);
-                sendKeyAction(v, event.getAction(), PAD_L_RIGHT);
-                return true;
-            });
-        }
-        MaterialButton btn_pad_joy_l = findViewById(R.id.btn_pad_joy_l);
-        if(btn_pad_joy_l != null) {
-            btn_pad_joy_l.setOnTouchListener((v, event) -> {
-                sendKeyAction(v, event.getAction(), PAD_L_LEFT);
-                return true;
-            });
-        }
-        MaterialButton btn_pad_joy_r = findViewById(R.id.btn_pad_joy_r);
-        if(btn_pad_joy_r != null) {
-            btn_pad_joy_r.setOnTouchListener((v, event) -> {
-                sendKeyAction(v, event.getAction(), PAD_L_RIGHT);
-                return true;
-            });
-        }
-        MaterialButton btn_pad_joy_lb = findViewById(R.id.btn_pad_joy_lb);
-        if(btn_pad_joy_lb != null) {
-            btn_pad_joy_lb.setOnTouchListener((v, event) -> {
-                sendKeyAction(v, event.getAction(), PAD_L_LEFT);
-                sendKeyAction(v, event.getAction(), PAD_L_DOWN);
-                return true;
-            });
-        }
-        MaterialButton btn_pad_joy_b = findViewById(R.id.btn_pad_joy_b);
-        if(btn_pad_joy_b != null) {
-            btn_pad_joy_b.setOnTouchListener((v, event) -> {
-                sendKeyAction(v, event.getAction(), PAD_L_DOWN);
-                return true;
-            });
-        }
-        MaterialButton btn_pad_joy_rb = findViewById(R.id.btn_pad_joy_rb);
-        if(btn_pad_joy_rb != null) {
-            btn_pad_joy_rb.setOnTouchListener((v, event) -> {
-                sendKeyAction(v, event.getAction(), PAD_L_RIGHT);
-                sendKeyAction(v, event.getAction(), PAD_L_DOWN);
-                return true;
-            });
-        }
-
         // Draggable JoystickView (portrait/landscape layouts)
         View joystick = findViewById(R.id.joystick_view);
         if (joystick instanceof JoystickView) {
@@ -842,7 +781,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         View btnFile = findViewById(R.id.btn_file);
         View btnBios = findViewById(R.id.btn_bios);
         View btnSaves = findViewById(R.id.btn_saves);
-        View btnHideUI = findViewById(R.id.btn_hide_ui);
         View llQuickActions = findViewById(R.id.ll_quick_actions);
         
         if (btnSettings != null) btnSettings.setVisibility(vis);
@@ -855,7 +793,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (btnFile != null) btnFile.setVisibility(vis);
         if (btnBios != null) btnBios.setVisibility(vis);
         if (btnSaves != null) btnSaves.setVisibility(vis);
-        if (btnHideUI != null) btnHideUI.setVisibility(vis);
         if (llQuickActions != null) llQuickActions.setVisibility(vis);
 
         // Hide/show on-screen controls
@@ -865,12 +802,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         } else {
             // When hiding all UI, also hide controls
             setControlsVisible(false);
-        }
-        
-        // The unhide button is no longer needed since toggle button stays visible
-        View unhideButton = findViewById(R.id.btn_unhide_ui);
-        if (unhideButton != null) {
-            unhideButton.setVisibility(View.GONE);
         }
 
         // Update renderer label when UI toggled back on
@@ -936,7 +867,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         View btnFile = findViewById(R.id.btn_file);
         View btnBios = findViewById(R.id.btn_bios);
         View btnSaves = findViewById(R.id.btn_saves);
-        View btnHideUI = findViewById(R.id.btn_hide_ui);
         MaterialButton btnToggle = findViewById(R.id.btn_toggle_controls);
         View llQuickActions = findViewById(R.id.ll_quick_actions);
 
@@ -944,7 +874,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (btnFile != null) btnFile.setVisibility(vis);
         if (btnBios != null) btnBios.setVisibility(vis);
         if (btnSaves != null) btnSaves.setVisibility(vis);
-        if (btnHideUI != null) btnHideUI.setVisibility(vis);
         if (llQuickActions != null) llQuickActions.setVisibility(vis);
         if (btnToggle != null) btnToggle.setVisibility(View.VISIBLE); // always visible
         // Set toggle icon and internal state
