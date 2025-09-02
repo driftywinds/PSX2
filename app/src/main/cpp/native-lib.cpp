@@ -735,6 +735,108 @@ Java_com_izzy2lost_psx2_NativeApp_renderGpu(JNIEnv *env, jclass clazz,
         MTGS::ApplySettings();
 }
 
+// Apply a set of global settings in one shot to avoid repeated ApplySettings calls
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_applyGlobalSettingsBatch(JNIEnv* env, jclass,
+                                                            jint renderer,
+                                                            jfloat upscaleMultiplier,
+                                                            jint aspectRatio,
+                                                            jint blendingAccuracy,
+                                                            jboolean widescreenPatches,
+                                                            jboolean noInterlacingPatches,
+                                                            jboolean loadTextures,
+                                                            jboolean asyncTextureLoading,
+                                                            jboolean hudVisible)
+{
+    // Clamp/normalize
+    if (upscaleMultiplier < 1.0f) upscaleMultiplier = 1.0f;
+    if (upscaleMultiplier > 12.0f) upscaleMultiplier = 12.0f;
+    if (blendingAccuracy < 0) blendingAccuracy = 0; if (blendingAccuracy > 5) blendingAccuracy = 5;
+    if (aspectRatio < 0) aspectRatio = 0; if (aspectRatio > 4) aspectRatio = 4; // 0..4 valid
+
+    // Update in-memory settings layer
+    // Renderer may be -1 (Auto) or 12/13/14; store and set into EmuConfig for immediate effect
+    s_settings_interface.SetIntValue("EmuCore/GS", "Renderer", (int)renderer);
+    EmuConfig.GS.Renderer = static_cast<GSRendererType>(renderer);
+
+    s_settings_interface.SetFloatValue("EmuCore/GS", "upscale_multiplier", upscaleMultiplier);
+
+    // Aspect ratio as string per existing helpers
+    const char* aspect_ratio_names[] = { "Stretch", "Auto 4:3/3:2", "4:3", "16:9", "10:7" };
+    s_settings_interface.SetStringValue("EmuCore/GS", "AspectRatio", aspect_ratio_names[aspectRatio]);
+
+    // Blending accuracy numeric string 0..5
+    s_settings_interface.SetStringValue("EmuCore/GS", "accurate_blending_unit",
+        StringUtil::StdStringFromFormat("%d", (int)blendingAccuracy).c_str());
+
+    // Widescreen, interlacing, textures
+    s_settings_interface.SetBoolValue("EmuCore", "EnableWideScreenPatches", (widescreenPatches == JNI_TRUE));
+    s_settings_interface.SetBoolValue("EmuCore", "EnableNoInterlacingPatches", (noInterlacingPatches == JNI_TRUE));
+    s_settings_interface.SetBoolValue("EmuCore/GS", "LoadTextureReplacements", (loadTextures == JNI_TRUE));
+    s_settings_interface.SetBoolValue("EmuCore/GS", "LoadTextureReplacementsAsync", (asyncTextureLoading == JNI_TRUE));
+
+    // HUD/OSD bundle
+    const bool hv = (hudVisible == JNI_TRUE);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowSpeed", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowFPS", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowVPS", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowCPU", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowGPU", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowResolution", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowGSStats", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowIndicators", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowSettings", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowInputs", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowFrameTimes", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowVersion", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowHardwareInfo", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowVideoCapture", hv);
+    s_settings_interface.SetBoolValue("EmuCore/GS", "OsdShowInputRec", hv);
+
+    // Apply once
+    if (VMManager::HasValidVM())
+        VMManager::ApplySettings();
+    if (MTGS::IsOpen())
+        MTGS::ApplySettings();
+}
+
+// Apply per-game settings quickly without touching global-only fields
+extern "C"
+JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_applyPerGameSettingsBatch(JNIEnv* env, jclass,
+                                                             jint renderer,
+                                                             jfloat upscaleMultiplier,
+                                                             jint blendingAccuracy,
+                                                             jboolean widescreenPatches,
+                                                             jboolean noInterlacingPatches,
+                                                             jboolean enablePatches,
+                                                             jboolean enableCheats)
+{
+    if (upscaleMultiplier < 1.0f) upscaleMultiplier = 1.0f;
+    if (upscaleMultiplier > 12.0f) upscaleMultiplier = 12.0f;
+    if (blendingAccuracy < 0) blendingAccuracy = 0; if (blendingAccuracy > 5) blendingAccuracy = 5;
+
+    // Renderer (allow -1/12/13/14)
+    s_settings_interface.SetIntValue("EmuCore/GS", "Renderer", (int)renderer);
+    EmuConfig.GS.Renderer = static_cast<GSRendererType>(renderer);
+
+    // Core per-game options
+    s_settings_interface.SetFloatValue("EmuCore/GS", "upscale_multiplier", upscaleMultiplier);
+    s_settings_interface.SetStringValue("EmuCore/GS", "accurate_blending_unit",
+        StringUtil::StdStringFromFormat("%d", (int)blendingAccuracy).c_str());
+    s_settings_interface.SetBoolValue("EmuCore", "EnableWideScreenPatches", (widescreenPatches == JNI_TRUE));
+    s_settings_interface.SetBoolValue("EmuCore", "EnableNoInterlacingPatches", (noInterlacingPatches == JNI_TRUE));
+    s_settings_interface.SetBoolValue("EmuCore", "EnablePatches", (enablePatches == JNI_TRUE));
+    s_settings_interface.SetBoolValue("EmuCore", "EnableCheats", (enableCheats == JNI_TRUE));
+
+    // Apply once
+    if (VMManager::HasValidVM())
+        VMManager::ApplySettings();
+    if (MTGS::IsOpen())
+        MTGS::ApplySettings();
+}
+
 extern "C"
 JNIEXPORT void JNICALL
 Java_com_izzy2lost_psx2_NativeApp_onNativeSurfaceCreated(JNIEnv *env, jclass clazz) {
@@ -769,6 +871,14 @@ Java_com_izzy2lost_psx2_NativeApp_onNativeSurfaceDestroyed(JNIEnv *env, jclass c
         ANativeWindow_release(s_window);
         s_window = nullptr;
     }
+}
+
+
+extern "C"
+JNIEXPORT jint JNICALL
+Java_com_izzy2lost_psx2_NativeApp_getCurrentRenderer(JNIEnv*, jclass)
+{
+    return static_cast<jint>(EmuConfig.GS.Renderer);
 }
 
 

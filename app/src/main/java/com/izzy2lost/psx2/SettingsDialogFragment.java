@@ -15,7 +15,6 @@ import android.content.res.ColorStateList;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-// Use MaterialAlertDialogBuilder for Material 3 dialogs.
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.fragment.app.DialogFragment;
 import androidx.core.widget.CompoundButtonCompat;
@@ -39,8 +38,8 @@ public class SettingsDialogFragment extends DialogFragment {
         float scale = prefs.getFloat("upscale_multiplier", 1.0f);
         int aspectRatio = prefs.getInt("aspect_ratio", 1);
         int blendingAccuracy = prefs.getInt("blending_accuracy", 1); // 0..5
-        boolean widescreenPatches = prefs.getBoolean("widescreen_patches", false);
-        boolean noInterlacingPatches = prefs.getBoolean("no_interlacing_patches", false);
+        boolean widescreenPatches = prefs.getBoolean("widescreen_patches", true);
+        boolean noInterlacingPatches = prefs.getBoolean("no_interlacing_patches", true);
         boolean loadTextures = prefs.getBoolean("load_textures", false);
         boolean asyncTextureLoading = prefs.getBoolean("async_texture_loading", true);
         boolean hudVisible = prefs.getBoolean("hud_visible", false);
@@ -184,8 +183,8 @@ public class SettingsDialogFragment extends DialogFragment {
         int savedRenderer = prefs.getInt("renderer", RENDERER_AUTO);
         float savedScale = prefs.getFloat("upscale_multiplier", 1.0f);
         int savedAspectRatio = prefs.getInt("aspect_ratio", 1); // 1 = Auto 4:3/3:2 (recommended)
-        boolean savedWidescreen = prefs.getBoolean("widescreen_patches", false);
-        boolean savedNoInterlacing = prefs.getBoolean("no_interlacing_patches", false);
+        boolean savedWidescreen = prefs.getBoolean("widescreen_patches", true);
+        boolean savedNoInterlacing = prefs.getBoolean("no_interlacing_patches", true);
         boolean savedLoadTextures = prefs.getBoolean("load_textures", false);
         boolean savedAsyncTextureLoading = prefs.getBoolean("async_texture_loading", true);
         boolean savedHud = prefs.getBoolean("hud_visible", false);
@@ -217,7 +216,7 @@ public class SettingsDialogFragment extends DialogFragment {
 
         MaterialAlertDialogBuilder b = new MaterialAlertDialogBuilder(requireContext(),
                 com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog);
-        b.setTitle("Graphics Settings")
+        b.setTitle("Global Settings")
          .setView(view)
          .setNegativeButton("Cancel", (d, w) -> d.dismiss())
          .setPositiveButton("Save", (d, w) -> {
@@ -236,52 +235,35 @@ public class SettingsDialogFragment extends DialogFragment {
              boolean asyncTextureLoading = swAsyncTextureLoading.isChecked();
              boolean hudVisible = (swDevHud != null && swDevHud.isChecked());
 
-             // Debug logging
-            android.util.Log.d("SettingsDialog", "Saving renderer setting: " + renderer + 
-                " (-1=Auto, 12=OpenGL, 13=Software, 14=Vulkan)");
-             
-             // Save renderer setting first with commit() to ensure immediate write
-             prefs.edit().putInt("renderer", renderer).apply();
-             android.util.Log.d("SettingsDialog", "Renderer setting saved successfully");
-             
-             // Small delay to ensure setting is persisted
+             // Persist settings to SharedPreferences
+             int blendingLevel = spBlending.getSelectedItemPosition();
+             prefs.edit()
+                     .putInt("renderer", renderer)
+                     .putFloat("upscale_multiplier", scale)
+                     .putInt("aspect_ratio", aspectRatio)
+                     .putInt("blending_accuracy", blendingLevel)
+                     .putBoolean("widescreen_patches", widescreenPatches)
+                     .putBoolean("no_interlacing_patches", noInterlacingPatches)
+                     .putBoolean("load_textures", loadTextures)
+                     .putBoolean("async_texture_loading", asyncTextureLoading)
+                     .putBoolean("hud_visible", hudVisible)
+                     .apply();
+
+             // Apply in one batch to avoid repeated ApplySettings calls
              try {
-                 Thread.sleep(100);
-             } catch (InterruptedException ignored) {}
-             
-             // Apply renderer change (might crash, but setting is already saved)
-             try {
-                 NativeApp.renderGpu(renderer);
-                 android.util.Log.d("SettingsDialog", "Applied renderer change to: " + renderer);
-             } catch (Exception e) {
-                 android.util.Log.e("SettingsDialog", "Failed to apply renderer: " + e.getMessage());
-                 // If renderer change fails, we'll still have the setting saved
-                 // for next app restart
+                 NativeApp.applyGlobalSettingsBatch(renderer, scale, aspectRatio, blendingLevel,
+                         widescreenPatches, noInterlacingPatches, loadTextures, asyncTextureLoading, hudVisible);
+             } catch (Throwable t) {
+                 android.util.Log.e("SettingsDialog", "Batch apply failed: " + t.getMessage());
              }
-             
-             // Persist all other settings
-            int blendingLevel = spBlending.getSelectedItemPosition();
 
-            prefs.edit()
-                    .putFloat("upscale_multiplier", scale)
-                    .putInt("aspect_ratio", aspectRatio)
-                    .putInt("blending_accuracy", blendingLevel)
-                    .putBoolean("widescreen_patches", widescreenPatches)
-                    .putBoolean("no_interlacing_patches", noInterlacingPatches)
-                    .putBoolean("load_textures", loadTextures)
-                    .putBoolean("async_texture_loading", asyncTextureLoading)
-                    .putBoolean("hud_visible", hudVisible)
-                    .apply();
-
-             // Apply other settings
-            NativeApp.renderUpscalemultiplier(scale);
-            NativeApp.setAspectRatio(aspectRatio);
-            NativeApp.setBlendingAccuracy(blendingLevel);
-            NativeApp.setWidescreenPatches(widescreenPatches);
-            NativeApp.setNoInterlacingPatches(noInterlacingPatches);
-            NativeApp.setLoadTextures(loadTextures);
-            NativeApp.setAsyncTextureLoading(asyncTextureLoading);
-            NativeApp.setHudVisible(hudVisible);
+             // Refresh quick UI (renderer label) if hosting activity is MainActivity
+             try {
+                 android.app.Activity a = getActivity();
+                 if (a instanceof MainActivity) {
+                     ((MainActivity) a).runOnUiThread(() -> ((MainActivity) a).refreshQuickUi());
+                 }
+             } catch (Throwable ignored) {}
          });
 
         return b.create();

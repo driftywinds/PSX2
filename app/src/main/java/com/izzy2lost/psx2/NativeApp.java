@@ -37,7 +37,6 @@ public class NativeApp {
 
 	public static native void initialize(String path, int apiVer);
     public static native String getGameTitle(String path);
-    // New: Resolve game title from a URI (content:// or file://). Implement in native when available.
     public static native String getGameTitleFromUri(String gameUri);
 	public static native String getGameSerial();
 	public static native float getFPS();
@@ -77,6 +76,29 @@ public class NativeApp {
     public static native void setShadeBoostBrightness(int brightness);
     public static native void setShadeBoostContrast(int contrast);
     public static native void setShadeBoostSaturation(int saturation);
+
+    // Apply multiple settings in one atomic batch (safer live updates)
+    public static native void applyGlobalSettingsBatch(int renderer,
+                                                       float upscaleMultiplier,
+                                                       int aspectRatio,
+                                                       int blendingAccuracy,
+                                                       boolean widescreenPatches,
+                                                       boolean noInterlacingPatches,
+                                                       boolean loadTextures,
+                                                       boolean asyncTextureLoading,
+                                                       boolean hudVisible);
+    
+    // Apply per-game settings (subset) in one batch
+    public static native void applyPerGameSettingsBatch(int renderer,
+                                                        float upscaleMultiplier,
+                                                        int blendingAccuracy,
+                                                        boolean widescreenPatches,
+                                                        boolean noInterlacingPatches,
+                                                        boolean enablePatches,
+                                                        boolean enableCheats);
+
+    // Query current runtime renderer from the core (reflects global/per-game)
+    public static native int getCurrentRenderer();
 
     // Per-game settings
     public static native void saveGameSettings(String filename, int blendingAccuracy, int renderer, 

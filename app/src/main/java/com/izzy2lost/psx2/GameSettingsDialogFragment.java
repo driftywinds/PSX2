@@ -15,7 +15,6 @@ import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-// Use Material 3 dialog builder for per‑game settings dialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import androidx.fragment.app.DialogFragment;
 
@@ -200,18 +199,42 @@ public class GameSettingsDialogFragment extends DialogFragment {
                .setView(view)
                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
                .setPositiveButton("Save", (d, w) -> {
-                   // Apply blending to runtime as well for immediate effect
-                   NativeApp.setBlendingAccuracy(spBlendingAccuracy.getSelectedItemPosition());
+                   final int blendLevel = spBlendingAccuracy.getSelectedItemPosition();
+                   final int rendererIdx = spRenderer.getSelectedItemPosition();
+                   final int resIdx = spResolution.getSelectedItemPosition();
+                   final boolean wide = swWidescreenPatches.isChecked();
+                   final boolean noInt = swNoInterlacingPatches.isChecked();
+                   final boolean enablePatches = swEnablePatchCodes.isChecked();
+                   final boolean enableCheats = swEnableCheats.isChecked();
 
                    // Persist per-game INI explicitly (supports Auto as well)
                    writeGameSettingsIni(ctx, gameSerial, gameCrc,
-                           spBlendingAccuracy.getSelectedItemPosition(),
-                           spRenderer.getSelectedItemPosition(),
-                           spResolution.getSelectedItemPosition(),
-                           swWidescreenPatches.isChecked(),
-                           swNoInterlacingPatches.isChecked(),
-                           /*enablePatches*/ swEnablePatchCodes.isChecked(),
-                           swEnableCheats.isChecked());
+                           blendLevel, rendererIdx, resIdx, wide, noInt,
+                           /*enablePatches*/ enablePatches, enableCheats);
+
+                   // Live-apply per-game settings in one batch
+                   try {
+                       int renderer;
+                       // rendererIdx: 0=Auto,1=Vulkan,2=OpenGL,3=Software
+                       if (rendererIdx == 0) renderer = -1;
+                       else if (rendererIdx == 1) renderer = 14;
+                       else if (rendererIdx == 2) renderer = 12;
+                       else renderer = 13;
+
+                       float scale = Math.max(1, Math.min(8, resIdx + 1));
+                       NativeApp.applyPerGameSettingsBatch(renderer, scale, blendLevel, wide, noInt, enablePatches, enableCheats);
+                   } catch (Throwable t) {
+                       android.util.Log.e("GameSettings", "Per-game batch apply failed: " + t.getMessage());
+                   }
+
+                   // Refresh quick UI (renderer label) to reflect runtime renderer
+                   try {
+                       android.app.Activity a = getActivity();
+                       if (a instanceof MainActivity) {
+                           ((MainActivity) a).runOnUiThread(() -> ((MainActivity) a).refreshQuickUi());
+                       }
+                   } catch (Throwable ignored) {}
+
                    d.dismiss();
                })
                .setNeutralButton("Reset to Global", (d, w) -> {

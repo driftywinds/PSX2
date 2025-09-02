@@ -825,8 +825,22 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private void updateRendererButtonLabel() {
         MaterialButton btn_bios = findViewById(R.id.btn_bios);
         if (btn_bios != null) {
-            btn_bios.setText(rendererShortLabel(getCurrentRendererPref()));
+            int current = getCurrentRendererPref();
+            try {
+                // Prefer runtime renderer from core to reflect per-game overrides
+                int runtime = NativeApp.getCurrentRenderer();
+                // Only accept expected values
+                if (runtime == -1 || runtime == 12 || runtime == 13 || runtime == 14) {
+                    current = runtime;
+                }
+            } catch (Throwable ignored) {}
+            btn_bios.setText(rendererShortLabel(current));
         }
+    }
+
+    // Public minimal UI refresh hook for dialogs
+    public void refreshQuickUi() {
+        updateRendererButtonLabel();
     }
 
     private void setRendererAndSave(int renderer) {
