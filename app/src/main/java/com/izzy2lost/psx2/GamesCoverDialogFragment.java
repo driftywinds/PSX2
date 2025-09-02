@@ -133,11 +133,12 @@ public class GamesCoverDialogFragment extends DialogFragment {
             rvLetters.setHasFixedSize(true);
             llmLetters = new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false);
             rvLetters.setLayoutManager(llmLetters);
+        // Snap to center item in the letters row
+            lettersSnapHelper = new PagerSnapHelper();
+            lettersSnapHelper.attachToRecyclerView(rvLetters);
             rvLetters.setClipToPadding(false);
             int basePad = (int)(24*getResources().getDisplayMetrics().density);
             rvLetters.setPadding(basePad, 0, basePad, 0);
-            lettersSnapHelper = new PagerSnapHelper();
-            lettersSnapHelper.attachToRecyclerView(rvLetters);
             // Add spacing between letters for off-screen effect
             final int letterSpace = (int)(12 * getResources().getDisplayMetrics().density);
             rvLetters.addItemDecoration(new RecyclerView.ItemDecoration() {
