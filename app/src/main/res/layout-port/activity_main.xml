@@ -34,48 +34,6 @@
         app:layout_constraintStart_toStartOf="parent"
         android:layout_margin="12dp"/>
 
-    <LinearLayout
-        android:id="@+id/ll_renderer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:gravity="start"
-        android:orientation="horizontal"
-        android:visibility="gone"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_ogl"
-            style="@style/PSX2.ElevatedTransparentButton"
-            android:layout_width="60dip"
-            android:layout_height="wrap_content"
-            android:text="OGL"
-            android:textSize="12sp"
-            
-            app:rippleColor="#80cdcdcd" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_vulkan"
-            style="@style/PSX2.ElevatedTransparentButton"
-            android:layout_width="60dip"
-            android:layout_height="wrap_content"
-            android:text="VK"
-            android:textSize="12sp"
-            
-            app:rippleColor="#80cdcdcd" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_sw"
-            style="@style/PSX2.ElevatedTransparentButton"
-            android:layout_width="60dip"
-            android:layout_height="wrap_content"
-            android:text="SW"
-            android:textSize="12sp"
-            
-            app:rippleColor="#80cdcdcd" />
-    </LinearLayout>
-
-    <!-- Controls toggle (top-right) -->
     <!-- Visibility toggle button in upper right corner -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_toggle_controls"
@@ -97,26 +55,6 @@
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         android:layout_margin="12dp"/>
-
-    <!-- Small unhide button (only visible when all UI is hidden) -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_unhide_ui"
-        style="@style/PSX2.ElevatedTransparentButton"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:visibility="gone"
-        app:icon="@drawable/ic_unhide"
-        app:iconSize="24dp"
-        app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        app:iconTint="@color/md_theme_tertiary"
-        app:rippleColor="#40ffffff"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_margin="8dp"
-        android:elevation="4dp"/>
-
-    
 
     <LinearLayout
         android:id="@+id/ll_quick_actions"
@@ -160,7 +98,6 @@
             
             app:rippleColor="#80cdcdcd" />
 
-
     </LinearLayout>
 
     <!-- Portrait control stack: Joy above D-Pad; both above Select/Start; Right cluster above Select/Start -->
@@ -182,7 +119,7 @@
             android:layout_height="wrap_content"
             android:layout_marginEnd="8dp"
             android:text="select"
-            android:textColor="@color/md_theme_onSurface"
+            android:textColor="#FFFFFFFF"
             app:rippleColor="#80cdcdcd" />
 
         <com.google.android.material.button.MaterialButton
@@ -192,7 +129,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
             android:text="start"
-            android:textColor="@color/md_theme_onSurface"
+            android:textColor="#FFFFFFFF"
             app:rippleColor="#80cdcdcd" />
 
     </LinearLayout>

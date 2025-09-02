@@ -2,7 +2,6 @@ package com.izzy2lost.psx2;
 
 import android.app.Activity;
 import androidx.appcompat.app.AlertDialog;
-// Use MaterialAlertDialogBuilder to adopt Material 3 styling for all dialogs.
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import android.content.Context;
 import android.content.Intent;
@@ -62,7 +61,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private boolean mHudVisible = false;
     private InputManager mInputManager;
     
-
     // Track joystick directional pressed state to avoid duplicate down events
     private boolean joyUpPressed = false;
     private boolean joyDownPressed = false;
@@ -87,8 +85,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         return !TextUtils.isEmpty(m_szGamefile);
     }
 
-    
-
     @Override
     public void onConfigurationChanged(@NonNull Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
@@ -96,10 +92,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         hideStatusBar();
         applyConstraintsForOrientation(newConfig.orientation);
     }
-
-
-
-
 
     private void applyConstraintsForOrientation(int orientation) {
         // Views present in both layouts
@@ -388,7 +380,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         setupBackPressedHandler();
 
         // Default resources
-        copyAssetAll(getApplicationContext(), "bios");
         copyAssetAll(getApplicationContext(), "resources");
 
         Initialize();
@@ -510,75 +501,6 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (btnToggleControls != null) {
             btnToggleControls.setOnClickListener(v -> {
                 toggleAllUIVisibility();
-            });
-        }
-
-        // Small unhide button (appears when all UI is hidden)
-        MaterialButton btn_unhide_ui = findViewById(R.id.btn_unhide_ui);
-        if(btn_unhide_ui != null) {
-            btn_unhide_ui.setOnClickListener(v -> {
-                toggleAllUIVisibility(); // Show UI again
-            });
-        }
-
-        // RENDERER
-        MaterialButton btn_ogl = findViewById(R.id.btn_ogl);
-        if(btn_ogl != null) {
-            btn_ogl.setOnClickListener(v -> {
-                // Save setting first with commit() to ensure immediate write
-                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 12).apply();
-                
-                // Small delay to ensure setting is persisted
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ignored) {}
-                
-                try {
-                    NativeApp.renderGpu(12);
-                } catch (Exception e) {
-                    // Setting saved for next restart
-                }
-            });
-        }
-        MaterialButton btn_vulkan = findViewById(R.id.btn_vulkan);
-        if(btn_vulkan != null) {
-            btn_vulkan.setOnClickListener(v -> {
-                // Save setting first with commit() to ensure immediate write
-                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 14).apply();
-                
-                // Small delay to ensure setting is persisted
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ignored) {}
-                
-                try {
-                    NativeApp.renderGpu(14);
-                } catch (Exception e) {
-                    // Setting saved for next restart
-                }
-            });
-        }
-        MaterialButton btn_sw = findViewById(R.id.btn_sw);
-        if(btn_sw != null) {
-            btn_sw.setOnClickListener(v -> {
-                android.util.Log.d("MainActivity", "SW button clicked - saving renderer 13");
-                
-                // Save setting first with commit() to ensure immediate write
-                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", 13).apply();
-                android.util.Log.d("MainActivity", "SW renderer setting saved");
-                
-                // Small delay to ensure setting is persisted
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException ignored) {}
-                
-                try {
-                    NativeApp.renderGpu(13);
-                    android.util.Log.d("MainActivity", "Applied SW renderer (13)");
-                } catch (Exception e) {
-                    android.util.Log.e("MainActivity", "Failed to apply SW renderer: " + e.getMessage());
-                    // Setting saved for next restart
-                }
             });
         }
 
@@ -1087,11 +1009,11 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         NativeApp.setAspectRatio(aspectRatio);
 
         // Widescreen patches
-        boolean widescreenPatches = prefs.getBoolean("widescreen_patches", false);
+        boolean widescreenPatches = prefs.getBoolean("widescreen_patches", true);
         NativeApp.setWidescreenPatches(widescreenPatches);
 
         // No interlacing patches
-        boolean noInterlacingPatches = prefs.getBoolean("no_interlacing_patches", false);
+        boolean noInterlacingPatches = prefs.getBoolean("no_interlacing_patches", true);
         NativeApp.setNoInterlacingPatches(noInterlacingPatches);
 
         // Texture loading options

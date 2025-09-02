@@ -62,7 +62,7 @@
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_letters"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="24dp"
         android:layout_marginTop="0dp"
         android:paddingStart="24dp"
         android:paddingEnd="24dp"
@@ -117,6 +117,6 @@
         app:iconTint="@color/brand_primary"
         app:iconGravity="textStart"
         app:iconPadding="20dp"
-        app:iconSize="34dp" />
+        app:iconSize="24dp" />
 
 </LinearLayout>
