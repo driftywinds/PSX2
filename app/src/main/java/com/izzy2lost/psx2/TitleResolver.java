@@ -7,14 +7,11 @@ import android.content.SharedPreferences;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import org.json.JSONObject;
-import org.json.JSONTokener;
 
 /**
  * Loads game title index from resources/GameIndex.yaml or resources/RedumpDatabase.yaml
@@ -32,17 +29,9 @@ public final class TitleResolver {
         File base = ctx.getExternalFilesDir(null);
         if (base == null) base = ctx.getFilesDir();
         File resDir = new File(base, "resources");
-        // Prefer JSON cache if available
-        File jsonCache = new File(resDir, "gameindex.json");
-        if (loadJsonIfPresent(jsonCache, sSerialToTitle)) {
-            sLoaded = true;
-            return;
-        }
-        // Try both files if present
+        // Only use YAML sources if present
         loadYamlSafe(new File(resDir, "GameIndex.yaml"), sSerialToTitle);
         loadYamlSafe(new File(resDir, "RedumpDatabase.yaml"), sSerialToTitle);
-        // Write JSON cache for faster subsequent loads
-        writeJsonSafe(jsonCache, sSerialToTitle);
         sLoaded = true;
     }
 
@@ -57,7 +46,15 @@ public final class TitleResolver {
 
             // 3) Resolve serial via native; if missing, try filename hint
             String serial = null;
-            try { serial = NativeApp.getGameSerial(uriString); } catch (Throwable ignored) {}
+            // Prefer previously-cached serial to avoid heavy native reads on first run
+            try {
+                android.content.SharedPreferences prefs = ctx.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+                String saved = prefs.getString("serial:" + uriString, null);
+                if (saved != null && !saved.isEmpty()) serial = saved;
+            } catch (Throwable ignored) {}
+            if (serial == null || serial.isEmpty()) {
+                try { serial = NativeApp.getGameSerialSafe(uriString); } catch (Throwable ignored) {}
+            }
             if (serial == null || serial.isEmpty()) {
                 Uri u = Uri.parse(uriString);
                 String name = u.getLastPathSegment();
@@ -76,7 +73,7 @@ public final class TitleResolver {
 
             // 5) Fallback to native URI title if available
             String nativeTitle = null;
-            try { nativeTitle = NativeApp.getGameTitleFromUri(uriString); } catch (Throwable ignored) {}
+            try { nativeTitle = NativeApp.getGameTitleFromUriSafe(uriString); } catch (Throwable ignored) {}
             if (nativeTitle != null && !nativeTitle.isEmpty()) {
                 putCachedTitle(ctx, uriString, nativeTitle);
                 return nativeTitle;
@@ -119,38 +116,7 @@ public final class TitleResolver {
         } catch (Exception ignored) {}
     }
 
-    private static boolean loadJsonIfPresent(File file, Map<String, String> out) {
-        if (file == null || !file.exists()) return false;
-        try (FileInputStream fis = new FileInputStream(file)) {
-            InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
-            StringBuilder sb = new StringBuilder(1 << 20);
-            char[] buf = new char[4096];
-            int n;
-            while ((n = isr.read(buf)) != -1) sb.append(buf, 0, n);
-            JSONObject obj = new JSONObject(new JSONTokener(sb.toString()));
-            java.util.Iterator<String> keys = obj.keys();
-            while (keys.hasNext()) {
-                String k = keys.next();
-                String v = obj.optString(k, null);
-                if (v != null && !v.isEmpty()) out.put(k, v);
-            }
-            return true;
-        } catch (Exception ignored) {}
-        return false;
-    }
-
-    private static void writeJsonSafe(File file, Map<String, String> map) {
-        if (file == null) return;
-        try {
-            if (file.getParentFile() != null && !file.getParentFile().exists()) file.getParentFile().mkdirs();
-            JSONObject obj = new JSONObject(map);
-            byte[] bytes = obj.toString().getBytes(StandardCharsets.UTF_8);
-            try (FileOutputStream fos = new FileOutputStream(file, false)) {
-                fos.write(bytes);
-                fos.flush();
-            }
-        } catch (Exception ignored) {}
-    }
+    // JSON handling removed. YAML index is used exclusively.
 
     private static String getCachedTitle(Context ctx, String uri) {
         try {

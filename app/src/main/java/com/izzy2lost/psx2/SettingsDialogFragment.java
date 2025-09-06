@@ -139,7 +139,7 @@ public class SettingsDialogFragment extends DialogFragment {
             btnReboot.setOnClickListener(v -> {
                 new MaterialAlertDialogBuilder(requireContext(),
                         com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                        .setTitle("Reboot")
+                        .setCustomTitle(UiUtils.centeredDialogTitle(requireContext(), "Reboot"))
                         .setMessage("Restart the current game?")
                         .setNegativeButton("Cancel", null)
                         .setPositiveButton("Reboot", (d1, w1) -> {
@@ -188,6 +188,7 @@ public class SettingsDialogFragment extends DialogFragment {
         boolean savedLoadTextures = prefs.getBoolean("load_textures", false);
         boolean savedAsyncTextureLoading = prefs.getBoolean("async_texture_loading", true);
         boolean savedHud = prefs.getBoolean("hud_visible", false);
+        boolean savedCheatsGlobal = prefs.getBoolean("enable_cheats", false);
         int savedBlending = prefs.getInt("blending_accuracy", 1);
 
         if (savedRenderer == RENDERER_VULKAN && rbVk != null) rbVk.setChecked(true);
@@ -213,10 +214,12 @@ public class SettingsDialogFragment extends DialogFragment {
         swLoadTextures.setChecked(savedLoadTextures);
         swAsyncTextureLoading.setChecked(savedAsyncTextureLoading);
         if (swDevHud != null) swDevHud.setChecked(savedHud);
+        MaterialSwitch swCheatsGlobal = view.findViewById(R.id.sw_enable_cheats_global);
+        if (swCheatsGlobal != null) swCheatsGlobal.setChecked(savedCheatsGlobal);
 
         MaterialAlertDialogBuilder b = new MaterialAlertDialogBuilder(requireContext(),
                 com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog);
-        b.setTitle("Global Settings")
+        b.setCustomTitle(UiUtils.centeredDialogTitle(requireContext(), "Global Settings"))
          .setView(view)
          .setNegativeButton("Cancel", (d, w) -> d.dismiss())
          .setPositiveButton("Save", (d, w) -> {
@@ -233,21 +236,23 @@ public class SettingsDialogFragment extends DialogFragment {
              boolean noInterlacingPatches = swNoInterlacing.isChecked();
              boolean loadTextures = swLoadTextures.isChecked();
              boolean asyncTextureLoading = swAsyncTextureLoading.isChecked();
-             boolean hudVisible = (swDevHud != null && swDevHud.isChecked());
+            boolean hudVisible = (swDevHud != null && swDevHud.isChecked());
+            boolean enableCheatsGlobal = swCheatsGlobal != null && swCheatsGlobal.isChecked();
 
              // Persist settings to SharedPreferences
              int blendingLevel = spBlending.getSelectedItemPosition();
-             prefs.edit()
-                     .putInt("renderer", renderer)
-                     .putFloat("upscale_multiplier", scale)
-                     .putInt("aspect_ratio", aspectRatio)
-                     .putInt("blending_accuracy", blendingLevel)
-                     .putBoolean("widescreen_patches", widescreenPatches)
-                     .putBoolean("no_interlacing_patches", noInterlacingPatches)
-                     .putBoolean("load_textures", loadTextures)
-                     .putBoolean("async_texture_loading", asyncTextureLoading)
-                     .putBoolean("hud_visible", hudVisible)
-                     .apply();
+            prefs.edit()
+                    .putInt("renderer", renderer)
+                    .putFloat("upscale_multiplier", scale)
+                    .putInt("aspect_ratio", aspectRatio)
+                    .putInt("blending_accuracy", blendingLevel)
+                    .putBoolean("widescreen_patches", widescreenPatches)
+                    .putBoolean("no_interlacing_patches", noInterlacingPatches)
+                    .putBoolean("load_textures", loadTextures)
+                    .putBoolean("async_texture_loading", asyncTextureLoading)
+                    .putBoolean("hud_visible", hudVisible)
+                    .putBoolean("enable_cheats", enableCheatsGlobal)
+                    .apply();
 
              // Apply in one batch to avoid repeated ApplySettings calls
              try {

@@ -63,26 +63,26 @@
                 android:id="@+id/rb_renderer_auto"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Auto"/>
+                android:text="AUTO"/>
 
             <RadioButton
                 android:id="@+id/rb_renderer_vk"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Vulkan"/>
+                android:text="VK"/>
 
             <RadioButton
                 android:id="@+id/rb_renderer_gl"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="OpenGL"
+                android:text="OGL"
                 android:layout_marginStart="16dp"/>
 
             <RadioButton
                 android:id="@+id/rb_renderer_sw"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Software"
+                android:text="SW"
                 android:layout_marginStart="16dp"/>
         </RadioGroup>
 
@@ -166,6 +166,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="No Interlacing Patches"
+                android:layout_marginTop="8dp"
+                style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/sw_enable_cheats_global"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Enable Cheats (Global)"
                 android:layout_marginTop="8dp"
                 style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
         </LinearLayout>

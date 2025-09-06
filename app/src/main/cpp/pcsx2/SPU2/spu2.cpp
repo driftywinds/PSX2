@@ -103,8 +103,8 @@ void SPU2::CreateOutputStream()
 	s_output_stream.reset();
 
 	Error error;
-	s_output_stream = AudioStream::CreateStream(EmuConfig.SPU2.Backend, sample_rate, EmuConfig.SPU2.StreamParameters,
-		EmuConfig.SPU2.DriverName.c_str(), EmuConfig.SPU2.DeviceName.c_str(), EmuConfig.SPU2.IsTimeStretchEnabled(), &error);
+    s_output_stream = AudioStream::CreateStream(EmuConfig.SPU2.Backend, sample_rate, EmuConfig.SPU2.StreamParameters,
+            EmuConfig.SPU2.DriverName.c_str(), EmuConfig.SPU2.DeviceName.c_str(), EmuConfig.SPU2.IsTimeStretchEnabled(), &error);
 	if (!s_output_stream)
 	{
 		Host::ReportErrorAsync("Error",

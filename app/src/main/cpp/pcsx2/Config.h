@@ -887,7 +887,8 @@ struct Pcsx2Config
 		};
 
 		static constexpr s32 MAX_VOLUME = 200;
-		static constexpr AudioBackend DEFAULT_BACKEND = AudioBackend::Oboe;
+        // Default to Oboe on Android for stable low-latency output.
+        static constexpr AudioBackend DEFAULT_BACKEND = AudioBackend::Oboe;
 		static constexpr SPU2SyncMode DEFAULT_SYNC_MODE = SPU2SyncMode::TimeStretch;
 
 		static std::optional<SPU2SyncMode> ParseSyncMode(const char* str);

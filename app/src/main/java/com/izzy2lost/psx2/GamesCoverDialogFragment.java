@@ -207,7 +207,7 @@ public class GamesCoverDialogFragment extends DialogFragment {
             String serial = saved;
             if (serial == null || serial.isEmpty()) {
                 try {
-                    String nativeSerial = NativeApp.getGameSerial(uris[i]);
+                    String nativeSerial = NativeApp.getGameSerialSafe(uris[i]);
                     if (nativeSerial != null && !nativeSerial.isEmpty()) {
                         serial = normalizeSerial(nativeSerial);
                         prefs.edit().putString("serial:" + uris[i], serial).apply();
@@ -218,7 +218,20 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 serial = buildSerialFromUri(uris[i]);
             }
             coverUrls[i] = buildCoverUrlFromSerial(serial);
-            localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+            // Prefer SAF content URI if data root is set, else absolute file path
+            android.net.Uri dataRoot = SafManager.getDataRootUri(requireContext());
+            if (dataRoot != null) {
+                androidx.documentfile.provider.DocumentFile f = SafManager.getChild(requireContext(), new String[]{"covers"}, serial + ".png");
+                if (f != null && f.exists()) {
+                    localPaths[i] = f.getUri().toString();
+                } else {
+                    // Pre-create to get a stable Uri
+                    androidx.documentfile.provider.DocumentFile nf = SafManager.createChild(requireContext(), new String[]{"covers"}, serial + ".png", "image/png");
+                    localPaths[i] = (nf != null) ? nf.getUri().toString() : new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+                }
+            } else {
+                localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+            }
         }
 
         // cache originals for sorting/filtering
@@ -737,12 +750,18 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 try {
                     // Prefer native serial extraction so CHDs work
                     String better = null;
-                    try { better = NativeApp.getGameSerial(uris[i]); } catch (Throwable ignored) {}
+                    try { better = NativeApp.getGameSerialSafe(uris[i]); } catch (Throwable ignored) {}
                     if (better == null) better = extractSerialFromUri(uris[i]);
                     if (better != null && !better.equalsIgnoreCase(serialFromUrl(coverUrls[i]))) {
                         String serial = normalizeSerial(better);
                         coverUrls[i] = buildCoverUrlFromSerial(serial);
-                        localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+                        android.net.Uri dataRoot = SafManager.getDataRootUri(requireContext());
+                        if (dataRoot != null) {
+                            androidx.documentfile.provider.DocumentFile nf = SafManager.createChild(requireContext(), new String[]{"covers"}, serial + ".png", "image/png");
+                            localPaths[i] = (nf != null) ? nf.getUri().toString() : new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+                        } else {
+                            localPaths[i] = new java.io.File(getCoversDir(), serial + ".png").getAbsolutePath();
+                        }
                         editor.putString("serial:" + uris[i], serial);
                     }
                 } catch (Exception ignored) { }
@@ -758,7 +777,7 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 String outPath = localPaths[i];
                 if (isFileValid(outPath)) { ok++; continue; }
                 try {
-                    if (downloadToFile(url, outPath)) ok++;
+                    if (downloadToTarget(url, outPath)) ok++;
                 } catch (Exception ignored) { }
             }
             final int downloaded = ok;
@@ -784,13 +803,19 @@ public class GamesCoverDialogFragment extends DialogFragment {
         return base;
     }
 
-    private static boolean isFileValid(String path) {
+    private boolean isFileValid(String path) {
         if (path == null) return false;
+        if (path.startsWith("content://")) {
+            try {
+                androidx.documentfile.provider.DocumentFile f = androidx.documentfile.provider.DocumentFile.fromSingleUri(requireContext(), android.net.Uri.parse(path));
+                return f != null && f.length() > 0;
+            } catch (Throwable ignored) { return false; }
+        }
         java.io.File f = new java.io.File(path);
         return f.exists() && f.length() > 0;
     }
 
-    private static boolean downloadToFile(String urlStr, String outPath) throws Exception {
+    private boolean downloadToTarget(String urlStr, String outPath) throws Exception {
         java.net.URL url = new java.net.URL(urlStr);
         java.net.HttpURLConnection conn = (java.net.HttpURLConnection) url.openConnection();
         conn.setConnectTimeout(10000);
@@ -799,17 +824,29 @@ public class GamesCoverDialogFragment extends DialogFragment {
         conn.connect();
         int code = conn.getResponseCode();
         if (code != 200) { conn.disconnect(); return false; }
-        java.io.File outFile = new java.io.File(outPath);
-        java.io.File parent = outFile.getParentFile();
-        if (parent != null && !parent.exists()) parent.mkdirs();
         java.io.InputStream in = conn.getInputStream();
-        java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
-        byte[] buf = new byte[8192];
-        int n;
-        while ((n = in.read(buf)) != -1) fos.write(buf, 0, n);
-        fos.flush();
-        fos.close();
-        in.close();
+        if (outPath.startsWith("content://")) {
+            android.net.Uri uri = android.net.Uri.parse(outPath);
+            try (java.io.OutputStream os = requireContext().getContentResolver().openOutputStream(uri, "w")) {
+                if (os == null) { conn.disconnect(); return false; }
+                byte[] buf = new byte[8192];
+                int n;
+                while ((n = in.read(buf)) != -1) os.write(buf, 0, n);
+                os.flush();
+            }
+            in.close();
+        } else {
+            java.io.File outFile = new java.io.File(outPath);
+            java.io.File parent = outFile.getParentFile();
+            if (parent != null && !parent.exists()) parent.mkdirs();
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
+            byte[] buf = new byte[8192];
+            int n;
+            while ((n = in.read(buf)) != -1) fos.write(buf, 0, n);
+            fos.flush();
+            fos.close();
+            in.close();
+        }
         conn.disconnect();
         return true;
     }
@@ -888,7 +925,7 @@ public class GamesCoverDialogFragment extends DialogFragment {
     private void showGameSettings(String gameTitle, String gameUri) {
         // Prefer native extraction so CHDs work
         String gameSerial = null;
-        try { gameSerial = NativeApp.getGameSerial(gameUri); } catch (Throwable ignored) {}
+        try { gameSerial = NativeApp.getGameSerialSafe(gameUri); } catch (Throwable ignored) {}
         if (gameSerial == null || gameSerial.isEmpty()) {
             gameSerial = extractSerialFromUri(gameUri);
         }

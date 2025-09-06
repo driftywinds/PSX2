@@ -9,18 +9,14 @@ local.properties
 *.keystore
 
 # Build folder
-app/build/
+build/
 
 # NDK
-app/.cxx/
+.cxx/
 
 # IDE
 .vscode/
 .idea/
 *.iml
 *.exe
-/PCSX2_ARM64
-build/reports/problems/problems-report.html
-crash.txt
-/AetherSX2-main
-crash-NEW.txt
+AetherSX2-main/

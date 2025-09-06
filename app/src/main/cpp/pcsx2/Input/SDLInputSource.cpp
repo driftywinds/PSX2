@@ -635,49 +635,65 @@ void SDLInputSource::SetHints()
 
 bool SDLInputSource::InitializeSubsystem()
 {
-	if (!SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_HAPTIC))
-	{
-		Console.Error("SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_HAPTIC) failed");
-		return false;
-	}
-
-	SDL_SetLogOutputFunction(SDLLogCallback, nullptr);
-#ifdef PCSX2_DEVBUILD
-	SDL_SetLogPriorities(SDL_LOG_PRIORITY_VERBOSE);
+#ifdef __ANDROID__
+    // On Android we rely on Java-side input; skip SDL joystick/gamepad/haptic init.
+    // Keep the source marked initialized to prevent re-init loops.
+    m_sdl_subsystem_initialized = true;
+    return true;
 #else
-	SDL_SetLogPriorities(SDL_LOG_PRIORITY_INFO);
+    if (!SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_HAPTIC))
+    {
+        Console.Error("SDL_InitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_HAPTIC) failed");
+        return false;
+    }
+
+    SDL_SetLogOutputFunction(SDLLogCallback, nullptr);
+#ifdef PCSX2_DEVBUILD
+    SDL_SetLogPriorities(SDL_LOG_PRIORITY_VERBOSE);
+#else
+    SDL_SetLogPriorities(SDL_LOG_PRIORITY_INFO);
 #endif
 
-	// we should open the controllers as the connected events come in, so no need to do any more here
-	m_sdl_subsystem_initialized = true;
+    // we should open the controllers as the connected events come in, so no need to do any more here
+    m_sdl_subsystem_initialized = true;
 
-	int count;
-	char** mappings = SDL_GetGamepadMappings(&count);
-	if (mappings != nullptr)
-	{
-		SDL_free(mappings);
-		Console.WriteLnFmt(Color_StrongGreen, "SDLInputSource: {} gamepad mappings are loaded.", count);
-	}
-	else
-		Console.Error("SDL_GetGamepadMappings() failed {}", SDL_GetError());
+    int count;
+    char** mappings = SDL_GetGamepadMappings(&count);
+    if (mappings != nullptr)
+    {
+        SDL_free(mappings);
+        Console.WriteLnFmt(Color_StrongGreen, "SDLInputSource: {} gamepad mappings are loaded.", count);
+    }
+    else
+        Console.Error("SDL_GetGamepadMappings() failed {}", SDL_GetError());
 
-	return true;
+    return true;
+#endif
 }
 
 void SDLInputSource::ShutdownSubsystem()
 {
-	while (!m_controllers.empty())
-		CloseDevice(m_controllers.begin()->joystick_id);
+    while (!m_controllers.empty())
+        CloseDevice(m_controllers.begin()->joystick_id);
 
-	if (m_sdl_subsystem_initialized)
-	{
-		SDL_QuitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_HAPTIC);
-		m_sdl_subsystem_initialized = false;
-	}
+#ifdef __ANDROID__
+    // Nothing was initialized; just mark uninitialized.
+    m_sdl_subsystem_initialized = false;
+#else
+    if (m_sdl_subsystem_initialized)
+    {
+        SDL_QuitSubSystem(SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_HAPTIC);
+        m_sdl_subsystem_initialized = false;
+    }
+#endif
 }
 
 void SDLInputSource::PollEvents()
 {
+#ifdef __ANDROID__
+	// No SDL input events on Android; Java side handles input.
+	return;
+#endif
 	for (;;)
 	{
 		SDL_Event ev;

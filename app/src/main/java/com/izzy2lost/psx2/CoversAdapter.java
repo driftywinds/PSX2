@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 import java.io.File;
+import androidx.documentfile.provider.DocumentFile;
 
 public class CoversAdapter extends RecyclerView.Adapter<CoversAdapter.VH> {
     public interface OnItemClick {
@@ -80,36 +81,47 @@ public class CoversAdapter extends RecyclerView.Adapter<CoversAdapter.VH> {
         }
         holder.title.setText(titles[real]);
         String local = (localPaths != null && real < localPaths.length) ? localPaths[real] : null;
-        File localFile = null;
-        if (local != null) {
-            File f = new File(local);
-            if (f.exists() && f.length() > 0) localFile = f;
-        }
-
-        if (localFile != null) {
-            Glide.with(context)
-                    .load(localFile)
-                    .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
-                    .fitCenter()
-                    .placeholder(android.R.color.transparent)
-                    .error(android.R.color.transparent)
-                    .into(holder.cover);
-        } else {
-            // Show a default placeholder from resources/no-cover.png if present
-            File resDir = context.getExternalFilesDir("resources");
-            File placeholder = (resDir != null) ? new File(resDir, "no-cover.png") : null;
-            if (placeholder != null && placeholder.exists() && placeholder.length() > 0) {
+        boolean loadedImage = false;
+        if (local != null && local.startsWith("content://")) {
+            android.net.Uri uri = android.net.Uri.parse(local);
+            // Only load if the SAF file has content (length > 0)
+            boolean hasContent = false;
+            try {
+                DocumentFile df = DocumentFile.fromSingleUri(context, uri);
+                hasContent = (df != null && df.length() > 0);
+            } catch (Throwable ignored) {}
+            if (hasContent) {
                 Glide.with(context)
-                        .load(placeholder)
+                        .load(uri)
                         .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
                         .fitCenter()
                         .placeholder(android.R.color.transparent)
                         .error(android.R.color.transparent)
                         .into(holder.cover);
-            } else {
-                // Fallback to logo if placeholder not found
-                holder.cover.setImageResource(R.drawable.psx2_logo2_fixed);
+                loadedImage = true;
             }
+        } else if (local != null) {
+            File f = new File(local);
+            if (f.exists() && f.length() > 0) {
+                Glide.with(context)
+                        .load(f)
+                        .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                        .fitCenter()
+                        .placeholder(android.R.color.transparent)
+                        .error(android.R.color.transparent)
+                        .into(holder.cover);
+                loadedImage = true;
+            }
+        }
+
+        if (!loadedImage) {
+            Glide.with(context)
+                    .load(getPlaceholder())
+                    .diskCacheStrategy(DiskCacheStrategy.AUTOMATIC)
+                    .fitCenter()
+                    .placeholder(android.R.color.transparent)
+                    .error(android.R.color.transparent)
+                    .into(holder.cover);
         }
         holder.itemView.setOnClickListener(v -> {
             if (onItemClick != null) {
@@ -131,6 +143,20 @@ public class CoversAdapter extends RecyclerView.Adapter<CoversAdapter.VH> {
             }
             return false;
         });
+    }
+
+    private Object getPlaceholder() {
+        // Try SAF resources/no-cover.png first
+        android.net.Uri dataRoot = SafManager.getDataRootUri(context);
+        if (dataRoot != null) {
+            androidx.documentfile.provider.DocumentFile f = SafManager.getChild(context, new String[]{"resources"}, "no-cover.png");
+            if (f != null && f.exists()) return f.getUri();
+        }
+        // Then try app external files path
+        File resDir = context.getExternalFilesDir("resources");
+        File placeholder = (resDir != null) ? new File(resDir, "no-cover.png") : null;
+        if (placeholder != null && placeholder.exists() && placeholder.length() > 0) return placeholder;
+        return R.drawable.psx2_logo2_fixed;
     }
 
     @Override

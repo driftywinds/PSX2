@@ -130,7 +130,8 @@
             android:layout_height="wrap_content"
             android:text="Enable Patch Codes (PNACH)"
             style="@style/Widget.Material3.CompoundButton.MaterialSwitch"
-            android:layout_marginBottom="8dp"/>
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"/>
 
         
         <com.google.android.material.materialswitch.MaterialSwitch
@@ -138,6 +139,30 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Enable Cheats"
+            style="@style/Widget.Material3.CompoundButton.MaterialSwitch"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Per-game Texture Packs -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Texture Packs"
+            android:textSize="14sp"
+            android:paddingBottom="4dp"/>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/sw_load_textures_per_game"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Load Texture Replacements"
+            style="@style/Widget.Material3.CompoundButton.MaterialSwitch"
+            android:layout_marginBottom="8dp"/>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/sw_async_texture_loading_per_game"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Async Texture Loading"
             style="@style/Widget.Material3.CompoundButton.MaterialSwitch"
             android:layout_marginBottom="16dp"/>
 

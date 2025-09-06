@@ -18,7 +18,12 @@ android {
 
         externalNativeBuild {
             cmake {
-                arguments '-DANDROID=true','-DCMAKE_BUILD_TYPE=Release','-DANDROID_STL=c++_static'
+                // Avoid LTO core on Android to prevent x86 objects from leaking into arm64 link
+                arguments(
+                        '-DANDROID=true',
+                        '-DCMAKE_BUILD_TYPE=Release',
+                        '-DANDROID_STL=c++_static'
+                )
                 // arguments '-DANDROID=true','-DCMAKE_BUILD_TYPE=Debug','-DANDROID_STL=c++_static'
             }
         }
@@ -26,16 +31,36 @@ android {
             //noinspection ChromeOsAbiSupport
             abiFilters 'arm64-v8a'
         }
+        // Placeholder to toggle profileable per buildType (for AGI)
+        manifestPlaceholders = [
+                profileable: "false"
+        ]
     }
 
     buildTypes {
         release {
             ndk {
+                // Keep symbol table for crash triage while testing
                 debugSymbolLevel 'SYMBOL_TABLE'
             }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
+        // Build for profiling with Android GPU Inspector
+        benchmark {
+            // Release-like build, not debuggable, but profileable
+            initWith release
+            debuggable false
+            // Use debug keystore to simplify installs
+            signingConfig signingConfigs.debug
+            // Turn on profileable in manifest via placeholder
+            manifestPlaceholders = [ profileable: "true" ]
+        }
+    }
+    // Relax lint for test release builds
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_11

@@ -12,6 +12,8 @@ import android.widget.Spinner;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import android.widget.TextView;
 import android.net.Uri;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -24,6 +26,10 @@ public class GameSettingsDialogFragment extends DialogFragment {
     private static final String ARG_GAME_URI = "game_uri";
     private static final String ARG_GAME_SERIAL = "game_serial";
     private static final String ARG_GAME_CRC = "game_crc";
+
+    // File picker state
+    private ActivityResultLauncher<Intent> mPnachPicker;
+    private boolean mImportAsCheats = true;
 
     public static GameSettingsDialogFragment newInstance(String gameTitle, String gameUri, String gameSerial, String gameCrc) {
         GameSettingsDialogFragment fragment = new GameSettingsDialogFragment();
@@ -41,6 +47,52 @@ public class GameSettingsDialogFragment extends DialogFragment {
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         Context ctx = requireContext();
         View view = getLayoutInflater().inflate(R.layout.dialog_game_settings, null, false);
+
+        // Register picker ahead of time to avoid lifecycle crashes
+        if (mPnachPicker == null) {
+            mPnachPicker = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                try {
+                    if (result.getResultCode() != Activity.RESULT_OK) return;
+                    Intent data = result.getData(); if (data == null) return;
+                    Uri uri = data.getData(); if (uri == null) return;
+                    Bundle args = getArguments();
+                    String gameSerial = args != null ? args.getString(ARG_GAME_SERIAL, "") : "";
+                    if (gameSerial == null || gameSerial.isEmpty()) {
+                        try { gameSerial = NativeApp.getCurrentGameSerial(); } catch (Throwable ignored) {}
+                    }
+                    if (gameSerial == null || gameSerial.isEmpty()) {
+                        android.widget.Toast.makeText(ctx, "Serial unknown; cannot import", android.widget.Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+                    java.io.File baseDir = ctx.getExternalFilesDir(null);
+                    if (baseDir == null) baseDir = ctx.getFilesDir();
+                    java.io.File targetDir = new java.io.File(baseDir, mImportAsCheats ? "cheats" : "patches");
+                    if (!targetDir.exists()) targetDir.mkdirs();
+                    java.io.File outFile = new java.io.File(targetDir, gameSerial + ".pnach");
+                    android.content.ContentResolver cr = ctx.getContentResolver();
+                    java.io.InputStream in = cr.openInputStream(uri);
+                    if (in == null) { android.widget.Toast.makeText(ctx, "Failed to open file", android.widget.Toast.LENGTH_SHORT).show(); return; }
+                    java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
+                    byte[] buf = new byte[8192]; int n; while ((n = in.read(buf)) != -1) fos.write(buf, 0, n);
+                    fos.flush(); fos.close(); in.close();
+
+                    // Mirror to SAF data root if set
+                    android.net.Uri dataRoot = SafManager.getDataRootUri(ctx);
+                    if (dataRoot != null) {
+                        String subdir = mImportAsCheats ? "cheats" : "patches";
+                        androidx.documentfile.provider.DocumentFile target = SafManager.createChild(ctx, new String[]{subdir}, gameSerial + ".pnach", "text/plain");
+                        if (target != null) {
+                            try (java.io.InputStream in2 = cr.openInputStream(android.net.Uri.fromFile(outFile))) {
+                                SafManager.copyFromStream(ctx, in2, target.getUri());
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                    android.widget.Toast.makeText(ctx, (mImportAsCheats ? "Cheats" : "Patch Codes") + " imported for " + gameSerial, android.widget.Toast.LENGTH_SHORT).show();
+                } catch (Exception e) {
+                    android.widget.Toast.makeText(ctx, "Import failed: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
 
         Bundle args = getArguments();
         String gameTitle = args != null ? args.getString(ARG_GAME_TITLE, "Unknown Game") : "Unknown Game";
@@ -88,8 +140,33 @@ public class GameSettingsDialogFragment extends DialogFragment {
         MaterialSwitch swNoInterlacingPatches = view.findViewById(R.id.sw_no_interlacing_patches);
         MaterialSwitch swEnablePatchCodes = view.findViewById(R.id.sw_enable_patch_codes);
         MaterialSwitch swEnableCheats = view.findViewById(R.id.sw_enable_cheats);
+        MaterialSwitch swLoadTextures = view.findViewById(R.id.sw_load_textures_per_game);
+        MaterialSwitch swAsyncTextures = view.findViewById(R.id.sw_async_texture_loading_per_game);
 
-        // Load existing per-game settings from INI and prefill widgets; if missing, use global
+        // Prefill with global defaults
+        android.content.SharedPreferences gp = ctx.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+        int gRenderer = gp.getInt("renderer", -1);
+        float gScale = gp.getFloat("upscale_multiplier", 1.0f);
+        int gBlend = gp.getInt("blending_accuracy", 1);
+        boolean gWide = gp.getBoolean("widescreen_patches", true);
+        boolean gNoInt = gp.getBoolean("no_interlacing_patches", true);
+        boolean gLoadTex = gp.getBoolean("load_textures", false);
+        boolean gAsyncTex = gp.getBoolean("async_texture_loading", true);
+        boolean gCheats = gp.getBoolean("enable_cheats", false);
+
+        // Map to indices
+        int defaultRendererIdx = (gRenderer == -1 ? 0 : (gRenderer == 14 ? 1 : (gRenderer == 12 ? 2 : 3)));
+        int defaultScaleIdx = Math.max(0, Math.min(7, Math.round(gScale) - 1));
+        spRenderer.setSelection(defaultRendererIdx);
+        spResolution.setSelection(defaultScaleIdx);
+        spBlendingAccuracy.setSelection(Math.max(0, Math.min(5, gBlend)));
+        swWidescreenPatches.setChecked(gWide);
+        swNoInterlacingPatches.setChecked(gNoInt);
+        if (swLoadTextures != null) swLoadTextures.setChecked(gLoadTex);
+        if (swAsyncTextures != null) swAsyncTextures.setChecked(gAsyncTex);
+        swEnableCheats.setChecked(gCheats);
+
+        // Load existing per-game settings from INI and prefill widgets; if present overrides globals
         try {
             String serial = gameSerial;
             if (serial == null || serial.isEmpty()) {
@@ -195,17 +272,19 @@ public class GameSettingsDialogFragment extends DialogFragment {
         // Use MaterialAlertDialogBuilder with Material 3 overlay for the main dialog
         MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(ctx,
                 com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog);
-        builder.setTitle("Per-Game Settings")
-               .setView(view)
-               .setNegativeButton("Cancel", (d, w) -> d.dismiss())
-               .setPositiveButton("Save", (d, w) -> {
+        builder.setCustomTitle(UiUtils.centeredDialogTitle(ctx, "Per-Game Settings"))
+                .setView(view)
+                .setNegativeButton("Cancel", (d, w) -> d.dismiss())
+                .setPositiveButton("Save", (d, w) -> {
                    final int blendLevel = spBlendingAccuracy.getSelectedItemPosition();
                    final int rendererIdx = spRenderer.getSelectedItemPosition();
                    final int resIdx = spResolution.getSelectedItemPosition();
                    final boolean wide = swWidescreenPatches.isChecked();
                    final boolean noInt = swNoInterlacingPatches.isChecked();
-                   final boolean enablePatches = swEnablePatchCodes.isChecked();
+                   final boolean enablePatches = true; // always on
                    final boolean enableCheats = swEnableCheats.isChecked();
+                   final boolean loadTex = (swLoadTextures != null && swLoadTextures.isChecked());
+                   final boolean asyncTex = (swAsyncTextures != null && swAsyncTextures.isChecked());
 
                    // Persist per-game INI explicitly (supports Auto as well)
                    writeGameSettingsIni(ctx, gameSerial, gameCrc,
@@ -222,6 +301,8 @@ public class GameSettingsDialogFragment extends DialogFragment {
                        else renderer = 13;
 
                        float scale = Math.max(1, Math.min(8, resIdx + 1));
+                       NativeApp.setLoadTextures(loadTex);
+                       NativeApp.setAsyncTextureLoading(asyncTex);
                        NativeApp.applyPerGameSettingsBatch(renderer, scale, blendLevel, wide, noInt, enablePatches, enableCheats);
                    } catch (Throwable t) {
                        android.util.Log.e("GameSettings", "Per-game batch apply failed: " + t.getMessage());
@@ -250,45 +331,13 @@ public class GameSettingsDialogFragment extends DialogFragment {
                 final String[] choices = new String[]{"Import as Cheats", "Import as Patch Codes"};
                 new MaterialAlertDialogBuilder(ctx,
                         com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                        .setTitle("Import PNACH")
+                        .setCustomTitle(UiUtils.centeredDialogTitle(ctx, "Import PNACH"))
                         .setItems(choices, (dlg, which) -> {
-                            boolean asCheats = (which == 0);
-                            // Prepare picker
+                            mImportAsCheats = (which == 0);
                             Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                             intent.addCategory(Intent.CATEGORY_OPENABLE);
                             intent.setType("*/*");
-                            // Store choice in tag
-                            view.setTag(R.id.btn_import_pnach, asCheats);
-                            registerForActivityResult(new androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult(), result -> {
-                                try {
-                                    if (result.getResultCode() != android.app.Activity.RESULT_OK) return;
-                                    Intent data = result.getData(); if (data == null) return;
-                                    android.net.Uri uri = data.getData(); if (uri == null) return;
-                                    boolean importAsCheats = Boolean.TRUE.equals(view.getTag(R.id.btn_import_pnach));
-                                    String serialLoad = gameSerial;
-                                    if (serialLoad == null || serialLoad.isEmpty()) {
-                                        try { serialLoad = NativeApp.getCurrentGameSerial(); } catch (Throwable ignored) {}
-                                    }
-                                    if (serialLoad == null || serialLoad.isEmpty()) {
-                                        android.widget.Toast.makeText(ctx, "Serial unknown; cannot import", android.widget.Toast.LENGTH_SHORT).show();
-                                        return;
-                                    }
-                                    java.io.File baseDir = ctx.getExternalFilesDir(null);
-                                    if (baseDir == null) baseDir = ctx.getFilesDir();
-                                    java.io.File targetDir = new java.io.File(baseDir, importAsCheats ? "cheats" : "patches");
-                                    if (!targetDir.exists()) targetDir.mkdirs();
-                                    java.io.File outFile = new java.io.File(targetDir, serialLoad + ".pnach");
-                                    android.content.ContentResolver cr = ctx.getContentResolver();
-                                    java.io.InputStream in = cr.openInputStream(uri);
-                                    if (in == null) { android.widget.Toast.makeText(ctx, "Failed to open file", android.widget.Toast.LENGTH_SHORT).show(); return; }
-                                    java.io.FileOutputStream fos = new java.io.FileOutputStream(outFile);
-                                    byte[] buf = new byte[8192]; int n; while ((n = in.read(buf)) != -1) fos.write(buf, 0, n);
-                                    fos.flush(); fos.close(); in.close();
-                                    android.widget.Toast.makeText(ctx, (importAsCheats ? "Cheats" : "Patch Codes") + " imported for " + serialLoad, android.widget.Toast.LENGTH_SHORT).show();
-                                } catch (Exception e) {
-                                    android.widget.Toast.makeText(ctx, "Import failed: " + e.getMessage(), android.widget.Toast.LENGTH_SHORT).show();
-                                }
-                            }).launch(intent);
+                            mPnachPicker.launch(intent);
                         })
                         .show();
             });
@@ -374,6 +423,18 @@ public class GameSettingsDialogFragment extends DialogFragment {
                 fos.flush();
                 fos.close();
             } catch (Exception ignored) {}
+
+            // Mirror to SAF data root if set
+            android.net.Uri dataRoot = SafManager.getDataRootUri(ctx);
+            if (dataRoot != null) {
+                try {
+                    androidx.documentfile.provider.DocumentFile target = SafManager.createChild(ctx, new String[]{"gamesettings"}, fileName, "text/plain");
+                    if (target != null) {
+                        byte[] data = sb.toString().getBytes("UTF-8");
+                        SafManager.writeBytes(ctx, target.getUri(), data);
+                    }
+                } catch (Exception ignored) {}
+            }
         } catch (Throwable ignored) {
         }
     }

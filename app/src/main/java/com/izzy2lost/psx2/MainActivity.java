@@ -29,6 +29,7 @@ import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.util.TypedValue;
+import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -58,6 +59,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private HIDDeviceManager mHIDDeviceManager;
     private ControllerInputHandler mControllerInputHandler;
     private Thread mEmulationThread = null;
+    private boolean mSetupWizardActive = false;
     private boolean mHudVisible = false;
     private InputManager mInputManager;
     
@@ -249,12 +251,17 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (hasFocus) hideStatusBar();
     }
 
-    private void pickGamesFolder() {
+    public void pickGamesFolder() {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
         intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
                 | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
                 | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
         startActivityResultGamesFolderPick.launch(intent);
+    }
+
+    // Let the user select a data root (SAF) where app folders/files live (covers, resources, saves, etc.)
+    public void pickDataRootFolder() {
+        startActivityResultDataRootPick.launch(SafManager.buildOpenTreeIntent());
     }
 
     private void showGamesListOrReselect(Uri treeUri) {
@@ -276,7 +283,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (namesFinal.length == 0) {
             new MaterialAlertDialogBuilder(this,
                     com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                    .setTitle("GAMES")
+                    .setCustomTitle(UiUtils.centeredDialogTitle(this, "GAMES"))
                     .setMessage("No games found. Pick a folder?")
                     .setNegativeButton("Cancel", null)
                     .setPositiveButton("Pick Folder", (d,w) -> pickGamesFolder())
@@ -381,6 +388,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
         // Default resources
         copyAssetAll(getApplicationContext(), "resources");
+        // If a SAF data root is set, mirror resources to it (first time only)
+        copyAssetsToSafDataRoot();
 
         Initialize();
 
@@ -402,8 +411,10 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         int currentOrientation = getResources().getConfiguration().orientation;
         applyConstraintsForOrientation(currentOrientation);
       
-        // Prompt for BIOS if missing
-        maybePromptForBios();
+        // Prompt for BIOS if missing, but only after first-run setup
+        if (getSharedPreferences("app_prefs", MODE_PRIVATE).getBoolean("first_run_done", false)) {
+            maybePromptForBios();
+        }
 
         // Listen for controller attach/detach and update UI accordingly
         mInputManager = (InputManager) getSystemService(Context.INPUT_SERVICE);
@@ -411,6 +422,17 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             mInputManager.registerInputDeviceListener(mInputDeviceListener, null);
         }
         updateUiForControllerPresence();
+
+        // Show first-run setup wizard if needed
+        if (!getSharedPreferences("app_prefs", MODE_PRIVATE).getBoolean("first_run_done", false)) {
+            SetupWizardDialogFragment f = SetupWizardDialogFragment.newInstance();
+            f.setCancelable(false);
+            f.show(getSupportFragmentManager(), "setup_wizard");
+        }
+    }
+
+    public void setSetupWizardActive(boolean active) {
+        mSetupWizardActive = active;
     }
 
     // Public method to open the games covers dialog via controller quick actions
@@ -460,6 +482,11 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             btn_saves.setOnClickListener(v -> {
                 SavesDialogFragment dialog = new SavesDialogFragment();
                 dialog.show(getSupportFragmentManager(), "saves_dialog");
+            });
+            // Long-press: choose SAF data folder for app files (covers/resources/etc)
+            btn_saves.setOnLongClickListener(v -> {
+                pickDataRootFolder();
+                return true;
             });
         }
 
@@ -822,6 +849,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         return "VK"; // 14
     }
 
+
     private void updateRendererButtonLabel() {
         MaterialButton btn_bios = findViewById(R.id.btn_bios);
         if (btn_bios != null) {
@@ -933,23 +961,24 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     }
 
     private void maybePromptForBios() {
+        // Temporarily disable automatic BIOS prompt
+        if (!getSharedPreferences("app_prefs", MODE_PRIVATE).getBoolean("bios_auto_prompt_enabled", false))
+            return;
         File biosDir = new File(getApplicationContext().getExternalFilesDir(null), "bios");
         if (hasAnyBiosFiles(biosDir)) return;
         showBiosPrompt();
     }
 
     private boolean ensureBiosOrPrompt() {
-        File biosDir = new File(getApplicationContext().getExternalFilesDir(null), "bios");
-        if (hasAnyBiosFiles(biosDir)) return true;
-        showBiosPrompt();
-        return false;
+        // Temporarily disable automatic BIOS prompting; wizard handles manual import
+        return true;
     }
 
-    private void showBiosPrompt() {
+    public void showBiosPrompt() {
         if (mBiosPromptDialog != null && mBiosPromptDialog.isShowing()) return;
         mBiosPromptDialog = new com.google.android.material.dialog.MaterialAlertDialogBuilder(this,
                 com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle("BIOS Required")
+                .setCustomTitle(UiUtils.centeredDialogTitle(this, "BIOS Required"))
                 .setMessage("No PS2 BIOS detected. Import your BIOS files to run games.\n\nHint: Press Select+Start for Quick Actions.")
                 .setNegativeButton("Later", (d, w) -> { /* leave dialog dismiss */ })
                 .setPositiveButton("Pick Files", (d, w) -> {
@@ -1011,7 +1040,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         final int RENDERER_SOFTWARE = 13;
         final int RENDERER_VULKAN = 14;
         
-        int renderer = prefs.getInt("renderer", RENDERER_VULKAN);
+        // Default to Automatic (-1) so the core can select a compatible renderer on older devices
+        int renderer = prefs.getInt("renderer", -1);
         NativeApp.renderGpu(renderer);
 
         // Resolution scale multiplier (float), default 1.0
@@ -1151,17 +1181,57 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                                         getContentResolver().takePersistableUriPermission(treeUri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
                                     } catch (SecurityException ignored) {}
                                 }
-                                // Save folder and show games
+                                // Save folder and optionally show games
                                 getSharedPreferences("app_prefs", MODE_PRIVATE)
                                         .edit()
                                         .putString("games_folder_uri", treeUri.toString())
                                         .apply();
-                                showGamesListOrReselect(treeUri);
+                                if (!mSetupWizardActive) {
+                                    showGamesListOrReselect(treeUri);
+                                } else {
+                                    Toast.makeText(this, "Games folder set", Toast.LENGTH_SHORT).show();
+                                }
                             }
                         }
                     } catch (Exception ignored) {}
                 }
             });
+
+    // SAF data-root picker result
+    public final ActivityResultLauncher<Intent> startActivityResultDataRootPick = registerForActivityResult(
+            new ActivityResultContracts.StartActivityForResult(),
+            result -> {
+                if (result.getResultCode() == Activity.RESULT_OK) {
+                    try {
+                        Intent data = result.getData();
+                        if (data != null) {
+                            Uri treeUri = data.getData();
+                            if (treeUri != null) {
+                                final int takeFlags = data.getFlags() & (Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+                                try { getContentResolver().takePersistableUriPermission(treeUri, takeFlags); } catch (SecurityException ignored) {}
+                                SafManager.setDataRootUri(this, treeUri);
+                                // Seed default resources to SAF data root
+                                copyAssetsToSafDataRoot();
+                                Toast.makeText(this, "Data folder set", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            });
+
+    // Copies assets/resources under the selected SAF data root (resources/..)
+    private void copyAssetsToSafDataRoot() {
+        Uri root = SafManager.getDataRootUri(this);
+        if (root == null) return;
+        // Only seed once
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        if (prefs.getBoolean("saf_resources_seeded", false)) return;
+        // Flatten copy of assets/resources directory to SAF
+        try {
+            copyAssetAllToSaf(getApplicationContext(), "resources");
+            prefs.edit().putBoolean("saf_resources_seeded", true).apply();
+        } catch (Throwable ignored) {}
+    }
 
     private void importSingleBiosUri(Uri uri, File biosDir) {
         if (uri == null) return;
@@ -1169,6 +1239,16 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (TextUtils.isEmpty(displayName)) displayName = "bios.bin";
         File outFile = new File(biosDir, displayName);
         copyUriToFile(this, uri, outFile);
+        // Also mirror to SAF data root if set
+        android.net.Uri dataRoot = SafManager.getDataRootUri(this);
+        if (dataRoot != null) {
+            androidx.documentfile.provider.DocumentFile target = SafManager.createChild(this, new String[]{"bios"}, displayName, "application/octet-stream");
+            if (target != null) {
+                try (java.io.InputStream in = getContentResolver().openInputStream(uri)) {
+                    SafManager.copyFromStream(this, in, target.getUri());
+                } catch (Exception ignored) {}
+            }
+        }
     }
 
     private void copyDocumentTreeToDirectory(DocumentFile dir, File outDir) {
@@ -1334,13 +1414,16 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         
         // Apply global renderer setting before starting new game
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
-        int renderer = prefs.getInt("renderer", 14); // Default to Vulkan if no setting
+        // Default to Automatic (-1) so the core can pick the best available backend (Vulkan/OpenGL/Software)
+        int renderer = prefs.getInt("renderer", -1);
         android.util.Log.d("MainActivity", "Applying global renderer before game restart: " + renderer);
         NativeApp.renderGpu(renderer);
         
         ////
         startEmuThread();
     }
+
+    // (Renderer toast temporarily removed per user request — AUTO behavior retained.)
 
     // Public API for UI components to reboot the emulator
     public void rebootEmu() {
@@ -1351,6 +1434,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             NativeApp.shutdown();
         }
     }
+
+    
 
     @Override
     public boolean onGenericMotionEvent(MotionEvent event) {
@@ -1452,6 +1537,46 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         } catch (IOException ignored) {}
     }
 
+    // Mirror asset folder into SAF data root (if set)
+    private void copyAssetAllToSaf(Context context, String srcPath) {
+        Uri dataRoot = SafManager.getDataRootUri(context);
+        if (dataRoot == null) return;
+        AssetManager assetMgr = context.getAssets();
+        try {
+            String[] assets = assetMgr.list(srcPath);
+            if (assets != null) {
+                if (assets.length == 0) {
+                    // It's a file under srcPath; create it in SAF
+                    String[] parts = srcPath.split("/");
+                    String filename = parts.length > 0 ? parts[parts.length - 1] : srcPath;
+                    String[] dirSegs = parts.length > 1 ? java.util.Arrays.copyOf(parts, parts.length - 1) : new String[0];
+                    DocumentFile existing = SafManager.getChild(context, dirSegs, filename);
+                    if (existing != null && existing.length() > 0) return;
+                    DocumentFile target = SafManager.createChild(context, dirSegs, filename, guessMime(filename));
+                    if (target != null) {
+                        try (InputStream is = assetMgr.open(srcPath)) {
+                            SafManager.copyFromStream(context, is, target.getUri());
+                        } catch (Exception ignored) {}
+                    }
+                } else {
+                    for (String element : assets) {
+                        copyAssetAllToSaf(context, srcPath + File.separator + element);
+                    }
+                }
+            }
+        } catch (IOException ignored) {}
+    }
+
+    private static String guessMime(String filename) {
+        String lower = filename.toLowerCase(java.util.Locale.ROOT);
+        if (lower.endsWith(".png")) return "image/png";
+        if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
+        if (lower.endsWith(".yaml") || lower.endsWith(".yml")) return "application/x-yaml";
+        if (lower.endsWith(".zip")) return "application/zip";
+        if (lower.endsWith(".txt")) return "text/plain";
+        return "application/octet-stream";
+    }
+
     private static void copyFile(Context context, String srcFile, String destFile) {
         AssetManager assetMgr = context.getAssets();
         InputStream is = null;
@@ -1490,7 +1615,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private void showExitDialog() {
         new MaterialAlertDialogBuilder(this,
                 com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle("Exit App")
+                .setCustomTitle(UiUtils.centeredDialogTitle(this, "Exit App"))
                 .setMessage("Do you want to exit PSX2?")
                 .setIcon(android.R.drawable.ic_dialog_alert)
                 .setPositiveButton("Exit", (dialog, which) -> {

@@ -113,6 +113,42 @@ public class NativeApp {
     public static native String getGameSerial(String gameUri);
     public static native String getGameCrc(String gameUri);
     public static native String getCurrentGameSerial();
+    
+    // Synchronization object for CDVD operations to prevent crashes
+    private static final Object CDVD_LOCK = new Object();
+    
+    // Synchronized wrapper for getGameSerial to prevent CDVD race conditions
+    public static String getGameSerialSafe(String gameUri) {
+        synchronized (CDVD_LOCK) {
+            try {
+                return getGameSerial(gameUri);
+            } catch (Exception e) {
+                return "";
+            }
+        }
+    }
+    
+    // Synchronized wrapper for getGameTitleFromUri to prevent CDVD race conditions
+    public static String getGameTitleFromUriSafe(String gameUri) {
+        synchronized (CDVD_LOCK) {
+            try {
+                return getGameTitleFromUri(gameUri);
+            } catch (Exception e) {
+                return "";
+            }
+        }
+    }
+    
+    // Synchronized wrapper for getGameCrc to prevent CDVD race conditions
+    public static String getGameCrcSafe(String gameUri) {
+        synchronized (CDVD_LOCK) {
+            try {
+                return getGameCrc(gameUri);
+            } catch (Exception e) {
+                return "";
+            }
+        }
+    }
 
 	public static native void onNativeSurfaceCreated();
 	public static native void onNativeSurfaceChanged(Surface surface, int w, int h);

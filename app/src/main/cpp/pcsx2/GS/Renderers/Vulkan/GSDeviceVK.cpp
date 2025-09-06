@@ -114,7 +114,17 @@ VkInstance GSDeviceVK::CreateVulkanInstance(const WindowInfo& wi, OptionalExtens
 	app_info.pEngineName = "PCSX2";
 	app_info.engineVersion = VK_MAKE_VERSION(
 		BuildVersion::GitTagHi, BuildVersion::GitTagMid, BuildVersion::GitTagLo);
-	app_info.apiVersion = VK_API_VERSION_1_1;
+    // Prefer a newer Vulkan API when available, but clamp to loader support.
+    // This unlocks newer features on capable drivers without breaking older ones.
+    uint32_t loader_api_version = VK_API_VERSION_1_1;
+    if (vkEnumerateInstanceVersion)
+    {
+        uint32_t ver = 0;
+        if (vkEnumerateInstanceVersion(&ver) == VK_SUCCESS && ver != 0)
+            loader_api_version = ver;
+    }
+    const uint32_t desired_api_version = VK_API_VERSION_1_3; // headers provide up to 1.4, 1.3 is widely supported
+    app_info.apiVersion = (loader_api_version < desired_api_version) ? loader_api_version : desired_api_version;
 
 	VkInstanceCreateInfo instance_create_info = {};
 	instance_create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;

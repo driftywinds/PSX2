@@ -149,14 +149,16 @@ u32 AudioStream::GetMSForBufferSize(u32 sample_rate, u32 buffer_size)
 }
 
 static constexpr const std::array s_backend_names = {
-	"Null",
-	"Cubeb",
-	"SDL",
+    "Null",
+    "Cubeb",
+    "SDL",
+    "Oboe",
 };
 static constexpr const std::array s_backend_display_names = {
-	TRANSLATE_NOOP("AudioStream", "Null (No Output)"),
-	TRANSLATE_NOOP("AudioStream", "Cubeb"),
-	TRANSLATE_NOOP("AudioStream", "SDL"),
+    TRANSLATE_NOOP("AudioStream", "Null (No Output)"),
+    TRANSLATE_NOOP("AudioStream", "Cubeb"),
+    TRANSLATE_NOOP("AudioStream", "SDL"),
+    TRANSLATE_NOOP("AudioStream", "Oboe"),
 };
 
 std::optional<AudioBackend> AudioStream::ParseBackendName(const char* str)

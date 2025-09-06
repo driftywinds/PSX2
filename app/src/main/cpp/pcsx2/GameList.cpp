@@ -24,6 +24,7 @@
 #include <cstdio>
 #include <ctime>
 #include <fstream>
+#include <mutex>
 #include <string_view>
 #include <utility>
 
@@ -214,20 +215,34 @@ void GameList::FillBootParametersForEntry(VMBootParameters* params, const Entry*
 
 bool GameList::GetIsoSerialAndCRC(const std::string& path, s32* disc_type, std::string* serial, u32* crc)
 {
+	// Add a static mutex to protect CDVD operations during scanning
+	static std::mutex cdvd_scan_mutex;
+	std::lock_guard<std::mutex> lock(cdvd_scan_mutex);
+	
 	Error error;
 
+	// Save the current CDVD state to restore it later (thread safety)
+	const CDVD_API* prev_cdvd = CDVD;
+	
 	// This isn't great, we really want to make it all thread-local...
 	CDVD = &CDVDapi_Iso;
 	if (!CDVD->open(path, &error))
 	{
 		Console.Error(fmt::format("(GameList::GetIsoSerialAndCRC) CDVD open of '{}' failed: {}", path, error.GetDescription()));
+		// Restore previous CDVD state
+		CDVD = prev_cdvd;
 		return false;
 	}
 
 	// TODO: we could include the version in the game list?
 	*disc_type = DoCDVDdetectDiskType();
+	
 	cdvdGetDiscInfo(serial, nullptr, nullptr, crc, nullptr);
+	
 	DoCDVDclose();
+	
+	// Restore previous CDVD state
+	CDVD = prev_cdvd;
 	return true;
 }
 

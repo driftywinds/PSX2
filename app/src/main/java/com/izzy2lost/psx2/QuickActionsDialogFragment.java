@@ -40,7 +40,7 @@ public class QuickActionsDialogFragment extends DialogFragment {
             btnExitToMenu.setOnClickListener(v -> {
                 new MaterialAlertDialogBuilder(requireContext(),
                         com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                        .setTitle("Exit to Menu")
+                        .setCustomTitle(UiUtils.centeredDialogTitle(requireContext(), "Exit to Menu"))
                         .setMessage("This feature is not implemented yet. Would you like to quit the app instead?")
                         .setNegativeButton("Cancel", null)
                         .setPositiveButton("Quit App", (d, w) -> {
@@ -56,7 +56,7 @@ public class QuickActionsDialogFragment extends DialogFragment {
             btnRestartGame.setOnClickListener(v -> {
                 new MaterialAlertDialogBuilder(requireContext(),
                         com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                        .setTitle("Restart Game")
+                        .setCustomTitle(UiUtils.centeredDialogTitle(requireContext(), "Restart Game"))
                         .setMessage("Restart the current game?")
                         .setNegativeButton("Cancel", null)
                         .setPositiveButton("Restart", (d, w) -> {
@@ -76,7 +76,7 @@ public class QuickActionsDialogFragment extends DialogFragment {
             btnQuitApp.setOnClickListener(v -> {
                 new MaterialAlertDialogBuilder(requireContext(),
                         com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                        .setTitle("Quit App")
+                        .setCustomTitle(UiUtils.centeredDialogTitle(requireContext(), "Quit App"))
                         .setMessage("Quit PSX2?")
                         .setNegativeButton("Cancel", null)
                         .setPositiveButton("Quit", (d, w) -> {
