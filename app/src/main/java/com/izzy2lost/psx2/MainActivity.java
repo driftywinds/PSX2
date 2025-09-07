@@ -521,6 +521,13 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 SettingsDialogFragment dialog = new SettingsDialogFragment();
                 dialog.show(fm, "settings_dialog");
             });
+            // Long-press to open Cheats manager
+            btn_settings.setOnLongClickListener(v -> {
+                FragmentManager fm2 = getSupportFragmentManager();
+                CheatsDialogFragment cd = new CheatsDialogFragment();
+                cd.show(fm2, "cheats_dialog");
+                return true;
+            });
         }
 
         // Toggle all UI visibility (including controls)
@@ -1742,3 +1749,4 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         }
     }
 }
+

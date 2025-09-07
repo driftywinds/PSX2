@@ -42,6 +42,7 @@ public class SettingsDialogFragment extends DialogFragment {
         boolean noInterlacingPatches = prefs.getBoolean("no_interlacing_patches", true);
         boolean loadTextures = prefs.getBoolean("load_textures", false);
         boolean asyncTextureLoading = prefs.getBoolean("async_texture_loading", true);
+        boolean precacheTextures = prefs.getBoolean("precache_textures", false);
         boolean hudVisible = prefs.getBoolean("hud_visible", false);
         
         // Debug logging
@@ -58,6 +59,7 @@ public class SettingsDialogFragment extends DialogFragment {
         NativeApp.setNoInterlacingPatches(noInterlacingPatches);
         NativeApp.setLoadTextures(loadTextures);
         NativeApp.setAsyncTextureLoading(asyncTextureLoading);
+        NativeApp.setPrecacheTextureReplacements(precacheTextures);
         NativeApp.setHudVisible(hudVisible);
         
         // Set brighter default brightness (60 instead of 50)
@@ -85,6 +87,7 @@ public class SettingsDialogFragment extends DialogFragment {
         MaterialSwitch swNoInterlacing = view.findViewById(R.id.sw_no_interlacing);
         MaterialSwitch swLoadTextures = view.findViewById(R.id.sw_load_textures);
         MaterialSwitch swAsyncTextureLoading = view.findViewById(R.id.sw_async_texture_loading);
+        MaterialSwitch swPrecacheTextures = view.findViewById(R.id.sw_precache_textures);
         MaterialSwitch swDevHud = view.findViewById(R.id.sw_dev_hud);
         View btnPower = view.findViewById(R.id.btn_power);
         View btnReboot = view.findViewById(R.id.btn_reboot);
@@ -187,6 +190,7 @@ public class SettingsDialogFragment extends DialogFragment {
         boolean savedNoInterlacing = prefs.getBoolean("no_interlacing_patches", true);
         boolean savedLoadTextures = prefs.getBoolean("load_textures", false);
         boolean savedAsyncTextureLoading = prefs.getBoolean("async_texture_loading", true);
+        boolean savedPrecacheTextures = prefs.getBoolean("precache_textures", false);
         boolean savedHud = prefs.getBoolean("hud_visible", false);
         boolean savedCheatsGlobal = prefs.getBoolean("enable_cheats", false);
         int savedBlending = prefs.getInt("blending_accuracy", 1);
@@ -213,6 +217,7 @@ public class SettingsDialogFragment extends DialogFragment {
         swNoInterlacing.setChecked(savedNoInterlacing);
         swLoadTextures.setChecked(savedLoadTextures);
         swAsyncTextureLoading.setChecked(savedAsyncTextureLoading);
+        if (swPrecacheTextures != null) swPrecacheTextures.setChecked(savedPrecacheTextures);
         if (swDevHud != null) swDevHud.setChecked(savedHud);
         MaterialSwitch swCheatsGlobal = view.findViewById(R.id.sw_enable_cheats_global);
         if (swCheatsGlobal != null) swCheatsGlobal.setChecked(savedCheatsGlobal);
@@ -235,7 +240,8 @@ public class SettingsDialogFragment extends DialogFragment {
              boolean widescreenPatches = swWidescreen.isChecked();
              boolean noInterlacingPatches = swNoInterlacing.isChecked();
              boolean loadTextures = swLoadTextures.isChecked();
-             boolean asyncTextureLoading = swAsyncTextureLoading.isChecked();
+            boolean asyncTextureLoading = swAsyncTextureLoading.isChecked();
+            boolean precacheTextureReplacements = swPrecacheTextures != null && swPrecacheTextures.isChecked();
             boolean hudVisible = (swDevHud != null && swDevHud.isChecked());
             boolean enableCheatsGlobal = swCheatsGlobal != null && swCheatsGlobal.isChecked();
 
@@ -250,17 +256,20 @@ public class SettingsDialogFragment extends DialogFragment {
                     .putBoolean("no_interlacing_patches", noInterlacingPatches)
                     .putBoolean("load_textures", loadTextures)
                     .putBoolean("async_texture_loading", asyncTextureLoading)
+                    .putBoolean("precache_textures", precacheTextureReplacements)
                     .putBoolean("hud_visible", hudVisible)
                     .putBoolean("enable_cheats", enableCheatsGlobal)
                     .apply();
 
              // Apply in one batch to avoid repeated ApplySettings calls
-             try {
-                 NativeApp.applyGlobalSettingsBatch(renderer, scale, aspectRatio, blendingLevel,
-                         widescreenPatches, noInterlacingPatches, loadTextures, asyncTextureLoading, hudVisible);
-             } catch (Throwable t) {
-                 android.util.Log.e("SettingsDialog", "Batch apply failed: " + t.getMessage());
-             }
+            try {
+                NativeApp.applyGlobalSettingsBatch(renderer, scale, aspectRatio, blendingLevel,
+                        widescreenPatches, noInterlacingPatches, loadTextures, asyncTextureLoading, hudVisible);
+                // Apply precache separately (not part of the batch JNI)
+                NativeApp.setPrecacheTextureReplacements(precacheTextureReplacements);
+            } catch (Throwable t) {
+                android.util.Log.e("SettingsDialog", "Apply failed: " + t.getMessage());
+            }
 
              // Refresh quick UI (renderer label) if hosting activity is MainActivity
              try {

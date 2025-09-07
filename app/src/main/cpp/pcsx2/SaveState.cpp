@@ -42,6 +42,11 @@
 
 #include <csetjmp>
 #include <png.h>
+#if defined(__ANDROID__)
+// includes previously used for fd-based zip sinks; left guarded for future use
+#include <unistd.h>
+#include <fcntl.h>
+#endif
 
 using namespace R5900;
 
@@ -1040,29 +1045,29 @@ static bool SaveState_AddToZip(zip_t* zf, ArchiveEntryList* srclist, SaveStateSc
 
 bool SaveState_ZipToDisk(std::unique_ptr<ArchiveEntryList> srclist, std::unique_ptr<SaveStateScreenshotData> screenshot, const char* filename)
 {
-	zip_error_t ze = {};
-	zip_source_t* zs = zip_source_file_create(filename, 0, 0, &ze);
-	zip_t* zf = nullptr;
-	if (zs && !(zf = zip_open_from_source(zs, ZIP_CREATE | ZIP_TRUNCATE, &ze)))
-	{
-		Console.Error("Failed to open zip file '%s' for save state: %s", filename, zip_error_strerror(&ze));
+    zip_error_t ze = {};
+    zip_source_t* zs = zip_source_file_create(filename, 0, 0, &ze);
+    zip_t* zf = nullptr;
+    if (zs && !(zf = zip_open_from_source(zs, ZIP_CREATE | ZIP_TRUNCATE, &ze)))
+    {
+        Console.Error("Failed to open zip file '%s' for save state: %s", filename, zip_error_strerror(&ze));
 
-		// have to clean up source
-		zip_source_free(zs);
-		return false;
-	}
+        // have to clean up source
+        zip_source_free(zs);
+        return false;
+    }
 
-	// discard zip file if we fail saving something
-	if (!SaveState_AddToZip(zf, srclist.get(), screenshot.get()))
-	{
-		Console.Error("Failed to save state to zip file '%s'", filename);
-		zip_discard(zf);
-		return false;
-	}
+    // discard zip file if we fail saving something
+    if (!SaveState_AddToZip(zf, srclist.get(), screenshot.get()))
+    {
+        Console.Error("Failed to save state to zip file '%s'", filename);
+        zip_discard(zf);
+        return false;
+    }
 
-	// force the zip to close, this is the expensive part with libzip.
-	zip_close(zf);
-	return true;
+    // force the zip to close, this is the expensive part with libzip.
+    zip_close(zf);
+    return true;
 }
 
 bool SaveState_ReadScreenshot(const std::string& filename, u32* out_width, u32* out_height, std::vector<u32>* out_pixels)

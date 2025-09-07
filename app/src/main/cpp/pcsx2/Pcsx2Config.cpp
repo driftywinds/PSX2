@@ -2259,7 +2259,7 @@ void EmuFolders::LoadConfig(SettingsInterface& si)
 	Cheats = LoadPathFromSettings(si, DataRoot, "Cheats", "cheats");
 	Patches = LoadPathFromSettings(si, DataRoot, "Patches", "patches");
 	Covers = LoadPathFromSettings(si, DataRoot, "Covers", "covers");
-	GameSettings = LoadPathFromSettings(si, DataRoot, "GameSettings", "gamesettings");
+    GameSettings = LoadPathFromSettings(si, DataRoot, "GameSettings", "gamesettings");
 	UserResources = LoadPathFromSettings(si, DataRoot, "UserResources", "resources");
 	Cache = LoadPathFromSettings(si, DataRoot, "Cache", "cache");
 	Textures = LoadPathFromSettings(si, DataRoot, "Textures", "textures");
@@ -2276,7 +2276,7 @@ void EmuFolders::LoadConfig(SettingsInterface& si)
 	Console.WriteLn("Cheats Directory: %s", Cheats.c_str());
 	Console.WriteLn("Patches Directory: %s", Patches.c_str());
 	Console.WriteLn("Covers Directory: %s", Covers.c_str());
-	Console.WriteLn("Game Settings Directory: %s", GameSettings.c_str());
+    Console.WriteLn("Game Settings Directory: %s", GameSettings.c_str());
 	Console.WriteLn("Resources Directory: %s", Resources.c_str());
 	Console.WriteLn("User Resources Directory: %s", UserResources.c_str());
 	Console.WriteLn("Cache Directory: %s", Cache.c_str());

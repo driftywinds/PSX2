@@ -80,7 +80,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
                     android.net.Uri dataRoot = SafManager.getDataRootUri(ctx);
                     if (dataRoot != null) {
                         String subdir = mImportAsCheats ? "cheats" : "patches";
-                        androidx.documentfile.provider.DocumentFile target = SafManager.createChild(ctx, new String[]{subdir}, gameSerial + ".pnach", "text/plain");
+                        androidx.documentfile.provider.DocumentFile target = SafManager.createChild(ctx, new String[]{subdir}, gameSerial + ".pnach", "application/octet-stream");
                         if (target != null) {
                             try (java.io.InputStream in2 = cr.openInputStream(android.net.Uri.fromFile(outFile))) {
                                 SafManager.copyFromStream(ctx, in2, target.getUri());
@@ -428,7 +428,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
             android.net.Uri dataRoot = SafManager.getDataRootUri(ctx);
             if (dataRoot != null) {
                 try {
-                    androidx.documentfile.provider.DocumentFile target = SafManager.createChild(ctx, new String[]{"gamesettings"}, fileName, "text/plain");
+                    androidx.documentfile.provider.DocumentFile target = SafManager.createChild(ctx, new String[]{"gamesettings"}, fileName, "application/octet-stream");
                     if (target != null) {
                         byte[] data = sb.toString().getBytes("UTF-8");
                         SafManager.writeBytes(ctx, target.getUri(), data);

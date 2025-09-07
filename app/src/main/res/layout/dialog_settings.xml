@@ -208,6 +208,14 @@
                 android:text="Async Texture Loading"
                 android:layout_marginTop="8dp"
                 style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/sw_precache_textures"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Precache Texture Replacements"
+                android:layout_marginTop="8dp"
+                style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
         </LinearLayout>
 
         <View

@@ -10,6 +10,7 @@
 
 #include "Console.h"
 
+
 static inline std::unique_ptr<zip_t, void (*)(zip_t*)> zip_open_managed(const char* filename, int flags, zip_error_t* ze)
 {
 	zip_source_t* zs = zip_source_file_create(filename, 0, 0, ze);

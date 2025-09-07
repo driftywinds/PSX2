@@ -75,16 +75,16 @@ INISettingsInterface::~INISettingsInterface()
 
 bool INISettingsInterface::Load()
 {
-	if (m_filename.empty())
-		return false;
+    if (m_filename.empty())
+        return false;
 
-	std::unique_lock lock(s_ini_load_save_mutex);
-	SI_Error err = SI_FAIL;
-	auto fp = FileSystem::OpenManagedCFile(m_filename.c_str(), "rb");
-	if (fp)
-		err = m_ini.LoadFile(fp.get());
+    std::unique_lock lock(s_ini_load_save_mutex);
+    SI_Error err = SI_FAIL;
+    auto fp = FileSystem::OpenManagedCFile(m_filename.c_str(), "rb");
+    if (fp)
+        err = m_ini.LoadFile(fp.get());
 
-	return (err == SI_OK);
+    return (err == SI_OK);
 }
 
 bool INISettingsInterface::Save(Error* error)
@@ -95,29 +95,37 @@ bool INISettingsInterface::Save(Error* error)
 		return false;
 	}
 
-	std::unique_lock lock(s_ini_load_save_mutex);
-	std::string temp_filename;
-	std::FILE* fp = GetTemporaryFile(&temp_filename, m_filename, "wb", error);
-	SI_Error err = SI_FAIL;
-	if (fp)
-	{
-		err = m_ini.SaveFile(fp, false);
-		std::fclose(fp);
+    std::unique_lock lock(s_ini_load_save_mutex);
+    SI_Error err = SI_FAIL;
+    if (m_filename.rfind("saf://", 0) == 0)
+    {
+        // Direct write to SAF file; no temp/rename
+        auto fp = FileSystem::OpenManagedCFile(m_filename.c_str(), "wb", error);
+        if (fp)
+            err = m_ini.SaveFile(fp.get(), false);
+    }
+    else
+    {
+        std::string temp_filename;
+        std::FILE* fp = GetTemporaryFile(&temp_filename, m_filename, "wb", error);
+        if (fp)
+        {
+            err = m_ini.SaveFile(fp, false);
+            std::fclose(fp);
 
-		if (err != SI_OK)
-		{
-			Error::SetStringFmt(error, "INI SaveFile() failed: {}", static_cast<int>(err));
-
-			// remove temporary file
-			FileSystem::DeleteFilePath(temp_filename.c_str());
-		}
-		else if (!FileSystem::RenamePath(temp_filename.c_str(), m_filename.c_str(), error))
-		{
-			Console.Error("Failed to rename '%s' to '%s'", temp_filename.c_str(), m_filename.c_str());
-			FileSystem::DeleteFilePath(temp_filename.c_str());
-			return false;
-		}
-	}
+            if (err != SI_OK)
+            {
+                Error::SetStringFmt(error, "INI SaveFile() failed: {}", static_cast<int>(err));
+                FileSystem::DeleteFilePath(temp_filename.c_str());
+            }
+            else if (!FileSystem::RenamePath(temp_filename.c_str(), m_filename.c_str(), error))
+            {
+                Console.Error("Failed to rename '%s' to '%s'", temp_filename.c_str(), m_filename.c_str());
+                FileSystem::DeleteFilePath(temp_filename.c_str());
+                return false;
+            }
+        }
+    }
 
 	if (err != SI_OK)
 	{

@@ -27,6 +27,9 @@
 #include "MTGS.h"
 #include "SDL3/SDL.h"
 #include <future>
+#ifdef __ANDROID__
+#include "SDL3/SDL.h"
+#endif
 
 
 bool s_execute_exit;
@@ -492,6 +495,18 @@ Java_com_izzy2lost_psx2_NativeApp_setAsyncTextureLoading(JNIEnv *env, jclass cla
 
 extern "C"
 JNIEXPORT void JNICALL
+Java_com_izzy2lost_psx2_NativeApp_setPrecacheTextureReplacements(JNIEnv *env, jclass clazz,
+                                                                 jboolean p_enabled) {
+    s_settings_interface.SetBoolValue("EmuCore/GS", "PrecacheTextureReplacements", p_enabled);
+
+    // Apply the settings immediately if emulation is running
+    if (VMManager::HasValidVM()) {
+        VMManager::ApplySettings();
+    }
+}
+
+extern "C"
+JNIEXPORT void JNICALL
 Java_com_izzy2lost_psx2_NativeApp_setShadeBoost(JNIEnv *env, jclass clazz,
                                                  jboolean p_enabled) {
     s_settings_interface.SetBoolValue("EmuCore/GS", "ShadeBoost", p_enabled);
@@ -673,7 +688,7 @@ Java_com_izzy2lost_psx2_NativeApp_saveGameSettingsToPath(JNIEnv *env, jclass cla
     // Check if file actually exists and has content
     if (FileSystem::FileExists(settings_path.c_str())) {
         s64 file_size = FileSystem::GetPathFileSize(settings_path.c_str());
-        printf("PCSX2: File exists with size: %lld bytes\n", file_size);
+        printf("PCSX2: File exists with size: %lld bytes\n", static_cast<long long>(file_size));
     } else {
         printf("PCSX2: File does not exist after save attempt\n");
     }
@@ -981,6 +996,139 @@ int FileSystem::OpenFDFileContent(const char* filename)
     jstring j_filename = env->NewStringUTF(filename);
     int fd = env->CallStaticIntMethod(NativeApp, openContentUri, j_filename);
     return fd;
+}
+
+#ifdef __ANDROID__
+// Helpers callable from core for SAF bridging
+static jclass GetNativeAppClass(JNIEnv* env)
+{
+    return env->FindClass("com/izzy2lost/psx2/NativeApp");
+}
+
+std::string ResolveSafPathUriJNI(const char* relative_path, bool create)
+{
+    JNIEnv* env = reinterpret_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+    if (!env)
+        return {};
+    jclass cls = GetNativeAppClass(env);
+    if (!cls)
+        return {};
+    jmethodID mid = env->GetStaticMethodID(cls, "resolveSafPathUri", "(Ljava/lang/String;Z)Ljava/lang/String;");
+    if (!mid)
+        return {};
+    jstring jrel = env->NewStringUTF(relative_path);
+    jobject juri = env->CallStaticObjectMethod(cls, mid, jrel, (jboolean)create);
+    env->DeleteLocalRef(jrel);
+    if (!juri)
+        return {};
+    const char* cstr = env->GetStringUTFChars((jstring)juri, nullptr);
+    std::string out = cstr ? std::string(cstr) : std::string();
+    if (cstr)
+        env->ReleaseStringUTFChars((jstring)juri, cstr);
+    env->DeleteLocalRef(juri);
+    return out;
+}
+
+std::vector<std::string> SafListRecursiveFilesJNI(const char* relative_dir)
+{
+    std::vector<std::string> out;
+    JNIEnv* env = reinterpret_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+    if (!env)
+        return out;
+    jclass cls = GetNativeAppClass(env);
+    if (!cls)
+        return out;
+    jmethodID mid = env->GetStaticMethodID(cls, "listSafRecursiveFiles", "(Ljava/lang/String;)[Ljava/lang/String;");
+    if (!mid)
+        return out;
+    jstring jarg = env->NewStringUTF(relative_dir);
+    jobjectArray arr = (jobjectArray)env->CallStaticObjectMethod(cls, mid, jarg);
+    env->DeleteLocalRef(jarg);
+    if (!arr)
+        return out;
+    jsize len = env->GetArrayLength(arr);
+    out.reserve((size_t)len);
+    for (jsize i = 0; i < len; i++)
+    {
+        jstring js = (jstring)env->GetObjectArrayElement(arr, i);
+        if (!js) continue;
+        const char* c = env->GetStringUTFChars(js, nullptr);
+        if (c)
+        {
+            out.emplace_back(c);
+            env->ReleaseStringUTFChars(js, c);
+        }
+        env->DeleteLocalRef(js);
+    }
+    env->DeleteLocalRef(arr);
+    return out;
+}
+
+std::vector<std::string> SafListFilesFlatJNI(const char* relative_dir)
+{
+    std::vector<std::string> out;
+    JNIEnv* env = reinterpret_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+    if (!env)
+        return out;
+    jclass cls = GetNativeAppClass(env);
+    if (!cls)
+        return out;
+    jmethodID mid = env->GetStaticMethodID(cls, "listSafFilesFlat", "(Ljava/lang/String;)[Ljava/lang/String;");
+    if (!mid)
+        return out;
+    jstring jarg = env->NewStringUTF(relative_dir);
+    jobjectArray arr = (jobjectArray)env->CallStaticObjectMethod(cls, mid, jarg);
+    env->DeleteLocalRef(jarg);
+    if (!arr)
+        return out;
+    jsize len = env->GetArrayLength(arr);
+    out.reserve((size_t)len);
+    for (jsize i = 0; i < len; i++)
+    {
+        jstring js = (jstring)env->GetObjectArrayElement(arr, i);
+        if (!js) continue;
+        const char* c = env->GetStringUTFChars(js, nullptr);
+        if (c)
+        {
+            out.emplace_back(c);
+            env->ReleaseStringUTFChars(js, c);
+        }
+        env->DeleteLocalRef(js);
+    }
+    env->DeleteLocalRef(arr);
+    return out;
+}
+#endif // __ANDROID__
+
+int FileSystem::OpenFDFileContentWithMode(const char* filename, const char* mode)
+{
+    auto *env = static_cast<JNIEnv *>(SDL_GetAndroidJNIEnv());
+    if(env == nullptr) {
+        return -1;
+    }
+    jclass NativeApp = env->FindClass("com/izzy2lost/psx2/NativeApp");
+    jmethodID openContentUriMode = env->GetStaticMethodID(NativeApp, "openContentUriMode", "(Ljava/lang/String;Ljava/lang/String;)I");
+    jstring j_filename = env->NewStringUTF(filename);
+    jstring j_mode = env->NewStringUTF(mode);
+    int fd = env->CallStaticIntMethod(NativeApp, openContentUriMode, j_filename, j_mode);
+    return fd;
+}
+
+std::string ResolveSafChildUriJNI(const char* subdir, const char* filename, bool create)
+{
+    auto *env = static_cast<JNIEnv *>(SDL_GetAndroidJNIEnv());
+    if(env == nullptr) return {};
+    jclass NativeApp = env->FindClass("com/izzy2lost/psx2/NativeApp");
+    jmethodID resolve = env->GetStaticMethodID(NativeApp, "resolveSafChildUri", "(Ljava/lang/String;Ljava/lang/String;Z)Ljava/lang/String;");
+    jstring j_sub = env->NewStringUTF(subdir);
+    jstring j_file = env->NewStringUTF(filename);
+    jstring j_uri = (jstring)env->CallStaticObjectMethod(NativeApp, resolve, j_sub, j_file, (jboolean)create);
+    if (!j_uri) return {};
+    const char* cstr = env->GetStringUTFChars(j_uri, nullptr);
+    std::string ret(cstr);
+    env->ReleaseStringUTFChars(j_uri, cstr);
+    env->DeleteLocalRef(j_uri);
+    return ret;
 }
 
 
@@ -1444,4 +1592,43 @@ bool Host::LocaleCircleConfirm()
 bool Host::InNoGUIMode()
 {
     return false;
+}
+
+// JNI: report if a SAF Data Root is configured
+bool HasSafDataRootJNI()
+{
+    JNIEnv* env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+    if (!env) return false;
+    jclass cls = env->FindClass("com/izzy2lost/psx2/NativeApp");
+    if (!cls) return false;
+    jmethodID mid = env->GetStaticMethodID(cls, "hasSafDataRoot", "()Z");
+    if (!mid) return false;
+    jboolean res = env->CallStaticBooleanMethod(cls, mid);
+    return (res == JNI_TRUE);
+}
+static std::vector<std::string> SafListFilesJNI(const char* subdir)
+{
+    std::vector<std::string> ret;
+    JNIEnv* env = static_cast<JNIEnv*>(SDL_GetAndroidJNIEnv());
+    if (!env) return ret;
+    jclass cls = env->FindClass("com/izzy2lost/psx2/NativeApp");
+    if (!cls) return ret;
+    jmethodID mid = env->GetStaticMethodID(cls, "listSafFilenames", "(Ljava/lang/String;)[Ljava/lang/String;");
+    if (!mid) return ret;
+    jstring j_sub = env->NewStringUTF(subdir);
+    jobjectArray arr = (jobjectArray)env->CallStaticObjectMethod(cls, mid, j_sub);
+    env->DeleteLocalRef(j_sub);
+    if (!arr) return ret;
+    jsize n = env->GetArrayLength(arr);
+    ret.reserve(n);
+    for (jsize i = 0; i < n; i++) {
+        jstring s = (jstring)env->GetObjectArrayElement(arr, i);
+        if (!s) continue;
+        const char* cs = env->GetStringUTFChars(s, nullptr);
+        if (cs) ret.emplace_back(cs);
+        env->ReleaseStringUTFChars(s, cs);
+        env->DeleteLocalRef(s);
+    }
+    env->DeleteLocalRef(arr);
+    return ret;
 }

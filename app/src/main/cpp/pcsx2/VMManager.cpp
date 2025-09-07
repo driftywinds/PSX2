@@ -76,6 +76,11 @@
 #include "common/Darwin/DarwinMisc.h"
 #endif
 
+#ifdef __ANDROID__
+// JNI helper implemented in native-lib.cpp to query SAF Data Root presence
+bool HasSafDataRootJNI();
+#endif
+
 namespace VMManager
 {
 	static void SetDefaultLoggingSettings(SettingsInterface& si);
@@ -543,8 +548,19 @@ bool VMManager::Internal::CheckSettingsVersion()
 void VMManager::Internal::LoadStartupSettings()
 {
 	SettingsInterface* bsi = Host::Internal::GetBaseSettingsLayer();
-	EmuFolders::LoadConfig(*bsi);
-	EmuFolders::EnsureFoldersExist();
+    EmuFolders::LoadConfig(*bsi);
+    EmuFolders::EnsureFoldersExist();
+#ifdef __ANDROID__
+    // Redirect cheats and patches to SAF Data Folder if available
+    if (HasSafDataRootJNI())
+    {
+        EmuFolders::Cheats = "saf://cheats";
+        EmuFolders::Patches = "saf://patches";
+        // Route textures and screenshots to SAF; savestates remain on internal due to libzip constraints
+        EmuFolders::Textures = "saf://textures";
+        EmuFolders::Snapshots = "saf://snaps";
+    }
+#endif
 
 	// We need to create the console window early, otherwise it appears behind the main window.
 	UpdateLoggingSettings(*bsi);
@@ -767,11 +783,17 @@ bool VMManager::ReloadGameSettings()
 
 std::string VMManager::GetGameSettingsPath(const std::string_view game_serial, u32 game_crc)
 {
-	std::string sanitized_serial(Path::SanitizeFileName(game_serial));
+    std::string sanitized_serial(Path::SanitizeFileName(game_serial));
 
-	return game_serial.empty() ?
-			   Path::Combine(EmuFolders::GameSettings, fmt::format("{:08X}.ini", game_crc)) :
-			   Path::Combine(EmuFolders::GameSettings, fmt::format("{}_{:08X}.ini", sanitized_serial, game_crc));
+    std::string base = EmuFolders::GameSettings;
+#ifdef __ANDROID__
+    // If the app has a SAF Data Root, direct per-game settings into it via saf:// scheme
+    if (HasSafDataRootJNI())
+        base = "saf://gamesettings";
+#endif
+    return game_serial.empty() ?
+               Path::Combine(base, fmt::format("{:08X}.ini", game_crc)) :
+               Path::Combine(base, fmt::format("{}_{:08X}.ini", sanitized_serial, game_crc));
 }
 
 std::string VMManager::GetDiscOverrideFromGameSettings(const std::string& elf_path)
@@ -3694,3 +3716,4 @@ void VMManager::PollDiscordPresence()
 
 	Discord_RunCallbacks();
 }
+

@@ -95,6 +95,17 @@ static inline bool FileSystemCharacterIsSane(char32_t c, bool strip_slashes)
 	return true;
 }
 
+// Forward declaration from native-lib.cpp (Android JNI helper)
+#ifdef __ANDROID__
+// JNI helpers implemented in native-lib.cpp
+// Resolve a file path under the user-selected SAF data root, e.g. "textures/SLUS-12345/replacements/foo/bar.png"
+std::string ResolveSafPathUriJNI(const char* relative_path, bool create);
+// List files under a SAF-relative directory non-recursively: returns full relative paths (e.g., "textures/.../file.png").
+std::vector<std::string> SafListFilesFlatJNI(const char* relative_dir);
+// List files under a SAF-relative directory recursively: returns full relative paths.
+std::vector<std::string> SafListRecursiveFilesJNI(const char* relative_dir);
+#endif
+
 template <typename T>
 static inline void PathAppendString(std::string& dst, const T& src)
 {
@@ -970,6 +981,29 @@ std::string Path::CreateFileURL(std::string_view path)
 	return ret;
 }
 
+static bool IsWriteMode(const char* mode)
+{
+    if (!mode) return false;
+    while (*mode)
+    {
+        if (*mode == 'w' || *mode == 'a' || *mode == '+') return true;
+        mode++;
+    }
+    return false;
+}
+
+static bool ParseSafPath(const std::string& path, std::string* out_subdir, std::string* out_filename)
+{
+    if (path.rfind("saf://", 0) != 0) return false;
+    std::string rest = path.substr(6);
+    // Expect format: subdir/filename
+    size_t slash = rest.find('/');
+    if (slash == std::string::npos) return false;
+    *out_subdir = rest.substr(0, slash);
+    *out_filename = rest.substr(slash + 1);
+    return !out_subdir->empty() && !out_filename->empty();
+}
+
 std::FILE* FileSystem::OpenCFile(const char* filename, const char* mode, Error* error)
 {
 #ifdef _WIN32
@@ -1003,8 +1037,26 @@ std::FILE* FileSystem::OpenCFile(const char* filename, const char* mode, Error* 
     ////
     std::string _filename(filename);
     if (_filename.rfind("content://", 0) == 0) {
-        fp = fdopen(FileSystem::OpenFDFileContent(_filename.c_str()), "rb");
-    } else {
+        // Direct document uri
+        const char* cmode = IsWriteMode(mode) ? "rw" : "r";
+        int fd = FileSystem::OpenFDFileContentWithMode(_filename.c_str(), cmode);
+        fp = (fd >= 0) ? fdopen(fd, mode) : nullptr;
+    }
+#ifdef __ANDROID__
+    else if (_filename.rfind("saf://", 0) == 0) {
+        const bool create = IsWriteMode(mode);
+        std::string rel = _filename.substr(6);
+        std::string doc = ResolveSafPathUriJNI(rel.c_str(), create);
+        if (!doc.empty()) {
+            const char* cmode = IsWriteMode(mode) ? "rw" : "r";
+            int fd = FileSystem::OpenFDFileContentWithMode(doc.c_str(), cmode);
+            fp = (fd >= 0) ? fdopen(fd, mode) : nullptr;
+        } else {
+            fp = nullptr;
+        }
+    }
+#endif
+    else {
         fp = std::fopen(_filename.c_str(), mode);
     }
     ////
@@ -1017,18 +1069,33 @@ std::FILE* FileSystem::OpenCFile(const char* filename, const char* mode, Error* 
 std::FILE* FileSystem::OpenCFileTryIgnoreCase(const char* filename, const char* mode, Error* error)
 {
 #if defined(_WIN32) || defined(__APPLE__)
-	return OpenCFile(filename, mode, error);
+    return OpenCFile(filename, mode, error);
 #else
-	std::FILE* fp;
-    ////
+    std::FILE* fp = nullptr;
     std::string _filename(filename);
     if (_filename.rfind("content://", 0) == 0) {
-        fp = fdopen(FileSystem::OpenFDFileContent(_filename.c_str()), "rb");
-    } else {
+        const char* cmode = IsWriteMode(mode) ? "rw" : "r";
+        int fd = FileSystem::OpenFDFileContentWithMode(_filename.c_str(), cmode);
+        if (fd >= 0)
+            fp = fdopen(fd, mode);
+    }
+#ifdef __ANDROID__
+    else if (_filename.rfind("saf://", 0) == 0) {
+        const bool create = IsWriteMode(mode);
+        std::string rel = _filename.substr(6);
+        std::string doc = ResolveSafPathUriJNI(rel.c_str(), create);
+        if (!doc.empty()) {
+            const char* cmode = IsWriteMode(mode) ? "rw" : "r";
+            int fd = FileSystem::OpenFDFileContentWithMode(doc.c_str(), cmode);
+            if (fd >= 0)
+                fp = fdopen(fd, mode);
+        }
+    }
+#endif
+    else {
         fp = std::fopen(_filename.c_str(), mode);
     }
-    ////
-	const auto cur_errno = errno;
+    const auto cur_errno = errno;
 
 	if (!fp)
 	{
@@ -1042,8 +1109,25 @@ std::FILE* FileSystem::OpenCFileTryIgnoreCase(const char* filename, const char* 
 				{
                     ////
                     if (file.FileName.rfind("content://", 0) == 0) {
-                        fp = fdopen(FileSystem::OpenFDFileContent(file.FileName.c_str()), "rb");
-                    } else {
+                        const char* cmode2 = IsWriteMode(mode) ? "rw" : "r";
+                        int fd2 = FileSystem::OpenFDFileContentWithMode(file.FileName.c_str(), cmode2);
+                        if (fd2 >= 0)
+                            fp = fdopen(fd2, mode);
+                    }
+#ifdef __ANDROID__
+                    else if (file.FileName.rfind("saf://", 0) == 0) {
+                        const bool create2 = IsWriteMode(mode);
+                        std::string rel2 = file.FileName.substr(6);
+                        std::string doc2 = ResolveSafPathUriJNI(rel2.c_str(), create2);
+                        if (!doc2.empty()) {
+                            const char* cmode2 = IsWriteMode(mode) ? "rw" : "r";
+                            int fd2 = FileSystem::OpenFDFileContentWithMode(doc2.c_str(), cmode2);
+                            if (fd2 >= 0)
+                                fp = fdopen(fd2, mode);
+                        }
+                    }
+#endif
+                    else {
                         fp = std::fopen(file.FileName.c_str(), mode);
                     }
                     ////
@@ -1073,8 +1157,23 @@ int FileSystem::OpenFDFile(const char* filename, int flags, int mode, Error* err
     ////
     std::string _filename(filename);
     if (_filename.rfind("content://", 0) == 0) {
-        fd = FileSystem::OpenFDFileContent(_filename.c_str());
-    } else {
+        const char* cmode = (flags & O_WRONLY) || (flags & O_RDWR) ? "rw" : "r";
+        fd = FileSystem::OpenFDFileContentWithMode(_filename.c_str(), cmode);
+    }
+#ifdef __ANDROID__
+    else if (_filename.rfind("saf://", 0) == 0) {
+        const bool create = (flags & O_WRONLY) || (flags & O_RDWR) || (flags & O_CREAT);
+        std::string rel = _filename.substr(6);
+        std::string doc = ResolveSafPathUriJNI(rel.c_str(), create);
+        if (!doc.empty()) {
+            const char* cmode = (flags & O_WRONLY) || (flags & O_RDWR) ? "rw" : "r";
+            fd = FileSystem::OpenFDFileContentWithMode(doc.c_str(), cmode);
+        } else {
+            fd = -1;
+        }
+    }
+#endif
+    else {
         fd = open(_filename.c_str(), flags, mode);
     }
     ////
@@ -1128,18 +1227,33 @@ std::FILE* FileSystem::OpenSharedCFile(const char* filename, const char* mode, F
 	return nullptr;
 #else
 
-    std::FILE* fp;
-    ////
+    std::FILE* fp = nullptr;
     std::string _filename(filename);
     if (_filename.rfind("content://", 0) == 0) {
-        fp = fdopen(FileSystem::OpenFDFileContent(_filename.c_str()), "rb");
-    } else {
+        const char* cmode = IsWriteMode(mode) ? "rw" : "r";
+        int fd = FileSystem::OpenFDFileContentWithMode(_filename.c_str(), cmode);
+        if (fd >= 0)
+            fp = fdopen(fd, mode);
+    }
+#ifdef __ANDROID__
+    else if (_filename.rfind("saf://", 0) == 0) {
+        const bool create = IsWriteMode(mode);
+        std::string rel = _filename.substr(6);
+        std::string doc = ResolveSafPathUriJNI(rel.c_str(), create);
+        if (!doc.empty()) {
+            const char* cmode = IsWriteMode(mode) ? "rw" : "r";
+            int fd = FileSystem::OpenFDFileContentWithMode(doc.c_str(), cmode);
+            if (fd >= 0)
+                fp = fdopen(fd, mode);
+        }
+    }
+#endif
+    else {
         fp = std::fopen(_filename.c_str(), mode);
     }
-    ////
-	if (!fp)
-		Error::SetErrno(error, errno);
-	return fp;
+    if (!fp)
+        Error::SetErrno(error, errno);
+    return fp;
 #endif
 }
 
@@ -1546,13 +1660,44 @@ static u32 RecursiveFindFiles(const char* origin_path, const char* parent_path, 
 
 bool FileSystem::FindFiles(const char* path, const char* pattern, u32 flags, FindResultsArray* results, ProgressCallback* cancel)
 {
-	// has a path
-	if (path[0] == '\0')
-		return false;
+    // has a path
+    if (path[0] == '\0')
+        return false;
 
-	// clear result array
-	if (!(flags & FILESYSTEM_FIND_KEEP_ARRAY))
-		results->clear();
+    // clear result array
+    if (!(flags & FILESYSTEM_FIND_KEEP_ARRAY))
+        results->clear();
+
+#ifdef __ANDROID__
+    // SAF listing: path of the form saf://<relative_path_under_data_root>
+    if (std::string(path).rfind("saf://", 0) == 0)
+    {
+        const std::string rel = std::string(path).substr(6);
+        std::vector<std::string> files;
+        if (flags & FILESYSTEM_FIND_RECURSIVE)
+            files = SafListRecursiveFilesJNI(rel.c_str());
+        else
+            files = SafListFilesFlatJNI(rel.c_str());
+
+        const bool wildcard = (std::strpbrk(pattern, "*?") != nullptr);
+        for (const std::string& relpath : files)
+        {
+            if (cancel && cancel->IsCancelled()) break;
+            // Compare only the filename component against the pattern
+            const std::string_view fname = Path::GetFileName(relpath);
+            bool match = wildcard ? StringUtil::WildcardMatch(std::string(fname).c_str(), pattern) : (std::strcmp(std::string(fname).c_str(), pattern) == 0);
+            if (!match) continue;
+            FILESYSTEM_FIND_DATA out{};
+            out.Attributes = 0; // files only for now
+            out.FileName = std::string("saf://") + relpath;
+            out.Size = -1;
+            out.CreationTime = 0;
+            out.ModificationTime = 0;
+            results->push_back(out);
+        }
+        return !results->empty();
+    }
+#endif
 
 	// add self if recursive, we don't want to visit it twice
 	std::vector<std::string> visited;
@@ -2685,3 +2830,7 @@ FileSystem::POSIXLock::~POSIXLock()
 }
 
 #endif
+
+
+
+
