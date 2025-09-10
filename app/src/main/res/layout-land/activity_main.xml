@@ -1,18 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:keepScreenOn="true"
-    tools:context=".MainActivity">
+    android:layout_height="match_parent">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:keepScreenOn="true"
+        tools:context=".MainActivity">
 
     <FrameLayout
         android:id="@+id/fl_board"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Settings button in top left corner -->
+    <!-- Menu button in top left corner -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_settings"
         style="@style/PSX2.ElevatedTransparentButton"
@@ -24,7 +29,7 @@
         android:insetBottom="0dp"
         android:gravity="center"
         android:text=""
-        app:icon="@drawable/settings_24px"
+        app:icon="@drawable/menu_24px"
         app:iconTint="@color/md_theme_tertiary"
         app:iconGravity="textStart"
         app:iconSize="24dp"
@@ -34,27 +39,7 @@
         app:layout_constraintStart_toStartOf="parent"
         android:layout_margin="12dp"/>
 
-    <!-- Visibility toggle button in upper right corner -->
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_toggle_controls"
-        style="@style/PSX2.ElevatedTransparentButton"
-        android:layout_width="40dp"
-        android:layout_height="40dp"
-        android:insetLeft="0dp"
-        android:insetRight="0dp"
-        android:insetTop="0dp"
-        android:insetBottom="0dp"
-        android:gravity="center"
-        android:text=""
-        app:icon="@drawable/visibility_24px"
-        app:iconTint="@color/md_theme_tertiary"
-        app:iconGravity="textStart"
-        app:iconSize="24dp"
-        app:iconPadding="0dp"
-        app:rippleColor="#80cdcdcd"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        android:layout_margin="12dp"/>
+    <!-- Visibility toggle removed -->
 
     <!-- Top center menu row -->
     <LinearLayout
@@ -66,39 +51,12 @@
         android:orientation="horizontal"
         app:layout_constraintTop_toTopOf="@id/btn_settings"
         app:layout_constraintStart_toEndOf="@id/btn_settings"
-        app:layout_constraintEnd_toStartOf="@id/btn_toggle_controls"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_chainStyle="packed">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_file"
-            style="@style/PSX2.ElevatedTransparentButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="4dp"
-            android:text="GAMES"
-            
-            app:rippleColor="#80cdcdcd" />
+        <!-- GAMES button removed; games dialog now opens after setup wizard and from drawer -->
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_bios"
-            style="@style/PSX2.ElevatedTransparentButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:layout_marginEnd="4dp"
-            android:text="bios"
-            
-            app:rippleColor="#80cdcdcd" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btn_saves"
-            style="@style/PSX2.ElevatedTransparentButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
-            android:text="saves"
-            
-            app:rippleColor="#80cdcdcd" />
+        <!-- SAVES button removed; use drawer or Quick Actions for save states -->
 
 
     </LinearLayout>
@@ -445,5 +403,23 @@
                 android:layout_column="2" />
         </GridLayout>
     </LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+    <!-- Left drawer (NavigationView) -->
+    <com.google.android.material.navigation.NavigationView
+        android:id="@+id/nav_view"
+        android:layout_width="320dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        app:itemIconTint="@color/md_theme_onSurface"
+        app:itemTextColor="@color/md_theme_onSurface"
+        app:headerLayout="@layout/drawer_header_settings" />
+
+    <!-- Right drawer (empty content for future use) -->
+    <FrameLayout
+        android:id="@+id/end_drawer"
+        android:layout_width="320dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end" />
+
+</androidx.drawerlayout.widget.DrawerLayout>

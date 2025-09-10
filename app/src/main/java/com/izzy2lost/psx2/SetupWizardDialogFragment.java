@@ -118,8 +118,19 @@ public class SetupWizardDialogFragment extends DialogFragment {
             if (isDataFolderPicked() && isGamesFolderPicked() && isBiosPresent()) {
                 requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
                         .edit().putBoolean("first_run_done", true).apply();
-                try { ((MainActivity) requireActivity()).setSetupWizardActive(false); } catch (Throwable ignored) {}
+                MainActivity a = null;
+                try { a = (MainActivity) requireActivity(); a.setSetupWizardActive(false); } catch (Throwable ignored) {}
                 dismissAllowingStateLoss();
+                if (a != null) {
+                    // Open the games dialog just like the old GAMES button
+                    final MainActivity act = a;
+                    View decor = act.getWindow() != null ? act.getWindow().getDecorView() : null;
+                    if (decor != null) {
+                        decor.postDelayed(act::openGamesDialog, 150);
+                    } else {
+                        act.runOnUiThread(act::openGamesDialog);
+                    }
+                }
             }
         });
         LinearLayout.LayoutParams lp4 = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);

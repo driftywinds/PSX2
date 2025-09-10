@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -14,47 +15,207 @@
         android:layout_marginBottom="16dp"
         android:textColor="?android:attr/textColorPrimary" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_open_games"
-        style="@style/Widget.Material3.Button.OutlinedButton"
+    <!-- Row 1: Power + Reboot -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Games"
-        android:textAllCaps="false"
-        android:layout_marginBottom="8dp" />
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_exit_to_menu"
-        style="@style/Widget.Material3.Button.OutlinedButton"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_quick_power"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Power"
+            android:textAllCaps="false"
+            android:drawableStart="@drawable/ic_power"
+            android:drawablePadding="8dp" />
+
+        <View
+            android:layout_width="8dp"
+            android:layout_height="0dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_quick_reboot"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Reboot"
+            android:textAllCaps="false"
+            android:drawableStart="@drawable/ic_reboot"
+            android:drawablePadding="8dp" />
+    </LinearLayout>
+
+    <!-- Row 2: Renderer toggle buttons -->
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/qa_tg_renderer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Exit to Menu"
-        android:textAllCaps="false"
         android:layout_marginBottom="8dp"
-        android:drawableStart="@drawable/ic_home"
-        android:drawablePadding="8dp" />
+        app:singleSelection="true"
+        app:selectionRequired="true">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_restart_game"
-        style="@style/Widget.Material3.Button.OutlinedButton"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/qa_tb_at"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="AT"
+            android:checkable="true" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/qa_tb_vk"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="VK"
+            android:checkable="true" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/qa_tb_gl"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="GL"
+            android:checkable="true" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/qa_tb_sw"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="SW"
+            android:checkable="true" />
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+
+    <!-- Row 3: Games + Saves -->
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Restart Game"
-        android:textAllCaps="false"
-        android:layout_marginBottom="8dp"
-        android:drawableStart="@drawable/ic_reboot"
-        android:drawablePadding="8dp" />
+        android:orientation="horizontal"
+        android:layout_marginBottom="16dp">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/btn_quit_app"
-        style="@style/Widget.Material3.Button.OutlinedButton"
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_quick_games"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="GAMES"
+            android:textAllCaps="true"
+            android:drawableStart="@drawable/stadia_controller_24px"
+            android:drawablePadding="8dp" />
+
+        <View
+            android:layout_width="8dp"
+            android:layout_height="0dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btn_quick_saves"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="SAVES"
+            android:textAllCaps="true"
+            android:drawableStart="@drawable/save_24px"
+            android:drawablePadding="8dp" />
+    </LinearLayout>
+
+    <!-- Row 4: Aspect Ratio -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Aspect Ratio"
+        android:textStyle="bold"
+        android:layout_marginBottom="4dp"/>
+
+    <Spinner
+        android:id="@+id/qa_sp_aspect_ratio"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Quit App"
-        android:textAllCaps="false"
-        android:layout_marginBottom="16dp"
-        android:drawableStart="@drawable/ic_power"
-        android:drawablePadding="8dp" />
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Row 5: Blending Accuracy -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Blending Accuracy"
+        android:textStyle="bold"
+        android:layout_marginBottom="4dp"/>
+
+    <Spinner
+        android:id="@+id/qa_sp_blending_accuracy"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"/>
+
+    <!-- Row 6: Widescreen + No Interlacing -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/qa_sw_widescreen"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Widescreen Patches"/>
+
+        <View
+            android:layout_width="8dp"
+            android:layout_height="0dp" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/qa_sw_no_interlacing"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="No Interlacing"/>
+    </LinearLayout>
+
+    <!-- Row 7: Textures toggles -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginBottom="8dp">
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/qa_sw_load_textures"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Load Textures"/>
+
+        <View
+            android:layout_width="8dp"
+            android:layout_height="0dp" />
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/qa_sw_async_textures"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Async Textures"/>
+    </LinearLayout>
+
+    <!-- Row 8: Precache textures (single) -->
+    <com.google.android.material.materialswitch.MaterialSwitch
+        android:id="@+id/qa_sw_precache_textures"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Precache Texture Replacements"
+        android:layout_marginBottom="8dp"/>
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btn_cancel"

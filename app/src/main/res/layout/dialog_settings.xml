@@ -63,18 +63,21 @@
                 android:id="@+id/rb_renderer_auto"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minWidth="0dp"
                 android:text="AUTO"/>
 
             <RadioButton
                 android:id="@+id/rb_renderer_vk"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minWidth="0dp"
                 android:text="VK"/>
 
             <RadioButton
                 android:id="@+id/rb_renderer_gl"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minWidth="0dp"
                 android:text="OGL"
                 android:layout_marginStart="16dp"/>
 
@@ -82,6 +85,7 @@
                 android:id="@+id/rb_renderer_sw"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:minWidth="0dp"
                 android:text="SW"
                 android:layout_marginStart="16dp"/>
         </RadioGroup>

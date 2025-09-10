@@ -38,6 +38,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.documentfile.provider.DocumentFile;
 import androidx.constraintlayout.widget.ConstraintLayout;
 import androidx.core.content.ContextCompat;
+import androidx.drawerlayout.widget.DrawerLayout;
+import androidx.core.view.GravityCompat;
 import androidx.activity.OnBackPressedCallback;
 
 import com.google.android.material.button.MaterialButton;
@@ -50,6 +52,8 @@ import android.provider.OpenableColumns;
 import org.json.JSONArray;
 import org.json.JSONException;
 import androidx.fragment.app.FragmentManager;
+import com.google.android.material.navigation.NavigationView;
+import com.google.android.material.button.MaterialButtonToggleGroup;
 import java.util.List;
 import java.util.Locale;
 
@@ -99,7 +103,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Views present in both layouts
         View quick = findViewById(R.id.ll_quick_actions);
         View btnSettings = findViewById(R.id.btn_settings);
-        View btnControls = findViewById(R.id.btn_toggle_controls);
+        // Visibility toggle removed; no dependency on it for constraints
         View llJoy = findViewById(R.id.ll_pad_joy);
         View llDpad = findViewById(R.id.ll_pad_dpad);
         View llRight = findViewById(R.id.ll_pad_right_buttons);
@@ -107,17 +111,16 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
         // Use helper dp()
 
-        if (quick != null && btnSettings != null && btnControls != null) {
+        if (quick != null && btnSettings != null) {
             ConstraintLayout.LayoutParams lp = safeCLP(quick);
             if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-                // Between settings and controls, top-aligned
+                // Top-aligned row stretching from settings to end
                 lp.width = 0; // chain between start/end
                 lp.topToTop = btnSettings.getId();
                 lp.topToBottom = ConstraintLayout.LayoutParams.UNSET;
                 lp.startToEnd = btnSettings.getId();
-                lp.endToStart = btnControls.getId();
+                lp.endToEnd = ConstraintLayout.LayoutParams.PARENT_ID;
                 lp.startToStart = ConstraintLayout.LayoutParams.UNSET;
-                lp.endToEnd = ConstraintLayout.LayoutParams.UNSET;
                 lp.topMargin = dp(0);
                 lp.horizontalChainStyle = ConstraintLayout.LayoutParams.CHAIN_PACKED;
             } else {
@@ -423,6 +426,21 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         }
         updateUiForControllerPresence();
 
+        // After initial BIOS auto-boot, gently open the Games dialog
+        // Only when setup is complete and this is app launch (not rotation)
+        if (getSharedPreferences("app_prefs", MODE_PRIVATE).getBoolean("first_run_done", false)) {
+            try {
+                final View decor = (getWindow() != null) ? getWindow().getDecorView() : null;
+                if (decor != null) {
+                    decor.postDelayed(() -> {
+                        if (!isFinishing() && !mSetupWizardActive) {
+                            openGamesDialog();
+                        }
+                    }, 1600); // small delay to let BIOS boot briefly
+                }
+            } catch (Throwable ignored) {}
+        }
+
         // Show first-run setup wizard if needed
         if (!getSharedPreferences("app_prefs", MODE_PRIVATE).getBoolean("first_run_done", false)) {
             SetupWizardDialogFragment f = SetupWizardDialogFragment.newInstance();
@@ -457,86 +475,85 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     }
 
     private void makeButtonTouch() {
-        MaterialButton btn_file = findViewById(R.id.btn_file);
-        if(btn_file != null) {
-            // Tap: show games list (from persisted folder). If none, prompt to pick folder.
-            btn_file.setOnClickListener(v -> {
-                SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
-                String folderUri = prefs.getString("games_folder_uri", null);
-                if (TextUtils.isEmpty(folderUri)) {
-                    pickGamesFolder();
-                    return;
-                }
-                showGamesListOrReselect(Uri.parse(folderUri));
-            });
-            // Long-press: reselect games folder
-            btn_file.setOnLongClickListener(v -> {
-                pickGamesFolder();
-                return true;
-            });
-        }
+        // SAVES button removed from main UI; access Save States via drawer or Quick Actions
 
-        // Combined saves dialog
-        MaterialButton btn_saves = findViewById(R.id.btn_saves);
-        if(btn_saves != null) {
-            btn_saves.setOnClickListener(v -> {
-                SavesDialogFragment dialog = new SavesDialogFragment();
-                dialog.show(getSupportFragmentManager(), "saves_dialog");
-            });
-            // Long-press: choose SAF data folder for app files (covers/resources/etc)
-            btn_saves.setOnLongClickListener(v -> {
-                pickDataRootFolder();
-                return true;
-            });
-        }
 
-        // BIOS button repurposed: short tap toggles renderer, long-press picks BIOS folder
-        MaterialButton btn_bios = findViewById(R.id.btn_bios);
-        if (btn_bios != null) {
-            btn_bios.setOnClickListener(v -> {
-                int current = getCurrentRendererPref();
-                int next;
-                // Cycle: AUTO(-1) -> VK(14) -> OGL(12) -> SW(13) -> AUTO
-                if (current == -1) next = 14;
-                else if (current == 14) next = 12;
-                else if (current == 12) next = 13;
-                else next = -1;
-                setRendererAndSave(next);
-            });
-            btn_bios.setOnLongClickListener(v -> {
-                Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION
-                        | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-                        | Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
-                startActivityResultBiosFolderPick.launch(intent);
-                return true;
-            });
-        }
-
-        // Settings button opens dialog
+        // Menu button opens left drawer
         MaterialButton btn_settings = findViewById(R.id.btn_settings);
         if (btn_settings != null) {
             btn_settings.setOnClickListener(v -> {
-                FragmentManager fm = getSupportFragmentManager();
-                SettingsDialogFragment dialog = new SettingsDialogFragment();
-                dialog.show(fm, "settings_dialog");
-            });
-            // Long-press to open Cheats manager
-            btn_settings.setOnLongClickListener(v -> {
-                FragmentManager fm2 = getSupportFragmentManager();
-                CheatsDialogFragment cd = new CheatsDialogFragment();
-                cd.show(fm2, "cheats_dialog");
-                return true;
+                try {
+                    DrawerLayout drawer = findViewById(R.id.drawer_layout);
+                    if (drawer != null) drawer.openDrawer(androidx.core.view.GravityCompat.START);
+                } catch (Throwable ignored) {}
             });
         }
-
-        // Toggle all UI visibility (including controls)
-        MaterialButton btnToggleControls = findViewById(R.id.btn_toggle_controls);
-        if (btnToggleControls != null) {
-            btnToggleControls.setOnClickListener(v -> {
-                toggleAllUIVisibility();
-            });
-        }
+        // Wire left drawer header controls (title/power/reboot/renderer)
+        try {
+            NavigationView nav = findViewById(R.id.nav_view);
+            if (nav != null) {
+                View header = (nav.getHeaderCount() > 0) ? nav.getHeaderView(0) : nav.inflateHeaderView(R.layout.drawer_header_settings);
+                if (header != null) {
+                    View btnPower = header.findViewById(R.id.drawer_btn_power);
+                    if (btnPower != null) {
+                        btnPower.setOnClickListener(v -> {
+                            new MaterialAlertDialogBuilder(this)
+                                    .setTitle("Power Off")
+                                    .setMessage("Quit the app?")
+                                    .setNegativeButton("Cancel", null)
+                                    .setPositiveButton("Quit", (d,w) -> { try { NativeApp.shutdown(); } catch (Throwable ignored) {} finishAffinity(); finishAndRemoveTask(); System.exit(0); })
+                                    .show();
+                        });
+                    }
+                    View btnReboot = header.findViewById(R.id.drawer_btn_reboot);
+                    if (btnReboot != null) {
+                        btnReboot.setOnClickListener(v -> {
+                            new MaterialAlertDialogBuilder(this)
+                                    .setTitle("Reboot")
+                                    .setMessage("Restart the current game?")
+                                    .setNegativeButton("Cancel", null)
+                                    .setPositiveButton("Reboot", (d,w) -> rebootEmu())
+                                    .show();
+                        });
+                    }
+                    MaterialButtonToggleGroup tg = header.findViewById(R.id.drawer_tg_renderer);
+                    View btnGameState = header.findViewById(R.id.drawer_btn_game_state);
+                    View tbAt = header.findViewById(R.id.drawer_tb_at);
+                    View tbVk = header.findViewById(R.id.drawer_tb_vk);
+                    View tbGl = header.findViewById(R.id.drawer_tb_gl);
+                    View tbSw = header.findViewById(R.id.drawer_tb_sw);
+                    if (tg != null) {
+                        int current = -1;
+                        try { current = NativeApp.getCurrentRenderer(); } catch (Throwable ignored) {}
+                        if (current == 14 && tbVk != null) tg.check(tbVk.getId());
+                        else if (current == 12 && tbGl != null) tg.check(tbGl.getId());
+                        else if (current == 13 && tbSw != null) tg.check(tbSw.getId());
+                        else if (tbAt != null) tg.check(tbAt.getId());
+                        tg.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+                            if (!isChecked) return;
+                            int r = -1;
+                            if (checkedId == (tbVk != null ? tbVk.getId() : -2)) r = 14;
+                            else if (checkedId == (tbGl != null ? tbGl.getId() : -2)) r = 12;
+                            else if (checkedId == (tbSw != null ? tbSw.getId() : -2)) r = 13;
+                            else r = -1;
+                            try {
+                                getSharedPreferences("app_prefs", MODE_PRIVATE).edit().putInt("renderer", r).apply();
+                                NativeApp.renderGpu(r);
+                            } catch (Throwable ignored) {}
+                        });
+                    }
+                    if (btnGameState != null) {
+                        btnGameState.setOnClickListener(v -> {
+                            try {
+                                SavesDialogFragment dialog = new SavesDialogFragment();
+                                dialog.show(getSupportFragmentManager(), "saves_dialog");
+                            } catch (Throwable ignored) {}
+                        });
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+        // Visibility toggle removed
 
         // PAD
         MaterialButton btn_pad_select = findViewById(R.id.btn_pad_select);
@@ -711,7 +728,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         }
     }
 
-    private boolean allUIHidden = false;
+    // Visibility toggle removed; no global hidden state flag
 
     private void setControlsVisible(boolean visible) {
         int vis = visible ? View.VISIBLE : View.GONE;
@@ -726,43 +743,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (llJoy != null) llJoy.setVisibility(vis);
     }
 
-    private void toggleAllUIVisibility() {
-        allUIHidden = !allUIHidden;
-        int vis = allUIHidden ? View.GONE : View.VISIBLE;
-        boolean hasController = isAnyControllerConnected();
-        
-        // Hide/show all UI elements except the toggle button itself
-        View btnSettings = findViewById(R.id.btn_settings);
-        MaterialButton btnToggleControls = findViewById(R.id.btn_toggle_controls);
-        View btnFile = findViewById(R.id.btn_file);
-        View btnBios = findViewById(R.id.btn_bios);
-        View btnSaves = findViewById(R.id.btn_saves);
-        View llQuickActions = findViewById(R.id.ll_quick_actions);
-        
-        if (btnSettings != null) btnSettings.setVisibility(vis);
-        // Keep toggle button visible but change its icon
-        if (btnToggleControls != null) {
-            // Change icon based on visibility state
-            int iconRes = allUIHidden ? R.drawable.visibility_off_24px : R.drawable.visibility_24px;
-            btnToggleControls.setIcon(ContextCompat.getDrawable(this, iconRes));
-        }
-        if (btnFile != null) btnFile.setVisibility(vis);
-        if (btnBios != null) btnBios.setVisibility(vis);
-        if (btnSaves != null) btnSaves.setVisibility(vis);
-        if (llQuickActions != null) llQuickActions.setVisibility(vis);
-
-        // Hide/show on-screen controls
-        if (!allUIHidden) {
-            // When showing with a controller connected, keep touch controls hidden
-            setControlsVisible(!hasController);
-        } else {
-            // When hiding all UI, also hide controls
-            setControlsVisible(false);
-        }
-
-        // Update renderer label when UI toggled back on
-        if (!allUIHidden) updateRendererButtonLabel();
-    }
+    // Removed visibility toggle function
 
     // --- Controller presence handling ---
     private final InputManager.InputDeviceListener mInputDeviceListener = new InputManager.InputDeviceListener() {
@@ -820,24 +801,11 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         int vis = hasController ? View.GONE : View.VISIBLE;
 
         View btnSettings = findViewById(R.id.btn_settings);
-        View btnFile = findViewById(R.id.btn_file);
-        View btnBios = findViewById(R.id.btn_bios);
-        View btnSaves = findViewById(R.id.btn_saves);
-        MaterialButton btnToggle = findViewById(R.id.btn_toggle_controls);
         View llQuickActions = findViewById(R.id.ll_quick_actions);
 
-        if (btnSettings != null) btnSettings.setVisibility(vis);
-        if (btnFile != null) btnFile.setVisibility(vis);
-        if (btnBios != null) btnBios.setVisibility(vis);
-        if (btnSaves != null) btnSaves.setVisibility(vis);
+        // Keep menu (settings) button visible even when a controller is connected
+        if (btnSettings != null) btnSettings.setVisibility(View.VISIBLE);
         if (llQuickActions != null) llQuickActions.setVisibility(vis);
-        if (btnToggle != null) btnToggle.setVisibility(View.VISIBLE); // always visible
-        // Set toggle icon and internal state
-        if (btnToggle != null) {
-            int iconRes = hasController ? R.drawable.visibility_off_24px : R.drawable.visibility_24px;
-            btnToggle.setIcon(ContextCompat.getDrawable(this, iconRes));
-        }
-        allUIHidden = hasController;
 
         // Hide on-screen touch controls when a physical controller is connected
         setControlsVisible(!hasController);
@@ -858,22 +826,10 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
 
     private void updateRendererButtonLabel() {
-        MaterialButton btn_bios = findViewById(R.id.btn_bios);
-        if (btn_bios != null) {
-            int current = getCurrentRendererPref();
-            try {
-                // Prefer runtime renderer from core to reflect per-game overrides
-                int runtime = NativeApp.getCurrentRenderer();
-                // Only accept expected values
-                if (runtime == -1 || runtime == 12 || runtime == 13 || runtime == 14) {
-                    current = runtime;
-                }
-            } catch (Throwable ignored) {}
-            btn_bios.setText(rendererShortLabel(current));
-        }
-    }
+    // No-op: renderer label now handled in drawer
+}
 
-    // Public minimal UI refresh hook for dialogs
+// Public minimal UI refresh hook for dialogs
     public void refreshQuickUi() {
         updateRendererButtonLabel();
     }
@@ -1749,4 +1705,9 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         }
     }
 }
+
+
+
+
+
 

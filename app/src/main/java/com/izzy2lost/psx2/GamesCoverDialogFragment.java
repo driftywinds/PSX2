@@ -26,6 +26,9 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.PagerSnapHelper;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.button.MaterialButtonToggleGroup;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
+import androidx.core.view.GravityCompat;
 import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -374,11 +377,91 @@ public class GamesCoverDialogFragment extends DialogFragment {
         });
 
         View btnHome = root.findViewById(R.id.btn_home);
-        if (btnHome != null) btnHome.setOnClickListener(v -> dismissAllowingStateLoss());
+        if (btnHome != null) btnHome.setOnClickListener(v -> {
+            try {
+                androidx.drawerlayout.widget.DrawerLayout drawer = root.findViewById(R.id.dlg_drawer_layout);
+                if (drawer != null) drawer.openDrawer(GravityCompat.START);
+            } catch (Throwable ignored) {}
+        });
+
+        // Wire in-dialog navigation header actions to mirror main drawer
+        try {
+            com.google.android.material.navigation.NavigationView nav = root.findViewById(R.id.dialog_nav_view);
+            if (nav != null) {
+                View header = (nav.getHeaderCount() > 0) ? nav.getHeaderView(0) : nav.inflateHeaderView(R.layout.drawer_header_settings);
+                if (header != null) {
+                    View btnPower = header.findViewById(R.id.drawer_btn_power);
+                    if (btnPower != null) {
+                        btnPower.setOnClickListener(v -> {
+                            new MaterialAlertDialogBuilder(requireContext(),
+                                    com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+                                    .setTitle("Power Off")
+                                    .setMessage("Quit the app?")
+                                    .setNegativeButton("Cancel", null)
+                                    .setPositiveButton("Quit", (d,w) -> { try { NativeApp.shutdown(); } catch (Throwable ignored) {} if (getActivity()!=null){ getActivity().finishAffinity(); getActivity().finishAndRemoveTask(); } System.exit(0); })
+                                    .show();
+                        });
+                    }
+                    View btnReboot = header.findViewById(R.id.drawer_btn_reboot);
+                    if (btnReboot != null) {
+                        btnReboot.setOnClickListener(v -> {
+                            new MaterialAlertDialogBuilder(requireContext(),
+                                    com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+                                    .setTitle("Reboot")
+                                    .setMessage("Restart the current game?")
+                                    .setNegativeButton("Cancel", null)
+                                    .setPositiveButton("Reboot", (d,w) -> { if (getActivity() instanceof MainActivity) { ((MainActivity) getActivity()).rebootEmu(); } })
+                                    .show();
+                        });
+                    }
+                    MaterialButtonToggleGroup tg = header.findViewById(R.id.drawer_tg_renderer);
+                    View tbAt = header.findViewById(R.id.drawer_tb_at);
+                    View tbVk = header.findViewById(R.id.drawer_tb_vk);
+                    View tbGl = header.findViewById(R.id.drawer_tb_gl);
+                    View tbSw = header.findViewById(R.id.drawer_tb_sw);
+                    if (tg != null) {
+                        int current = -1;
+                        try { current = NativeApp.getCurrentRenderer(); } catch (Throwable ignored) {}
+                        if (current == 14 && tbVk != null) tg.check(tbVk.getId());
+                        else if (current == 12 && tbGl != null) tg.check(tbGl.getId());
+                        else if (current == 13 && tbSw != null) tg.check(tbSw.getId());
+                        else if (tbAt != null) tg.check(tbAt.getId());
+                        tg.addOnButtonCheckedListener((group, checkedId, isChecked) -> {
+                            if (!isChecked) return;
+                            int r = -1;
+                            if (checkedId == (tbVk != null ? tbVk.getId() : -2)) r = 14;
+                            else if (checkedId == (tbGl != null ? tbGl.getId() : -2)) r = 12;
+                            else if (checkedId == (tbSw != null ? tbSw.getId() : -2)) r = 13;
+                            else r = -1;
+                            try {
+                                requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE).edit().putInt("renderer", r).apply();
+                                NativeApp.renderGpu(r);
+                            } catch (Throwable ignored) {}
+                        });
+                    }
+                    View btnGameState = header.findViewById(R.id.drawer_btn_game_state);
+                    if (btnGameState != null) {
+                        btnGameState.setOnClickListener(v -> {
+                            try { new SavesDialogFragment().show(getParentFragmentManager(), "saves_dialog"); } catch (Throwable ignored) {}
+                        });
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
         View btnDownload = root.findViewById(R.id.btn_download);
         if (btnDownload != null) btnDownload.setOnClickListener(v -> startDownloadCovers());
 
         return root;
+    }
+
+    // Public API to open the in-dialog navigation drawer from other components
+    public void openDialogDrawer() {
+        try {
+            View root = getView();
+            if (root == null) return;
+            androidx.drawerlayout.widget.DrawerLayout drawer = root.findViewById(R.id.dlg_drawer_layout);
+            if (drawer != null) drawer.openDrawer(androidx.core.view.GravityCompat.START);
+        } catch (Throwable ignored) {}
     }
 
     private void buildLettersAndBind() {
