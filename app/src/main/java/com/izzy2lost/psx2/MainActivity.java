@@ -2098,7 +2098,8 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 "• You must own original PlayStation 2 games and console\n" +
                 "• This emulator is for educational and preservation purposes\n\n" +
                 "Licensed under GNU General Public License v3.0\n" +
-                "View full license: https://github.com/YOUR_USERNAME/PSX2-Android/blob/main/LICENSE";
+                "Source code: https://github.com/izzy2lost/PSX2\n" +
+                "View full license: https://github.com/izzy2lost/PSX2/blob/master/LICENSE";
 
         new MaterialAlertDialogBuilder(this,
                 com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
@@ -2108,7 +2109,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 .setNeutralButton("View License", (dialog, which) -> {
                     // Open LICENSE file or GitHub link
                     Intent intent = new Intent(Intent.ACTION_VIEW);
-                    intent.setData(Uri.parse("https://github.com/YOUR_USERNAME/PSX2-Android/blob/main/LICENSE"));
+                    intent.setData(Uri.parse("https://github.com/izzy2lost/PSX2/blob/master/LICENSE"));
                     try {
                         startActivity(intent);
                     } catch (Exception e) {

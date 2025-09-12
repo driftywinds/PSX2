@@ -1015,7 +1015,8 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 "• You must own original PlayStation 2 games and console\n" +
                 "• This emulator is for educational and preservation purposes\n\n" +
                 "Licensed under GNU General Public License v3.0\n" +
-                "View full license: https://github.com/YOUR_USERNAME/PSX2-Android/blob/main/LICENSE";
+                "Source code: https://github.com/izzy2lost/PSX2\n" +
+                "View full license: https://github.com/izzy2lost/PSX2/blob/master/LICENSE";
 
         new MaterialAlertDialogBuilder(requireContext(),
                 com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
@@ -1025,7 +1026,7 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 .setNeutralButton("View License", (dialog, which) -> {
                     // Open LICENSE file or GitHub link
                     android.content.Intent intent = new android.content.Intent(android.content.Intent.ACTION_VIEW);
-                    intent.setData(android.net.Uri.parse("https://github.com/YOUR_USERNAME/PSX2-Android/blob/main/LICENSE"));
+                    intent.setData(android.net.Uri.parse("https://github.com/izzy2lost/PSX2/blob/master/LICENSE"));
                     try {
                         startActivity(intent);
                     } catch (Exception e) {
