@@ -1,6 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+﻿<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:fillViewport="true">
+
+<LinearLayout
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
@@ -13,40 +18,41 @@
         android:textSize="20sp"
         android:textStyle="bold"
         android:layout_marginBottom="16dp"
-        android:textColor="?android:attr/textColorPrimary" />
+        android:textColor="@color/brand_primary" />
 
-    <!-- Row 1: Power + Reboot -->
+    <!-- Row 1: Pause/Play + Power + Reboot (icons only, centered) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
+        android:gravity="center"
         android:layout_marginBottom="8dp">
 
-        <com.google.android.material.button.MaterialButton
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btn_quick_pause_play"
+            style="?attr/floatingActionButtonStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="Pause/Play"
+            app:srcCompat="@drawable/play_pause_24px"
+            android:layout_marginEnd="12dp" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btn_quick_power"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="0dp"
+            style="?attr/floatingActionButtonStyle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Power"
-            android:textAllCaps="false"
-            android:drawableStart="@drawable/ic_power"
-            android:drawablePadding="8dp" />
+            android:contentDescription="Power"
+            app:srcCompat="@drawable/ic_power"
+            android:layout_marginEnd="12dp" />
 
-        <View
-            android:layout_width="8dp"
-            android:layout_height="0dp" />
-
-        <com.google.android.material.button.MaterialButton
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btn_quick_reboot"
-            style="@style/Widget.Material3.Button.OutlinedButton"
-            android:layout_width="0dp"
+            style="?attr/floatingActionButtonStyle"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Reboot"
-            android:textAllCaps="false"
-            android:drawableStart="@drawable/ic_reboot"
-            android:drawablePadding="8dp" />
+            android:contentDescription="Reboot"
+            app:srcCompat="@drawable/ic_reboot" />
     </LinearLayout>
 
     <!-- Row 2: Renderer toggle buttons -->
@@ -109,8 +115,10 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="GAMES"
+            android:textColor="@android:color/white"
             android:textAllCaps="true"
             android:drawableStart="@drawable/stadia_controller_24px"
+            android:drawableTint="@color/brand_primary"
             android:drawablePadding="8dp" />
 
         <View
@@ -124,8 +132,10 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="SAVES"
+            android:textColor="@android:color/white"
             android:textAllCaps="true"
             android:drawableStart="@drawable/save_24px"
+            android:drawableTint="@color/brand_primary"
             android:drawablePadding="8dp" />
     </LinearLayout>
 
@@ -135,6 +145,7 @@
         android:layout_height="wrap_content"
         android:text="Aspect Ratio"
         android:textStyle="bold"
+        android:textColor="@color/brand_primary"
         android:layout_marginBottom="4dp"/>
 
     <Spinner
@@ -149,6 +160,7 @@
         android:layout_height="wrap_content"
         android:text="Blending Accuracy"
         android:textStyle="bold"
+        android:textColor="@color/brand_primary"
         android:layout_marginBottom="4dp"/>
 
     <Spinner
@@ -225,4 +237,7 @@
         android:text="Cancel"
         android:textAllCaps="false" />
 
-</LinearLayout>
+    </LinearLayout>
+
+</ScrollView>
+

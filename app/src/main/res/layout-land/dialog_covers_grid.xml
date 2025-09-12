@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/dlg_drawer_layout"
@@ -63,16 +63,7 @@
             app:iconPadding="8dp"
             app:iconSize="24dp" />       
     </LinearLayout>
-    <!-- Letters row above covers -->
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/recycler_letters"
-        android:layout_width="match_parent"
-        android:layout_height="24dp"
-        android:layout_marginTop="0dp"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        android:clipToPadding="false"
-        android:overScrollMode="never"/>
+    <!-- Letters row removed -->
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_covers"
@@ -137,3 +128,4 @@
         app:headerLayout="@layout/drawer_header_settings" />
 
 </androidx.drawerlayout.widget.DrawerLayout>
+

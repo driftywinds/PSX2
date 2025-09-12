@@ -10,6 +10,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.DialogFragment;
 
 import com.google.android.material.button.MaterialButton;
+import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.materialswitch.MaterialSwitch;
 import android.widget.Spinner;
@@ -22,13 +23,14 @@ public class QuickActionsDialogFragment extends DialogFragment {
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         View view = getLayoutInflater().inflate(R.layout.dialog_quick_actions, null, false);
 
-        MaterialButton btnPower = view.findViewById(R.id.btn_quick_power);
-        MaterialButton btnReboot = view.findViewById(R.id.btn_quick_reboot);
+        FloatingActionButton btnPower = view.findViewById(R.id.btn_quick_power);
+        FloatingActionButton btnReboot = view.findViewById(R.id.btn_quick_reboot);
         com.google.android.material.button.MaterialButtonToggleGroup tgRenderer = view.findViewById(R.id.qa_tg_renderer);
         View tbAt = view.findViewById(R.id.qa_tb_at);
         View tbVk = view.findViewById(R.id.qa_tb_vk);
         View tbGl = view.findViewById(R.id.qa_tb_gl);
         View tbSw = view.findViewById(R.id.qa_tb_sw);
+        FloatingActionButton btnPausePlay = view.findViewById(R.id.btn_quick_pause_play);
         MaterialButton btnGames = view.findViewById(R.id.btn_quick_games);
         MaterialButton btnSaves = view.findViewById(R.id.btn_quick_saves);
         MaterialButton btnCancel = view.findViewById(R.id.btn_cancel);
@@ -49,6 +51,26 @@ public class QuickActionsDialogFragment extends DialogFragment {
                     .setNegativeButton("Cancel", null)
                     .setPositiveButton("Quit", (d, w) -> { quitApp(); dismissAllowingStateLoss(); })
                     .show());
+        }
+
+        // Pause/Play toggle
+        if (btnPausePlay != null) {
+            try {
+                boolean isPaused = NativeApp.isPaused();
+                btnPausePlay.setImageResource(R.drawable.play_pause_24px);
+            } catch (Throwable ignored) {}
+            btnPausePlay.setOnClickListener(v -> {
+                try {
+                    if (requireActivity() instanceof MainActivity) {
+                        ((MainActivity) requireActivity()).togglePauseState();
+                    } else {
+                        boolean paused = NativeApp.isPaused();
+                        if (paused) NativeApp.resume(); else NativeApp.pause();
+                    }
+                    boolean isPausedNow = NativeApp.isPaused();
+                    btnPausePlay.setImageResource(R.drawable.play_pause_24px);
+                } catch (Throwable ignored) {}
+            });
         }
 
         // Reboot game
@@ -208,3 +230,5 @@ public class QuickActionsDialogFragment extends DialogFragment {
         System.exit(0);
     }
 }
+
+

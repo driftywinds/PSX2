@@ -114,6 +114,13 @@ public class GameSettingsDialogFragment extends DialogFragment {
             serialView.setVisibility(View.GONE);
         }
 
+        // Aspect Ratio Spinner
+        Spinner spAspectRatio = view.findViewById(R.id.sp_aspect_ratio);
+        ArrayAdapter<CharSequence> aspectAdapter = ArrayAdapter.createFromResource(ctx,
+                R.array.aspect_ratio_entries, android.R.layout.simple_spinner_item);
+        aspectAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spAspectRatio.setAdapter(aspectAdapter);
+
         // Blending Accuracy Spinner
         Spinner spBlendingAccuracy = view.findViewById(R.id.sp_blending_accuracy);
         ArrayAdapter<CharSequence> blendingAdapter = ArrayAdapter.createFromResource(ctx,
@@ -147,6 +154,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
         android.content.SharedPreferences gp = ctx.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
         int gRenderer = gp.getInt("renderer", -1);
         float gScale = gp.getFloat("upscale_multiplier", 1.0f);
+        int gAspect = gp.getInt("aspect_ratio", 1);
         int gBlend = gp.getInt("blending_accuracy", 1);
         boolean gWide = gp.getBoolean("widescreen_patches", true);
         boolean gNoInt = gp.getBoolean("no_interlacing_patches", true);
@@ -157,6 +165,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
         // Map to indices
         int defaultRendererIdx = (gRenderer == -1 ? 0 : (gRenderer == 14 ? 1 : (gRenderer == 12 ? 2 : 3)));
         int defaultScaleIdx = Math.max(0, Math.min(7, Math.round(gScale) - 1));
+        spAspectRatio.setSelection(Math.max(0, Math.min(4, gAspect)));
         spRenderer.setSelection(defaultRendererIdx);
         spResolution.setSelection(defaultScaleIdx);
         spBlendingAccuracy.setSelection(Math.max(0, Math.min(5, gBlend)));
@@ -205,6 +214,22 @@ public class GameSettingsDialogFragment extends DialogFragment {
                     m = java.util.regex.Pattern.compile("(?m)^upscale_multiplier=\\s*([0-9]+(?:\\.[0-9]+)?)$").matcher(content);
                     if (m.find()) {
                         try { float mult = Float.parseFloat(m.group(1)); int sel = Math.max(0, Math.min(7, Math.round(mult - 1))); spResolution.setSelection(sel); } catch (Exception ignored) {}
+                    }
+                    m = java.util.regex.Pattern.compile("(?m)^AspectRatio=\\s*(.+)$").matcher(content);
+                    if (m.find()) {
+                        String av = m.group(1).trim();
+                        int idx = 1; // default Auto 4:3/3:2
+                        try {
+                            int num = Integer.parseInt(av);
+                            if (num >= 0 && num <= 4) idx = num;
+                        } catch (Exception e) {
+                            if ("Stretch".equalsIgnoreCase(av)) idx = 0;
+                            else if ("Auto".equalsIgnoreCase(av)) idx = 1;
+                            else if ("4:3".equalsIgnoreCase(av)) idx = 2;
+                            else if ("16:9".equalsIgnoreCase(av)) idx = 3;
+                            else if ("10:7".equalsIgnoreCase(av)) idx = 4;
+                        }
+                        spAspectRatio.setSelection(idx);
                     }
                     m = java.util.regex.Pattern.compile("(?m)^accurate_blending_unit=\\s*(.+)$").matcher(content);
                     if (m.find()) {
@@ -255,6 +280,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
             }
         } catch (Throwable ignored) {
             // Fallback to defaults if loading fails
+            spAspectRatio.setSelection(1);
             spBlendingAccuracy.setSelection(1);
             // Mirror global default when error
             android.content.SharedPreferences prefs = ctx.getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
@@ -276,6 +302,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
                 .setView(view)
                 .setNegativeButton("Cancel", (d, w) -> d.dismiss())
                 .setPositiveButton("Save", (d, w) -> {
+                   final int aspectIdx = spAspectRatio.getSelectedItemPosition();
                    final int blendLevel = spBlendingAccuracy.getSelectedItemPosition();
                    final int rendererIdx = spRenderer.getSelectedItemPosition();
                    final int resIdx = spResolution.getSelectedItemPosition();
@@ -288,7 +315,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
 
                    // Persist per-game INI explicitly (supports Auto as well)
                    writeGameSettingsIni(ctx, gameSerial, gameCrc,
-                           blendLevel, rendererIdx, resIdx, wide, noInt,
+                           aspectIdx, blendLevel, rendererIdx, resIdx, wide, noInt,
                            /*enablePatches*/ enablePatches, enableCheats);
 
                    // Live-apply per-game settings in one batch
@@ -301,6 +328,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
                        else renderer = 13;
 
                        float scale = Math.max(1, Math.min(8, resIdx + 1));
+                       NativeApp.setAspectRatio(aspectIdx);
                        NativeApp.setLoadTextures(loadTex);
                        NativeApp.setAsyncTextureLoading(asyncTex);
                        NativeApp.applyPerGameSettingsBatch(renderer, scale, blendLevel, wide, noInt, enablePatches, enableCheats);
@@ -385,6 +413,7 @@ public class GameSettingsDialogFragment extends DialogFragment {
     private static void writeGameSettingsIni(Context ctx,
                                              String gameSerial,
                                              String gameCrc,
+                                             int aspectRatioIdx,
                                              int blendingAccuracyIdx,
                                              int rendererIdx,
                                              int resolutionIdx,
@@ -403,11 +432,13 @@ public class GameSettingsDialogFragment extends DialogFragment {
             String rendererName = (rendererIdx == 0) ? "Auto" : (rendererIdx == 1 ? "Vulkan" : (rendererIdx == 2 ? "OpenGL" : "Software"));
             float upscale = Math.max(1, Math.min(8, resolutionIdx + 1));
             int abl = Math.max(0, Math.min(5, blendingAccuracyIdx));
+            int aspectRatio = Math.max(0, Math.min(4, aspectRatioIdx));
 
             StringBuilder sb = new StringBuilder();
             sb.append("[EmuCore/GS]\n");
             sb.append("Renderer=").append(rendererName).append('\n');
             sb.append("upscale_multiplier=").append((int) upscale).append('\n');
+            sb.append("AspectRatio=").append(aspectRatio).append('\n');
             sb.append("accurate_blending_unit=").append(abl).append('\n');
             sb.append('\n');
             sb.append("[EmuCore]\n");

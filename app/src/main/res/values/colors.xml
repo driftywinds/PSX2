@@ -141,4 +141,8 @@
     <color name="md_theme_surfaceContainerHigh_highContrast">#D1D4DC</color>
     <color name="md_theme_surfaceContainerHighest_highContrast">#C3C6CE</color>
     <color name="covers_hint_yellow">#FFEB3B</color>
+    
+    <!-- Toggle button background colors -->
+    <color name="toggle_button_selected">#40FFFFFF</color> <!-- Semi-transparent white -->
+    <color name="toggle_button_unselected">@android:color/transparent</color>
 </resources>

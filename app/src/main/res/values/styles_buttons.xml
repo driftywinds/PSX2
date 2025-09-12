@@ -16,4 +16,10 @@
         <item name="strokeColor">@android:color/transparent</item>
         <item name="strokeWidth">0dp</item>
     </style>
+
+    <!-- Custom toggle button with light pink selected background -->
+    <style name="PSX2.ToggleButton" parent="Widget.Material3Expressive.Button.OutlinedButton">
+        <item name="backgroundTint">@drawable/toggle_button_background</item>
+        <item name="rippleColor">@color/brand_ripple</item>
+    </style>
 </resources>

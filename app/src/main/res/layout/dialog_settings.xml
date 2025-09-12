@@ -32,7 +32,7 @@
                 android:contentDescription="Reboot"
                 android:padding="8dp"
                 android:src="@drawable/ic_reboot"
-                app:tint="@android:color/holo_red_light"
+                android:tint="@android:color/holo_red_light"
                 android:layout_marginEnd="8dp" />
 
             <ImageButton
@@ -43,7 +43,7 @@
                 android:contentDescription="Power"
                 android:padding="8dp"
                 android:src="@drawable/ic_power"
-                app:tint="@android:color/holo_red_light" />
+                android:tint="@android:color/holo_red_light" />
         </LinearLayout>
 
         <TextView
@@ -51,6 +51,7 @@
             android:layout_height="wrap_content"
             android:text="Renderer"
             android:textStyle="bold"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="8dp"/>
 
         <RadioGroup
@@ -64,6 +65,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="0dp"
+                android:textColor="@color/md_theme_tertiary"
                 android:text="AUTO"/>
 
             <RadioButton
@@ -71,6 +73,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="0dp"
+                android:textColor="@color/md_theme_tertiary"
                 android:text="VK"/>
 
             <RadioButton
@@ -78,6 +81,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="0dp"
+                android:textColor="@color/md_theme_tertiary"
                 android:text="OGL"
                 android:layout_marginStart="16dp"/>
 
@@ -86,6 +90,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:minWidth="0dp"
+                android:textColor="@color/md_theme_tertiary"
                 android:text="SW"
                 android:layout_marginStart="16dp"/>
         </RadioGroup>
@@ -99,6 +104,7 @@
             android:layout_height="wrap_content"
             android:text="Blending Accuracy"
             android:textStyle="bold"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="8dp"/>
 
         <Spinner
@@ -115,6 +121,7 @@
             android:layout_height="wrap_content"
             android:text="Resolution scale"
             android:textStyle="bold"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="8dp"/>
 
         <Spinner
@@ -131,6 +138,7 @@
             android:layout_height="wrap_content"
             android:text="Display"
             android:textStyle="bold"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="8dp"/>
 
         <TextView
@@ -163,6 +171,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Widescreen Patches"
+                android:textColor="@android:color/white"
                 style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
 
             <com.google.android.material.materialswitch.MaterialSwitch
@@ -170,6 +179,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="No Interlacing Patches"
+                android:textColor="@android:color/white"
                 android:layout_marginTop="8dp"
                 style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
 
@@ -203,6 +213,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Load Texture Replacements"
+                android:textColor="@android:color/white"
                 style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
 
             <com.google.android.material.materialswitch.MaterialSwitch
@@ -210,6 +221,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Async Texture Loading"
+                android:textColor="@android:color/white"
                 android:layout_marginTop="8dp"
                 style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
 
@@ -218,6 +230,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Precache Texture Replacements"
+                android:textColor="@android:color/white"
                 android:layout_marginTop="8dp"
                 style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
         </LinearLayout>
@@ -231,6 +244,7 @@
             android:layout_height="wrap_content"
             android:text="Developer"
             android:textStyle="bold"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="8dp"/>
 
         <LinearLayout
@@ -244,6 +258,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Dev: HUD overlay"
+                android:textColor="@android:color/white"
                 style="@style/Widget.Material3.CompoundButton.MaterialSwitch"/>
         </LinearLayout>
 
@@ -256,6 +271,7 @@
             android:layout_height="wrap_content"
             android:text="Controller"
             android:textStyle="bold"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="8dp"/>
 
         <com.google.android.material.button.MaterialButton

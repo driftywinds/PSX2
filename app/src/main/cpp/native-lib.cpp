@@ -1212,6 +1212,12 @@ Java_com_izzy2lost_psx2_NativeApp_resume(JNIEnv *env, jclass clazz) {
 }
 
 extern "C"
+JNIEXPORT jboolean JNICALL
+Java_com_izzy2lost_psx2_NativeApp_isPaused(JNIEnv *env, jclass clazz) {
+    return VMManager::GetState() == VMState::Paused;
+}
+
+extern "C"
 JNIEXPORT void JNICALL
 Java_com_izzy2lost_psx2_NativeApp_shutdown(JNIEnv *env, jclass clazz) {
     std::thread([] {

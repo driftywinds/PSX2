@@ -18,6 +18,8 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.FrameLayout;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
 import android.view.ViewGroup;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -74,6 +76,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private boolean joyRightPressed = false;
     private boolean controllerUiApplied = false;
     private AlertDialog mBiosPromptDialog = null;
+    private boolean mControllerHintShowing = false;
 
     private boolean isThread() {
         if (mEmulationThread != null) {
@@ -223,6 +226,15 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
             w.setAttributes(lp);
         }
+
+        // Common flags for legacy immersive (works as belt-and-suspenders on newer API too)
+        final int legacyFlags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Tell Window to lay out edge-to-edge and hide all system bars
             w.setDecorFitsSystemWindows(false);
@@ -231,15 +243,22 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 controller.hide(WindowInsets.Type.systemBars());
                 controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
+            // Also apply legacy flags to decor; helps on 3-button nav devices
+            View decor = w.getDecorView();
+            decor.setSystemUiVisibility(legacyFlags);
+            decor.setOnSystemUiVisibilityChangeListener(vis -> {
+                if ((vis & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+                    decor.setSystemUiVisibility(legacyFlags);
+                }
+            });
         } else {
             View decor = w.getDecorView();
-            int flags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
-            decor.setSystemUiVisibility(flags);
+            decor.setSystemUiVisibility(legacyFlags);
+            decor.setOnSystemUiVisibilityChangeListener(vis -> {
+                if ((vis & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+                    decor.setSystemUiVisibility(legacyFlags);
+                }
+            });
         }
     }
 
@@ -314,7 +333,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     }
 
     private static final String[] GAME_EXTS = new String[]{
-            ".iso", ".bin", ".img", ".mdf", ".nrg", ".chd"
+            ".iso", ".bin", ".img", ".mdf", ".nrg", ".chd", ".cso", ".zso", ".gz"
     };
 
     private static boolean hasGameExt(String name) {
@@ -483,8 +502,20 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if (btn_settings != null) {
             btn_settings.setOnClickListener(v -> {
                 try {
+                    // Refresh drawer settings before opening
+                    refreshDrawerSettings();
                     DrawerLayout drawer = findViewById(R.id.drawer_layout);
                     if (drawer != null) drawer.openDrawer(androidx.core.view.GravityCompat.START);
+                } catch (Throwable ignored) {}
+            });
+        }
+
+        // Pause/Play button toggles emulation pause state
+        MaterialButton btn_pause_play = findViewById(R.id.btn_pause_play);
+        if (btn_pause_play != null) {
+            btn_pause_play.setOnClickListener(v -> {
+                try {
+                    togglePauseState();
                 } catch (Throwable ignored) {}
             });
         }
@@ -542,6 +573,18 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                             } catch (Throwable ignored) {}
                         });
                     }
+                    View btnGames = header.findViewById(R.id.drawer_btn_games);
+                    if (btnGames != null) {
+                        btnGames.setOnClickListener(v -> {
+                            try {
+                                // Close drawer first
+                                DrawerLayout drawer = findViewById(R.id.drawer_layout);
+                                if (drawer != null) drawer.closeDrawer(androidx.core.view.GravityCompat.START);
+                                // Open games dialog
+                                openGamesDialog();
+                            } catch (Throwable ignored) {}
+                        });
+                    }
                     if (btnGameState != null) {
                         btnGameState.setOnClickListener(v -> {
                             try {
@@ -550,6 +593,9 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                             } catch (Throwable ignored) {}
                         });
                     }
+
+                    // Setup drawer settings controls to mirror quick actions
+                    setupDrawerSettings(header);
                 }
             }
         } catch (Throwable ignored) {}
@@ -809,6 +855,11 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
         // Hide on-screen touch controls when a physical controller is connected
         setControlsVisible(!hasController);
+
+        // Show controller hint when no controller is connected (only once)
+        if (!hasController) {
+            showControllerHintIfNeeded();
+        }
     }
 
     private int getCurrentRendererPref() {
@@ -1333,7 +1384,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         SDLControllerManager.initialize();
 
         // Load and apply saved settings
-        SettingsDialogFragment.loadAndApplySettings(this);
+        loadAndApplyStoredSettings();
 
         mHIDDeviceManager = HIDDeviceManager.acquire(this);
         // Initialize HID device manager for USB and Bluetooth controllers
@@ -1360,6 +1411,14 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         if(!isThread()) {
             mEmulationThread = new Thread(() -> NativeApp.runVMThread(m_szGamefile));
             mEmulationThread.start();
+            // Show pause button when game starts (game is always running initially)
+            runOnUiThread(() -> {
+                MaterialButton btn_pause_play = findViewById(R.id.btn_pause_play);
+                if (btn_pause_play != null) {
+                    btn_pause_play.setVisibility(View.VISIBLE);
+                    btn_pause_play.setIcon(ContextCompat.getDrawable(this, R.drawable.pause_circle_24px));
+                }
+            });
         }
     }
 
@@ -1395,6 +1454,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         } else {
             // No game loaded; just shutdown for safety
             NativeApp.shutdown();
+            updatePausePlayButton();
         }
     }
 
@@ -1704,10 +1764,320 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 break;
         }
     }
+
+    private void setupDrawerSettings(View header) {
+        if (header == null) return;
+
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+
+        // Aspect Ratio spinner - setup like QuickActions
+        Spinner spAspect = header.findViewById(R.id.drawer_sp_aspect_ratio);
+        if (spAspect != null) {
+            if (spAspect.getAdapter() == null) {
+                ArrayAdapter<CharSequence> aspectAdapter = ArrayAdapter.createFromResource(this,
+                        R.array.aspect_ratio_entries, android.R.layout.simple_spinner_item);
+                aspectAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spAspect.setAdapter(aspectAdapter);
+                spAspect.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                        prefs.edit().putInt("aspect_ratio", position).apply();
+                        try { NativeApp.setAspectRatio(position); } catch (Throwable ignored) {}
+                    }
+                    @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                });
+            }
+            ArrayAdapter<?> adapter = (ArrayAdapter<?>) spAspect.getAdapter();
+            if (adapter != null) {
+                int savedAspect = prefs.getInt("aspect_ratio", 1);
+                if (savedAspect < 0 || savedAspect >= adapter.getCount()) savedAspect = 1;
+                spAspect.setSelection(savedAspect);
+            }
+        }
+
+        // Resolution Scale spinner
+        Spinner spScale = header.findViewById(R.id.drawer_sp_scale);
+        if (spScale != null) {
+            if (spScale.getAdapter() == null) {
+                ArrayAdapter<CharSequence> scaleAdapter = ArrayAdapter.createFromResource(this,
+                        R.array.scale_entries, android.R.layout.simple_spinner_item);
+                scaleAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spScale.setAdapter(scaleAdapter);
+                spScale.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                        float scale = Math.max(1, Math.min(8, position + 1));
+                        prefs.edit().putFloat("upscale_multiplier", scale).apply();
+                        try { NativeApp.renderUpscalemultiplier(scale); } catch (Throwable ignored) {}
+                    }
+                    @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                });
+            }
+            ArrayAdapter<?> adapter = (ArrayAdapter<?>) spScale.getAdapter();
+            if (adapter != null) {
+                float savedScale = prefs.getFloat("upscale_multiplier", 1.0f);
+                int scaleIndex = Math.max(0, Math.min(adapter.getCount() - 1, Math.round(savedScale) - 1));
+                spScale.setSelection(scaleIndex);
+            }
+        }
+
+        // Blending Accuracy spinner - setup like QuickActions
+        Spinner spBlending = header.findViewById(R.id.drawer_sp_blending_accuracy);
+        if (spBlending != null) {
+            if (spBlending.getAdapter() == null) {
+                ArrayAdapter<CharSequence> blendAdapter = ArrayAdapter.createFromResource(this,
+                        R.array.blending_accuracy_entries, android.R.layout.simple_spinner_item);
+                blendAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spBlending.setAdapter(blendAdapter);
+                spBlending.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                        prefs.edit().putInt("blending_accuracy", position).apply();
+                        try { NativeApp.setBlendingAccuracy(position); } catch (Throwable ignored) {}
+                    }
+                    @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                });
+            }
+            ArrayAdapter<?> adapter = (ArrayAdapter<?>) spBlending.getAdapter();
+            if (adapter != null) {
+                int savedBlend = prefs.getInt("blending_accuracy", 1);
+                if (savedBlend < 0 || savedBlend >= adapter.getCount()) savedBlend = 1;
+                spBlending.setSelection(savedBlend);
+            }
+        }
+
+        // Setup switch listeners only once
+        setupDrawerSwitchListeners(header, prefs);
+    }
+
+    private void setupDrawerSwitchListeners(View header, SharedPreferences prefs) {
+        // Widescreen Patches switch
+        com.google.android.material.materialswitch.MaterialSwitch swWide = header.findViewById(R.id.drawer_sw_widescreen);
+        if (swWide != null && swWide.getTag() == null) {
+            swWide.setTag("setup"); // Mark as setup to avoid duplicate listeners
+            swWide.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("widescreen_patches", isChecked).apply();
+                try { NativeApp.setWidescreenPatches(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+
+        // No Interlacing switch
+        com.google.android.material.materialswitch.MaterialSwitch swNoInt = header.findViewById(R.id.drawer_sw_no_interlacing);
+        if (swNoInt != null && swNoInt.getTag() == null) {
+            swNoInt.setTag("setup");
+            swNoInt.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("no_interlacing_patches", isChecked).apply();
+                try { NativeApp.setNoInterlacingPatches(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+
+        // Load Textures switch
+        com.google.android.material.materialswitch.MaterialSwitch swLoadTex = header.findViewById(R.id.drawer_sw_load_textures);
+        if (swLoadTex != null && swLoadTex.getTag() == null) {
+            swLoadTex.setTag("setup");
+            swLoadTex.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("load_textures", isChecked).apply();
+                try { NativeApp.setLoadTextures(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+
+        // Async Textures switch
+        com.google.android.material.materialswitch.MaterialSwitch swAsyncTex = header.findViewById(R.id.drawer_sw_async_textures);
+        if (swAsyncTex != null && swAsyncTex.getTag() == null) {
+            swAsyncTex.setTag("setup");
+            swAsyncTex.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("async_texture_loading", isChecked).apply();
+                try { NativeApp.setAsyncTextureLoading(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+
+        // Precache Textures switch
+        com.google.android.material.materialswitch.MaterialSwitch swPrecache = header.findViewById(R.id.drawer_sw_precache_textures);
+        if (swPrecache != null && swPrecache.getTag() == null) {
+            swPrecache.setTag("setup");
+            swPrecache.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("precache_textures", isChecked).apply();
+                try { NativeApp.setPrecacheTextureReplacements(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+
+        // HUD Developer switch
+        com.google.android.material.materialswitch.MaterialSwitch swDevHud = header.findViewById(R.id.drawer_sw_dev_hud);
+        if (swDevHud != null && swDevHud.getTag() == null) {
+            swDevHud.setTag("setup");
+            swDevHud.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("hud_visible", isChecked).apply();
+                try { NativeApp.setHudVisible(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+    }
+
+    private void refreshDrawerSettings() {
+        try {
+            NavigationView nav = findViewById(R.id.nav_view);
+            if (nav != null && nav.getHeaderCount() > 0) {
+                View header = nav.getHeaderView(0);
+                if (header != null) {
+                    SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+                    
+                    // Refresh switch states only (spinners are set up once in setupDrawerSettings)
+                    com.google.android.material.materialswitch.MaterialSwitch swWide = header.findViewById(R.id.drawer_sw_widescreen);
+                    if (swWide != null) {
+                        swWide.setChecked(prefs.getBoolean("widescreen_patches", true));
+                    }
+
+                    com.google.android.material.materialswitch.MaterialSwitch swNoInt = header.findViewById(R.id.drawer_sw_no_interlacing);
+                    if (swNoInt != null) {
+                        swNoInt.setChecked(prefs.getBoolean("no_interlacing_patches", true));
+                    }
+
+                    com.google.android.material.materialswitch.MaterialSwitch swLoadTex = header.findViewById(R.id.drawer_sw_load_textures);
+                    if (swLoadTex != null) {
+                        swLoadTex.setChecked(prefs.getBoolean("load_textures", false));
+                    }
+
+                    com.google.android.material.materialswitch.MaterialSwitch swAsyncTex = header.findViewById(R.id.drawer_sw_async_textures);
+                    if (swAsyncTex != null) {
+                        swAsyncTex.setChecked(prefs.getBoolean("async_texture_loading", true));
+                    }
+
+                    com.google.android.material.materialswitch.MaterialSwitch swPrecache = header.findViewById(R.id.drawer_sw_precache_textures);
+                    if (swPrecache != null) {
+                        swPrecache.setChecked(prefs.getBoolean("precache_textures", false));
+                    }
+
+                    com.google.android.material.materialswitch.MaterialSwitch swDevHud = header.findViewById(R.id.drawer_sw_dev_hud);
+                    if (swDevHud != null) {
+                        swDevHud.setChecked(prefs.getBoolean("hud_visible", false));
+                    }
+                }
+            }
+        } catch (Throwable ignored) {}
+    }
+
+    private void loadAndApplyStoredSettings() {
+        try {
+            SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+            
+            // Apply aspect ratio setting
+            int aspectRatio = prefs.getInt("aspect_ratio", 1);
+            NativeApp.setAspectRatio(aspectRatio);
+            
+            // Apply blending accuracy setting
+            int blendingAccuracy = prefs.getInt("blending_accuracy", 1);
+            NativeApp.setBlendingAccuracy(blendingAccuracy);
+            
+            // Apply other settings
+            boolean widescreenPatches = prefs.getBoolean("widescreen_patches", true);
+            NativeApp.setWidescreenPatches(widescreenPatches);
+            
+            boolean noInterlacing = prefs.getBoolean("no_interlacing_patches", true);
+            NativeApp.setNoInterlacingPatches(noInterlacing);
+            
+            boolean loadTextures = prefs.getBoolean("load_textures", false);
+            NativeApp.setLoadTextures(loadTextures);
+            
+            boolean asyncTextures = prefs.getBoolean("async_texture_loading", true);
+            NativeApp.setAsyncTextureLoading(asyncTextures);
+            
+            boolean precacheTextures = prefs.getBoolean("precache_textures", false);
+            NativeApp.setPrecacheTextureReplacements(precacheTextures);
+            
+            // Apply renderer setting
+            int renderer = prefs.getInt("renderer", -1);
+            NativeApp.renderGpu(renderer);
+            
+        } catch (Throwable ignored) {}
+    }
+
+    private void showControllerHintIfNeeded() {
+        // Prevent multiple dialogs from showing
+        if (mControllerHintShowing) return;
+        
+        SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+        boolean hasShownHint = prefs.getBoolean("controller_hint_shown", false);
+        
+        // Only show the hint once, and only if setup is complete
+        if (!hasShownHint && prefs.getBoolean("first_run_done", false)) {
+            mControllerHintShowing = true;
+            // Small delay to avoid showing immediately on startup
+            findViewById(android.R.id.content).postDelayed(() -> {
+                if (!isFinishing() && !mSetupWizardActive && mControllerHintShowing) {
+                    showControllerHintDialog();
+                }
+            }, 2000); // 2 second delay
+        }
+    }
+
+    private void showControllerHintDialog() {
+        // Double-check to prevent multiple dialogs
+        if (!mControllerHintShowing) return;
+        
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_controller_hint, null);
+        
+        com.google.android.material.materialswitch.MaterialSwitch swDontShow = dialogView.findViewById(R.id.sw_dont_show_again);
+        
+        MaterialAlertDialogBuilder builder = new MaterialAlertDialogBuilder(this,
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+                .setCustomTitle(UiUtils.centeredDialogTitle(this, "Controller Tip"))
+                .setView(dialogView)
+                .setPositiveButton("Got it!", (dialog, which) -> {
+                    SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
+                    if (swDontShow != null && swDontShow.isChecked()) {
+                        prefs.edit().putBoolean("controller_hint_shown", true).apply();
+                    }
+                    mControllerHintShowing = false;
+                    dialog.dismiss();
+                })
+                .setCancelable(true)
+                .setOnDismissListener(dialog -> {
+                    mControllerHintShowing = false;
+                });
+        
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    // Pause/Play toggle functionality
+    public void togglePauseState() {
+        try {
+            boolean isPaused = NativeApp.isPaused();
+            if (isPaused) {
+                NativeApp.resume();
+            } else {
+                NativeApp.pause();
+            }
+            updatePausePlayButton();
+        } catch (Throwable ignored) {}
+    }
+
+    private void updatePausePlayButton() {
+        MaterialButton btn_pause_play = findViewById(R.id.btn_pause_play);
+        if (btn_pause_play != null) {
+            try {
+                boolean isPaused = NativeApp.isPaused();
+                boolean hasGame = hasSelectedGame() && isThread();
+                
+                // Show button only when a game is running
+                btn_pause_play.setVisibility(hasGame ? View.VISIBLE : View.GONE);
+                
+                if (hasGame) {
+                    // Update icon to show the action it will perform
+                    if (isPaused) {
+                        // Game is paused, show pause icon (will pause more/stay paused)
+                        btn_pause_play.setIcon(ContextCompat.getDrawable(this, R.drawable.pause_circle_24px));
+                    } else {
+                        // Game is running, show play icon (will keep playing)
+                        btn_pause_play.setIcon(ContextCompat.getDrawable(this, R.drawable.play_circle_24px));
+                    }
+                }
+            } catch (Throwable ignored) {}
+        }
+    }
+
+    // Call this method when game starts/stops to update button visibility
+    public void updateGameState() {
+        updatePausePlayButton();
+    }
+
+
+
+
 }
-
-
-
-
-
-

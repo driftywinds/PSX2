@@ -33,6 +33,7 @@ import java.util.Locale;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.io.File;
 
 public class GamesCoverDialogFragment extends DialogFragment {
     private boolean didInitialNudge = false;
@@ -56,24 +57,13 @@ public class GamesCoverDialogFragment extends DialogFragment {
     private int lastRvW = -1, lastRvH = -1;
     private boolean pendingResnap = false;
     private int lastItemWidthPx = 0;
-    private RecyclerView rvLetters;
-    private LinearLayoutManager llmLetters;
-    private PagerSnapHelper lettersSnapHelper;
-    private LettersAdapter lettersAdapter;
-    private java.util.ArrayList<Character> letters = new java.util.ArrayList<>();
-    private Character pendingLetterJump = null;
+
     private static final int SORT_ALPHA = 0;
     private static final int SORT_RECENT = 1;
     private int sortMode = SORT_ALPHA;
     private String query = null;
     // Simpler grouping/sort helpers (revert)
-    private static char firstLetter(String t) {
-        if (t == null) return '#';
-        String s = t.trim();
-        if (s.isEmpty()) return '#';
-        char c = Character.toUpperCase(s.charAt(0));
-        return Character.isLetter(c) ? c : '#';
-    }
+
 
     public interface OnGameSelectedListener {
         void onGameSelected(String gameUri);
@@ -104,6 +94,8 @@ public class GamesCoverDialogFragment extends DialogFragment {
     @Override
     public void onResume() {
         super.onResume();
+        // Keep dialog immersive like the rest of the app
+        forceDialogImmersive();
         if (rv != null) applyCoverflowTransforms(rv);
     }
 
@@ -111,13 +103,18 @@ public class GamesCoverDialogFragment extends DialogFragment {
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
         // Return a styled dialog; content is provided by onCreateView
-        return new Dialog(requireContext(), R.style.PSX2_FullScreenDialog);
+        Dialog d = new Dialog(requireContext(), R.style.PSX2_FullScreenDialog);
+        // Ensure immersive as soon as window exists
+        try { applyImmersiveToWindow(d.getWindow()); } catch (Throwable ignored) {}
+        return d;
     }
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View root = inflater.inflate(R.layout.dialog_covers_grid, container, false);
+        // Post to re-assert immersive after layout
+        try { root.post(this::forceDialogImmersive); } catch (Throwable ignored) {}
 
         rv = root.findViewById(R.id.recycler_covers);
         rv.setHasFixedSize(true);
@@ -130,56 +127,6 @@ public class GamesCoverDialogFragment extends DialogFragment {
         // Snap to center item
         snapHelper = new PagerSnapHelper();
         snapHelper.attachToRecyclerView(rv);
-        // Letters row setup
-        rvLetters = root.findViewById(R.id.recycler_letters);
-        if (rvLetters != null) {
-            rvLetters.setHasFixedSize(true);
-            llmLetters = new LinearLayoutManager(requireContext(), LinearLayoutManager.HORIZONTAL, false);
-            rvLetters.setLayoutManager(llmLetters);
-        // Snap to center item in the letters row
-            lettersSnapHelper = new PagerSnapHelper();
-            lettersSnapHelper.attachToRecyclerView(rvLetters);
-            rvLetters.setClipToPadding(false);
-            int basePad = (int)(24*getResources().getDisplayMetrics().density);
-            rvLetters.setPadding(basePad, 0, basePad, 0);
-            // Add spacing between letters for off-screen effect
-            final int letterSpace = (int)(12 * getResources().getDisplayMetrics().density);
-            rvLetters.addItemDecoration(new RecyclerView.ItemDecoration() {
-                @Override
-                public void getItemOffsets(@NonNull android.graphics.Rect outRect, @NonNull View view, @NonNull RecyclerView parent, @NonNull RecyclerView.State state) {
-                    int pos = parent.getChildAdapterPosition(view);
-                    if (pos == RecyclerView.NO_POSITION) return;
-                    outRect.left = letterSpace;
-                    outRect.right = letterSpace;
-                }
-            });
-            rvLetters.addOnScrollListener(new RecyclerView.OnScrollListener() {
-                @Override public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
-                    super.onScrolled(recyclerView, dx, dy);
-                    applyLetterTransforms(recyclerView);
-                }
-                @Override public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
-                    super.onScrollStateChanged(recyclerView, newState);
-                    if (newState == RecyclerView.SCROLL_STATE_IDLE) applyLetterTransforms(recyclerView);
-                }
-            });
-            // Initial snap + dynamic side padding after first layout to keep center item centered
-            rvLetters.getViewTreeObserver().addOnGlobalLayoutListener(new android.view.ViewTreeObserver.OnGlobalLayoutListener() {
-                @Override public void onGlobalLayout() {
-                    int w = rvLetters.getWidth();
-                    if (w > 0) {
-                        float d = getResources().getDisplayMetrics().density;
-                        int itemPx = (int) (72 * d); // item_letter width
-                        int letterSpace = (int) (12 * d);
-                        int totalItem = itemPx + 2 * letterSpace;
-                        int side = Math.max((int)(24 * d), (w - totalItem) / 2);
-                        rvLetters.setPadding(side, 0, side, 0);
-                    }
-                    rvLetters.getViewTreeObserver().removeOnGlobalLayoutListener(this);
-                    rvLetters.post(() -> { resnapLetters(); applyLetterTransforms(rvLetters); });
-                }
-            });
-        }
         // Scale/alpha transform based on distance from center
         rv.addOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
@@ -259,7 +206,6 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 });
         rv.setAdapter(adapter);
         // Build letters list if row present (RecyclerView variant)
-        if (rvLetters != null) buildLettersAndBind();
         
         // Hook sort/search buttons if present
         View btnSortV = root.findViewById(R.id.btn_sort);
@@ -329,7 +275,6 @@ public class GamesCoverDialogFragment extends DialogFragment {
                     applyFilterAndSort();
                 } else {
                     adapter.notifyDataSetChanged();
-                    if (rvLetters != null) buildLettersAndBind();
                 }
             });
         }).start();
@@ -379,6 +324,8 @@ public class GamesCoverDialogFragment extends DialogFragment {
         View btnHome = root.findViewById(R.id.btn_home);
         if (btnHome != null) btnHome.setOnClickListener(v -> {
             try {
+                // Refresh drawer settings before opening
+                refreshDialogDrawerSettings();
                 androidx.drawerlayout.widget.DrawerLayout drawer = root.findViewById(R.id.dlg_drawer_layout);
                 if (drawer != null) drawer.openDrawer(GravityCompat.START);
             } catch (Throwable ignored) {}
@@ -439,12 +386,27 @@ public class GamesCoverDialogFragment extends DialogFragment {
                             } catch (Throwable ignored) {}
                         });
                     }
+                    View btnGames = header.findViewById(R.id.drawer_btn_games);
+                    if (btnGames != null) {
+                        btnGames.setOnClickListener(v -> {
+                            try {
+                                // Close drawer first
+                                androidx.drawerlayout.widget.DrawerLayout drawer = root.findViewById(R.id.dlg_drawer_layout);
+                                if (drawer != null) drawer.closeDrawer(androidx.core.view.GravityCompat.START);
+                                // Since we're already in the games dialog, just close this drawer
+                                // The user is already viewing games, so no need to open another dialog
+                            } catch (Throwable ignored) {}
+                        });
+                    }
                     View btnGameState = header.findViewById(R.id.drawer_btn_game_state);
                     if (btnGameState != null) {
                         btnGameState.setOnClickListener(v -> {
                             try { new SavesDialogFragment().show(getParentFragmentManager(), "saves_dialog"); } catch (Throwable ignored) {}
                         });
                     }
+
+                    // Setup drawer settings controls to mirror quick actions
+                    setupDialogDrawerSettings(header);
                 }
             }
         } catch (Throwable ignored) {}
@@ -454,55 +416,208 @@ public class GamesCoverDialogFragment extends DialogFragment {
         return root;
     }
 
+    @Override
+    public void onStart() {
+        super.onStart();
+        // Re-assert immersive when dialog shows
+        forceDialogImmersive();
+    }
+
+    private void forceDialogImmersive() {
+        try {
+            Dialog dlg = getDialog();
+            if (dlg != null) applyImmersiveToWindow(dlg.getWindow());
+        } catch (Throwable ignored) {}
+    }
+
+    private void applyImmersiveToWindow(@Nullable Window w) {
+        if (w == null) return;
+        // Match activity behavior: full-screen and transient bars by swipe
+        w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+
+        final int legacyFlags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            w.setDecorFitsSystemWindows(false);
+            WindowInsetsController controller = w.getInsetsController();
+            if (controller != null) {
+                controller.hide(WindowInsets.Type.systemBars());
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            }
+        }
+        View decor = w.getDecorView();
+        if (decor != null) {
+            decor.setSystemUiVisibility(legacyFlags);
+            decor.setOnSystemUiVisibilityChangeListener(vis -> {
+                if ((vis & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
+                    decor.setSystemUiVisibility(legacyFlags);
+                }
+            });
+        }
+    }
+
     // Public API to open the in-dialog navigation drawer from other components
     public void openDialogDrawer() {
         try {
             View root = getView();
             if (root == null) return;
+            // Refresh drawer settings before opening
+            refreshDialogDrawerSettings();
             androidx.drawerlayout.widget.DrawerLayout drawer = root.findViewById(R.id.dlg_drawer_layout);
             if (drawer != null) drawer.openDrawer(androidx.core.view.GravityCompat.START);
         } catch (Throwable ignored) {}
     }
 
-    private void buildLettersAndBind() {
-        letters.clear();
-        boolean hasHash = false;
-        boolean[] present = new boolean[26];
-        if (titles != null) {
-            for (String t : titles) {
-                if (t == null) continue;
-                char c = firstLetter(t);
-                if (c >= 'A' && c <= 'Z') present[c - 'A'] = true;
-                else hasHash = true;
+        private void setupDialogDrawerSettings(View header) {
+        if (header == null) return;
+        android.content.SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+
+        // Aspect Ratio spinner
+        android.widget.Spinner spAspect = header.findViewById(R.id.drawer_sp_aspect_ratio);
+        if (spAspect != null) {
+            if (spAspect.getAdapter() == null) {
+                android.widget.ArrayAdapter<CharSequence> aspectAdapter = android.widget.ArrayAdapter.createFromResource(requireContext(),
+                        R.array.aspect_ratio_entries, android.R.layout.simple_spinner_item);
+                aspectAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spAspect.setAdapter(aspectAdapter);
+                spAspect.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                        prefs.edit().putInt("aspect_ratio", position).apply();
+                        try { NativeApp.setAspectRatio(position); } catch (Throwable ignored) {}
+                    }
+                    @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                });
+            }
+            android.widget.ArrayAdapter<?> adapter = (android.widget.ArrayAdapter<?>) spAspect.getAdapter();
+            if (adapter != null) {
+                int savedAspect = prefs.getInt("aspect_ratio", 1);
+                if (savedAspect < 0 || savedAspect >= adapter.getCount()) savedAspect = 1;
+                spAspect.setSelection(savedAspect);
             }
         }
-        if (hasHash) letters.add('#');
-        for (int i = 0; i < 26; i++) if (present[i]) letters.add((char)('A'+i));
-        if (rvLetters != null) {
-            lettersAdapter = new LettersAdapter(letters, this::onLetterTapped);
-            rvLetters.setAdapter(lettersAdapter);
-            // Anchor to a large middle position for infinite wrap-around
-            int n = letters.size();
-            if (n > 0) {
-                int center = (1 << 29);
-                int startPos = center - (center % n);
-                llmLetters.scrollToPosition(startPos);
+
+        // Blending Accuracy spinner
+        android.widget.Spinner spBlending = header.findViewById(R.id.drawer_sp_blending_accuracy);
+        if (spBlending != null) {
+            if (spBlending.getAdapter() == null) {
+                android.widget.ArrayAdapter<CharSequence> blendAdapter = android.widget.ArrayAdapter.createFromResource(requireContext(),
+                        R.array.blending_accuracy_entries, android.R.layout.simple_spinner_item);
+                blendAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spBlending.setAdapter(blendAdapter);
+                spBlending.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                        prefs.edit().putInt("blending_accuracy", position).apply();
+                        try { NativeApp.setBlendingAccuracy(position); } catch (Throwable ignored) {}
+                    }
+                    @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                });
             }
-            rvLetters.post(() -> { resnapLetters(); applyLetterTransforms(rvLetters); });
+            android.widget.ArrayAdapter<?> adapter = (android.widget.ArrayAdapter<?>) spBlending.getAdapter();
+            if (adapter != null) {
+                int savedBlend = prefs.getInt("blending_accuracy", 1);
+                if (savedBlend < 0 || savedBlend >= adapter.getCount()) savedBlend = 1;
+                spBlending.setSelection(savedBlend);
+            }
+        }
+
+        // Resolution Scale spinner
+        android.widget.Spinner spScale = header.findViewById(R.id.drawer_sp_scale);
+        if (spScale != null) {
+            if (spScale.getAdapter() == null) {
+                android.widget.ArrayAdapter<CharSequence> scaleAdapter = android.widget.ArrayAdapter.createFromResource(requireContext(),
+                        R.array.scale_entries, android.R.layout.simple_spinner_item);
+                scaleAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spScale.setAdapter(scaleAdapter);
+                spScale.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                    @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                        float scale = Math.max(1, Math.min(8, position + 1));
+                        prefs.edit().putFloat("upscale_multiplier", scale).apply();
+                        try { NativeApp.renderUpscalemultiplier(scale); } catch (Throwable ignored) {}
+                    }
+                    @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+                });
+            }
+            android.widget.ArrayAdapter<?> adapter = (android.widget.ArrayAdapter<?>) spScale.getAdapter();
+            if (adapter != null) {
+                float savedScale = prefs.getFloat("upscale_multiplier", 1.0f);
+                int scaleIndex = Math.max(0, Math.min(adapter.getCount() - 1, Math.round(savedScale) - 1));
+                spScale.setSelection(scaleIndex);
+            }
+        }
+
+        // Setup switch listeners only once
+        setupDialogDrawerSwitchListeners(header, prefs);
+    }private void setupDialogDrawerSwitchListeners(View header, android.content.SharedPreferences prefs) {
+        // Widescreen Patches switch
+        com.google.android.material.materialswitch.MaterialSwitch swWide = header.findViewById(R.id.drawer_sw_widescreen);
+        if (swWide != null && swWide.getTag() == null) {
+            swWide.setTag("setup"); // Mark as setup to avoid duplicate listeners
+            swWide.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("widescreen_patches", isChecked).apply();
+                try { NativeApp.setWidescreenPatches(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+
+        // No Interlacing switch
+        com.google.android.material.materialswitch.MaterialSwitch swNoInt = header.findViewById(R.id.drawer_sw_no_interlacing);
+        if (swNoInt != null && swNoInt.getTag() == null) {
+            swNoInt.setTag("setup");
+            swNoInt.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("no_interlacing_patches", isChecked).apply();
+                try { NativeApp.setNoInterlacingPatches(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+
+        // Load Textures switch
+        com.google.android.material.materialswitch.MaterialSwitch swLoadTex = header.findViewById(R.id.drawer_sw_load_textures);
+        if (swLoadTex != null && swLoadTex.getTag() == null) {
+            swLoadTex.setTag("setup");
+            swLoadTex.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("load_textures", isChecked).apply();
+                try { NativeApp.setLoadTextures(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+
+        // Async Textures switch
+        com.google.android.material.materialswitch.MaterialSwitch swAsyncTex = header.findViewById(R.id.drawer_sw_async_textures);
+        if (swAsyncTex != null && swAsyncTex.getTag() == null) {
+            swAsyncTex.setTag("setup");
+            swAsyncTex.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("async_texture_loading", isChecked).apply();
+                try { NativeApp.setAsyncTextureLoading(isChecked); } catch (Throwable ignored) {}
+            });
+        }
+
+        // Precache Textures switch
+        com.google.android.material.materialswitch.MaterialSwitch swPrecache = header.findViewById(R.id.drawer_sw_precache_textures);
+        if (swPrecache != null && swPrecache.getTag() == null) {
+            swPrecache.setTag("setup");
+            swPrecache.setOnCheckedChangeListener((buttonView, isChecked) -> {
+                prefs.edit().putBoolean("precache_textures", isChecked).apply();
+                try { NativeApp.setPrecacheTextureReplacements(isChecked); } catch (Throwable ignored) {}
+            });
         }
     }
 
-    private void applyLetterTransforms(@NonNull RecyclerView recyclerView) {
-        int rvCenterX = (recyclerView.getLeft() + recyclerView.getRight()) / 2;
+    // --- Helper methods reintroduced after letters-row removal ---
+    private void applyCoverflowTransforms(@NonNull RecyclerView recyclerView) {
+        int width = recyclerView.getWidth();
+        if (width <= 0) return;
+        int centerX = width / 2;
         final float maxScale = 1.0f;
         final float minScale = 0.85f;
         final float maxAlpha = 1.0f;
         final float minAlpha = 0.6f;
         for (int i = 0; i < recyclerView.getChildCount(); i++) {
             View child = recyclerView.getChildAt(i);
-            int childCenterX = (child.getLeft() + child.getRight()) / 2;
-            float dx = Math.abs(childCenterX - rvCenterX);
-            float norm = Math.min(1f, dx / (recyclerView.getWidth() * 0.5f));
+            int childCenter = (child.getLeft() + child.getRight()) / 2;
+            float dist = Math.abs(childCenter - centerX);
+            float norm = Math.min(1f, dist / (width * 0.5f));
             float scale = maxScale - (maxScale - minScale) * norm;
             float alpha = maxAlpha - (maxAlpha - minAlpha) * norm;
             child.setScaleX(scale);
@@ -511,156 +626,127 @@ public class GamesCoverDialogFragment extends DialogFragment {
         }
     }
 
-    private void buildLetterIndexLinear(@NonNull LinearLayout container) {
-        container.removeAllViews();
-        // Build present letters with normalization
-        java.util.LinkedHashSet<Character> set = new java.util.LinkedHashSet<>();
-        if (titles != null) {
-            for (String t : titles) {
-                char c = firstLetter(t);
-                if (c == '#') { set.add('#'); }
-                else if (c >= 'A' && c <= 'Z') set.add(c);
+    private void resnapToCenter(@NonNull RecyclerView recyclerView) {
+        try {
+            if (snapHelper == null) return;
+            RecyclerView.LayoutManager lm = recyclerView.getLayoutManager();
+            View snap = snapHelper.findSnapView(lm);
+            if (snap == null) return;
+            int[] dist = snapHelper.calculateDistanceToFinalSnap(lm, snap);
+            if (dist != null && (dist[0] != 0 || dist[1] != 0)) recyclerView.scrollBy(dist[0], dist[1]);
+        } catch (Throwable ignored) {}
+    }
+
+    private static String normalizeSerial(String s) {
+        if (s == null) return "";
+        String t = s.trim().toUpperCase(java.util.Locale.ROOT);
+        // Keep letters, digits and dash
+        return t.replaceAll("[^A-Z0-9-]", "");
+    }
+
+    private String buildSerialFromUri(String uriStr) {
+        try {
+            Uri u = Uri.parse(uriStr);
+            String last = u.getLastPathSegment();
+            if (last == null) last = uriStr;
+            int dot = last.lastIndexOf('.')
+;            if (dot > 0) last = last.substring(0, dot);
+            return normalizeSerial(last);
+        } catch (Throwable ignored) {
+            return String.format(java.util.Locale.ROOT, "%08X", Math.abs(uriStr != null ? uriStr.hashCode() : 0));
+        }
+    }
+
+    private String extractSerialFromUri(String gameUri) {
+        try {
+            java.io.InputStream in = requireContext().getContentResolver().openInputStream(Uri.parse(gameUri));
+            if (in == null) return null;
+            final int MAX_BYTES = 8 * 1024 * 1024; // scan first 8MB
+            final byte[] buf = new byte[64 * 1024];
+            int read;
+            int total = 0;
+            StringBuilder sb = new StringBuilder();
+            while ((read = in.read(buf)) != -1 && total < MAX_BYTES) {
+                total += read;
+                sb.append(new String(buf, 0, read));
+                String found = findSerialInString(sb);
+                if (found != null) { in.close(); return found; }
+                if (sb.length() > 512 * 1024) sb.delete(0, sb.length() - 128 * 1024);
             }
-        }
-        float d = getResources().getDisplayMetrics().density;
-        int padH = (int) (14 * d);
-        int padV = (int) (6 * d);
-        for (Character ch : set) {
-            TextView tv = new TextView(requireContext());
-            tv.setText(String.valueOf(ch));
-            tv.setTextSize(18);
-            tv.setTextColor(getResources().getColor(R.color.brand_primary));
-            tv.setPadding(padH, padV, padH, padV);
-            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            lp.setMargins((int)(8*d), 0, (int)(8*d), 0); // extra spacing
-            tv.setLayoutParams(lp);
-            tv.setOnClickListener(v -> onLetterTapped(ch));
-            container.addView(tv);
-        }
+            in.close();
+        } catch (Exception ignored) { }
+        return null;
     }
 
-    private void onLetterTapped(char letter) {
-        android.util.Log.d("LetterTap", "Letter tapped: " + letter + ", sortMode: " + sortMode + ", titles.length: " + (titles != null ? titles.length : 0));
-        // Force A–Z sorting for predictable letter navigation
-        if (sortMode != SORT_ALPHA) {
-            android.util.Log.d("LetterTap", "Switching to ALPHA sort mode");
-            sortMode = SORT_ALPHA;
-            requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
-                    .edit().putInt("covers_sort_mode", sortMode).apply();
-            pendingLetterJump = letter;
-            applyFilterAndSort();
-        } else {
-            android.util.Log.d("LetterTap", "Already in ALPHA mode, jumping to letter");
-            // Jump to first index for that letter in the current (alphabetical) list
-            jumpToLetter(letter);
+    private static String findSerialInString(CharSequence cs) {
+        // Match common forms: SLUS_203.12, SLPM_650.51, SCES_123.45 etc.
+        java.util.regex.Matcher m = java.util.regex.Pattern
+                .compile("([A-Z]{4,5})[_-]([0-9]{3})\\.([0-9]{2})")
+                .matcher(cs);
+        if (m.find()) {
+            String prefix = m.group(1);
+            String part1 = m.group(2);
+            String part2 = m.group(3);
+            return prefix + "-" + part1 + part2; // SLUS-20312
         }
-        // Center letters row on selected
-        if (rvLetters != null && letters != null && !letters.isEmpty()) {
-            int idx = letters.indexOf(letter);
-            if (idx >= 0) {
-                centerLettersOnIndex(idx);
+        return null;
+    }
+
+    private String buildCoverUrlFromSerial(String serial) {
+        // Use repo-backed PS2 cover set (3D covers)
+        return "https://raw.githubusercontent.com/izzy2lost/ps2-covers/main/covers/3d/" + serial + ".png";
+    }
+
+    private File getCoversDir() {
+        File base = requireContext().getExternalFilesDir("covers");
+        if (base == null) base = new File(requireContext().getFilesDir(), "covers");
+        if (!base.exists()) base.mkdirs();
+        return base;
+    }
+
+    private void showGameSettings(String gameTitle, String gameUri) {
+        try {
+            // Prefer native extraction so CHDs work
+            String gameSerial = null;
+            try { gameSerial = NativeApp.getGameSerialSafe(gameUri); } catch (Throwable ignored) {}
+            if (gameSerial == null || gameSerial.isEmpty()) {
+                gameSerial = extractSerialFromUri(gameUri);
             }
-        }
+            if (gameSerial == null || gameSerial.isEmpty()) {
+                gameSerial = buildSerialFromUri(gameUri);
+            }
+            gameSerial = normalizeSerial(gameSerial);
+
+            // CRC (native if available)
+            String gameCrc = null;
+            try { gameCrc = NativeApp.getGameCrc(gameUri); } catch (Throwable ignored) {}
+            if (gameCrc == null || gameCrc.isEmpty()) {
+                gameCrc = String.format(java.util.Locale.ROOT, "%08X", Math.abs(gameUri != null ? gameUri.hashCode() : 0));
+            }
+
+            GameSettingsDialogFragment dialog = GameSettingsDialogFragment.newInstance(
+                    gameTitle, gameUri, gameSerial, gameCrc);
+            dialog.show(getParentFragmentManager(), "game_settings");
+        } catch (Throwable ignored) {}
     }
 
-    private void centerLettersOnIndex(int idx) {
-        if (rvLetters == null || llmLetters == null) return;
-        View snapView = lettersSnapHelper != null ? lettersSnapHelper.findSnapView(llmLetters) : null;
-        int centerPos = (snapView != null) ? rvLetters.getChildAdapterPosition(snapView) : llmLetters.findFirstVisibleItemPosition();
-        if (centerPos == RecyclerView.NO_POSITION) centerPos = 0;
-        int n = letters != null ? letters.size() : 0;
-        if (n <= 0) return;
-        int centerIdx = centerPos % n;
-        int forward = (idx - centerIdx + n) % n;
-        int backward = (centerIdx - idx + n) % n;
-        int delta = (forward <= backward) ? forward : -backward;
-        llmLetters.scrollToPosition(centerPos + delta);
-        rvLetters.post(() -> { resnapLetters(); applyLetterTransforms(rvLetters); });
-    }
-
-    private void resnapLetters() {
-        if (rvLetters == null || llmLetters == null || lettersSnapHelper == null) return;
-        View snap = lettersSnapHelper.findSnapView(llmLetters);
-        if (snap == null) return;
-        int[] dist = lettersSnapHelper.calculateDistanceToFinalSnap(llmLetters, snap);
-        if (dist != null && (dist[0] != 0 || dist[1] != 0)) rvLetters.scrollBy(dist[0], dist[1]);
-    }
-
-    private void updateSortButtonUi(@NonNull com.google.android.material.button.MaterialButton btn) {
+    private void updateSortButtonUi(com.google.android.material.button.MaterialButton btn) {
+        if (btn == null) return;
         btn.setIconResource(R.drawable.sort_24px);
         boolean alpha = (sortMode == SORT_ALPHA);
         btn.setText(alpha ? "A–Z" : "RECENT");
         btn.setContentDescription(alpha ? "Sort A–Z" : "Sort Recent");
     }
 
-    private void showSearchDialog() {
-        final EditText input = new EditText(requireContext());
-        input.setHint("Search games");
-        int pad = (int) (16 * getResources().getDisplayMetrics().density);
-        input.setPadding(pad, pad, pad, pad);
-        new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext(),
-                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
-                .setTitle("Search")
-                .setView(input)
-                .setNegativeButton("Clear", (d, w) -> {
-                    query = null;
-                    applyFilterAndSort();
-                })
-                .setPositiveButton("Apply", (d, w) -> {
-                    query = input.getText() != null ? input.getText().toString().trim() : null;
-                    if (query != null && query.isEmpty()) query = null;
-                    applyFilterAndSort();
-                })
-                .show();
-    }
-
-    private void jumpToLetter(char letterRaw) {
-        android.util.Log.d("LetterJump", "jumpToLetter called with: " + letterRaw);
-        if (titles == null || titles.length == 0) {
-            android.util.Log.d("LetterJump", "No titles available");
-            return;
-        }
-        char letter = Character.toUpperCase(letterRaw);
-        int target = -1;
-        for (int i = 0; i < titles.length; i++) {
-            char c = firstLetter(titles[i]);
-            if ((letter == '#') ? (c == '#') : (c == letter)) { 
-                target = i; 
-                android.util.Log.d("LetterJump", "Found target at index " + i + " for letter " + letter + ", title: " + titles[i]);
-                break; 
-            }
-        }
-        if (target >= 0) {
-            android.util.Log.d("LetterJump", "Scrolling to index: " + target);
-            scrollToIndex(target);
-        } else {
-            android.util.Log.d("LetterJump", "No target found for letter: " + letter);
-        }
-    }
-
-    private void scrollToIndex(int idx) {
-        if (llm == null || rv == null || titles == null || titles.length == 0) return;
-        View snap = snapHelper != null ? snapHelper.findSnapView(llm) : null;
-        int centerPos = (snap != null) ? rv.getChildAdapterPosition(snap) : llm.findFirstVisibleItemPosition();
-        if (centerPos == RecyclerView.NO_POSITION) centerPos = 0;
-        int n = titles.length;
-        int centerIdx = centerPos % n;
-        int forward = (idx - centerIdx + n) % n;
-        int backward = (centerIdx - idx + n) % n;
-        int delta = (forward <= backward) ? forward : -backward;
-        llm.scrollToPosition(centerPos + delta);
-        rv.post(() -> { resnapToCenter(rv); applyCoverflowTransforms(rv); });
-    }
-
     private void applyFilterAndSort() {
         int n = origTitles != null ? origTitles.length : 0;
-        ArrayList<Integer> idxs = new ArrayList<>(n);
+        java.util.ArrayList<Integer> idxs = new java.util.ArrayList<>(n);
         for (int i = 0; i < n; i++) {
             if (query == null || query.isEmpty()) {
                 idxs.add(i);
             } else {
                 String t = origTitles[i] != null ? origTitles[i] : "";
-                if (t.toLowerCase(Locale.ROOT).contains(query.toLowerCase(Locale.ROOT))) idxs.add(i);
+                if (t.toLowerCase(java.util.Locale.ROOT).contains(query.toLowerCase(java.util.Locale.ROOT))) idxs.add(i);
             }
         }
         SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
@@ -668,14 +754,26 @@ public class GamesCoverDialogFragment extends DialogFragment {
             idxs.sort((a, b) -> {
                 long ta = prefs.getLong("last_played:" + origUris[a], 0L);
                 long tb = prefs.getLong("last_played:" + origUris[b], 0L);
-                if (ta == tb) return origTitles[a].compareToIgnoreCase(origTitles[b]);
+                if (ta == tb) return (origTitles[a] != null ? origTitles[a] : "").compareToIgnoreCase(origTitles[b] != null ? origTitles[b] : "");
                 return Long.compare(tb, ta);
             });
         } else {
-            idxs.sort(Comparator.comparing(i -> {
+            java.text.Normalizer.Form form = java.text.Normalizer.Form.NFD;
+            java.util.function.Function<Integer, String> keyFn = (Integer i) -> {
                 String t = origTitles[i];
-                return t == null ? "" : t.toLowerCase(Locale.ROOT);
-            }));
+                if (t == null) return "";
+                String s = t.trim().toLowerCase(java.util.Locale.ROOT);
+                // Drop leading articles commonly used in titles
+                if (s.startsWith("the ")) s = s.substring(4);
+                else if (s.startsWith("an ")) s = s.substring(3);
+                else if (s.startsWith("a ")) s = s.substring(2);
+                // Remove diacritics
+                s = java.text.Normalizer.normalize(s, form).replaceAll("\\p{M}+", "");
+                // Strip non-alphanumeric at start
+                s = s.replaceFirst("^[^a-z0-9]+", "");
+                return s;
+            };
+            idxs.sort((a,b) -> keyFn.apply(a).compareTo(keyFn.apply(b)));
         }
         titles = new String[idxs.size()];
         uris = new String[idxs.size()];
@@ -709,129 +807,36 @@ public class GamesCoverDialogFragment extends DialogFragment {
             llm.scrollToPosition(startPos);
         }
         rv.post(() -> { resnapToCenter(rv); applyCoverflowTransforms(rv); });
-        if (rvLetters != null) {
-            buildLettersAndBind();
-            if (pendingLetterJump != null) {
-                final char l = pendingLetterJump;
-                pendingLetterJump = null;
-                rv.postDelayed(() -> {
-                    jumpToLetter(l);
-                    if (letters != null) {
-                        int idx = letters.indexOf(l);
-                        if (idx >= 0) centerLettersOnIndex(idx);
-                    }
-                }, 10);
-            }
-        }
     }
 
-    private void applyCoverflowTransforms(@NonNull RecyclerView recyclerView) {
-        int rvCenterX = (recyclerView.getLeft() + recyclerView.getRight()) / 2;
-        boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
-        final float maxScale = 1.0f;
-        final float minScale = landscape ? 0.70f : 0.82f;
-        final float maxAlpha = 1.0f;
-        final float minAlpha = landscape ? 0.50f : 0.60f;
-        final float maxTiltDeg = landscape ? 22f : 16f;
-        final float density = getResources().getDisplayMetrics().density;
-        final float maxParallax = (landscape ? 14f : 18f) * density;
-        for (int i = 0; i < recyclerView.getChildCount(); i++) {
-            View child = recyclerView.getChildAt(i);
-            int childCenterX = (child.getLeft() + child.getRight()) / 2;
-            float dx = childCenterX - rvCenterX;
-            float dist = Math.abs(dx);
-            float norm = Math.min(1f, dist / (recyclerView.getWidth() * 0.5f));
-            float scale = maxScale - (maxScale - minScale) * norm;
-            float alpha = maxAlpha - (maxAlpha - minAlpha) * norm;
-            float tilt = Math.signum(dx) * maxTiltDeg * norm; // tilt away from center
-            child.setCameraDistance(8000f * density);
-            child.setScaleX(scale);
-            child.setScaleY(scale);
-            child.setAlpha(alpha);
-            child.setTranslationZ((1f - norm) * 10f);
-            child.setRotationY(tilt);
-
-            // Title parallax (gentle)
-            View title = child.findViewById(R.id.text_title);
-            if (title != null) {
-                float parallax = Math.max(-maxParallax, Math.min(maxParallax, -dx / (recyclerView.getWidth() * 0.5f) * maxParallax));
-                title.setTranslationX(parallax);
-                title.setAlpha(0.85f + 0.15f * (1f - norm));
-            }
-
-            // Shadow intensity scales with centeredness
-            View shadow = child.findViewById(R.id.view_shadow);
-            if (shadow != null) {
-                shadow.setAlpha((1f - norm) * 0.7f);
-                shadow.setScaleX(scale + 0.2f);
-            }
-        }
-    }
-
-    private void resnapToCenter(@NonNull RecyclerView rv) {
-        if (snapHelper == null || llm == null) return;
-        View snapView = snapHelper.findSnapView(llm);
-        if (snapView == null) return;
-        int[] dist = snapHelper.calculateDistanceToFinalSnap(llm, snapView);
-        if (dist != null && (dist[0] != 0 || dist[1] != 0)) {
-            rv.scrollBy(dist[0], dist[1]);
-        }
-    }
-
-    public void onStart() {
-        super.onStart();
-        Dialog d = getDialog();
-        if (d == null) return;
-        Window w = d.getWindow();
-        if (w == null) return;
-        w.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            w.setDecorFitsSystemWindows(false);
-            WindowInsetsController controller = w.getInsetsController();
-            if (controller != null) {
-                controller.hide(WindowInsets.Type.systemBars());
-                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
-            }
-        } else {
-            w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
-            View decor = w.getDecorView();
-            int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
-            decor.setSystemUiVisibility(flags);
-        }
-    }
-
-    private int calculateSpanForWidth(int rvWidthPx, int itemDp, int spacingPx) {
-        float density = getResources().getDisplayMetrics().density;
-        int usable = Math.max(0, rvWidthPx);
-        int itemPx = (int) (itemDp * density);
-        // Include spacing in the packing calculation to avoid oscillation
-        // span = floor((usable + spacing) / (itemPx + spacing))
-        int span = (itemPx > 0) ? (int) Math.floor((usable + (double) spacingPx) / (itemPx + (double) spacingPx)) : 1;
-        return Math.max(2, Math.max(1, span));
-    }
-
-    private void preloadCovers(String[] urls) {
-        // Use Glide to warm cache
-        for (String url : urls) {
-            if (url == null) continue;
-            com.bumptech.glide.Glide.with(requireContext()).load(url).preload();
-        }
+    private void showSearchDialog() {
+        final EditText input = new EditText(requireContext());
+        input.setHint("Search games");
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        input.setPadding(pad, pad, pad, pad);
+        new MaterialAlertDialogBuilder(requireContext(),
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+                .setTitle("Search")
+                .setView(input)
+                .setNegativeButton("Clear", (d, w) -> {
+                    query = null;
+                    applyFilterAndSort();
+                })
+                .setPositiveButton("Apply", (d, w) -> {
+                    query = input.getText() != null ? input.getText().toString().trim() : null;
+                    if (query != null && query.isEmpty()) query = null;
+                    applyFilterAndSort();
+                })
+                .show();
     }
 
     private void startDownloadCovers() {
         Toast.makeText(requireContext(), "Downloading covers in background", Toast.LENGTH_SHORT).show();
         new Thread(() -> {
-            // Try to refine serials/URLs by scanning disc contents first
             SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
             for (int i = 0; i < uris.length; i++) {
                 try {
-                    // Prefer native serial extraction so CHDs work
                     String better = null;
                     try { better = NativeApp.getGameSerialSafe(uris[i]); } catch (Throwable ignored) {}
                     if (better == null) better = extractSerialFromUri(uris[i]);
@@ -866,7 +871,6 @@ public class GamesCoverDialogFragment extends DialogFragment {
             final int downloaded = ok;
             if (isAdded()) requireActivity().runOnUiThread(() -> {
                 Toast.makeText(requireContext(), "Covers ready: " + downloaded + "/" + total, Toast.LENGTH_SHORT).show();
-                // refresh adapter to prefer local files now
                 if (adapter != null) adapter.notifyDataSetChanged();
             });
         }).start();
@@ -878,12 +882,6 @@ public class GamesCoverDialogFragment extends DialogFragment {
         int dot = url.lastIndexOf('.');
         if (slash >= 0 && dot > slash) return url.substring(slash + 1, dot);
         return null;
-    }
-
-    private java.io.File getCoversDir() {
-        java.io.File base = requireContext().getExternalFilesDir("covers");
-        if (base == null) base = new java.io.File(requireContext().getFilesDir(), "covers");
-        return base;
     }
 
     private boolean isFileValid(String path) {
@@ -934,104 +932,46 @@ public class GamesCoverDialogFragment extends DialogFragment {
         return true;
     }
 
-    private static String buildSerialFromUri(String gameUri) {
-        // Try to infer PS2 serial from file name: e.g., SLUS-20312 or SLPS_123.45 style
-        String last = Uri.parse(gameUri).getLastPathSegment();
-        if (last == null) last = "";
-        last = last.replace('_', '-');
-        // remove extension
-        int dot = last.lastIndexOf('.');
-        if (dot > 0) last = last.substring(0, dot);
-        String serial = null;
-        // Very simple heuristic: find token like XXXX-XXXXX
-        String upper = last.toUpperCase(Locale.ROOT);
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("([A-Z]{4,5}-[0-9]{3,5})").matcher(upper);
-        if (m.find()) {
-            serial = m.group(1);
-        }
-        if (serial == null) {
-            serial = upper;
-        }
-        return serial;
-    }
-
-    private static String buildCoverUrlFromSerial(String serial) {
-        return "https://raw.githubusercontent.com/izzy2lost/ps2-covers/main/covers/3d/" + serial + ".png";
-    }
-
-    private String extractSerialFromUri(String gameUri) {
+    private void refreshDialogDrawerSettings() {
         try {
-            java.io.InputStream in = requireContext().getContentResolver().openInputStream(Uri.parse(gameUri));
-            if (in == null) return null;
-            // Read first 8MB searching for SYSTEM.CNF contents, e.g., "BOOT2 = cdrom0:\\SLUS_203.12;1"
-            final int MAX_BYTES = 8 * 1024 * 1024;
-            final byte[] buf = new byte[64 * 1024];
-            int read;
-            int total = 0;
-            StringBuilder sb = new StringBuilder();
-            while ((read = in.read(buf)) != -1 && total < MAX_BYTES) {
-                total += read;
-                // append as ASCII
-                sb.append(new String(buf, 0, read));
-                // try to match as we go to avoid huge strings
-                String found = findSerialInString(sb);
-                if (found != null) { in.close(); return found; }
-                if (sb.length() > 512 * 1024) sb.delete(0, sb.length() - 128 * 1024); // keep window
+            View root = getView();
+            if (root == null) return;
+            
+            com.google.android.material.navigation.NavigationView nav = root.findViewById(R.id.dialog_nav_view);
+            if (nav != null && nav.getHeaderCount() > 0) {
+                View header = nav.getHeaderView(0);
+                if (header != null) {
+                    android.content.SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
+                    
+                    // Refresh switch states only (spinners are set up once in setupDialogDrawerSettings)
+                    com.google.android.material.materialswitch.MaterialSwitch swWide = header.findViewById(R.id.drawer_sw_widescreen);
+                    if (swWide != null) {
+                        swWide.setChecked(prefs.getBoolean("widescreen_patches", true));
+                    }
+
+                    com.google.android.material.materialswitch.MaterialSwitch swNoInt = header.findViewById(R.id.drawer_sw_no_interlacing);
+                    if (swNoInt != null) {
+                        swNoInt.setChecked(prefs.getBoolean("no_interlacing_patches", true));
+                    }
+
+                    com.google.android.material.materialswitch.MaterialSwitch swLoadTex = header.findViewById(R.id.drawer_sw_load_textures);
+                    if (swLoadTex != null) {
+                        swLoadTex.setChecked(prefs.getBoolean("load_textures", false));
+                    }
+
+                    com.google.android.material.materialswitch.MaterialSwitch swAsyncTex = header.findViewById(R.id.drawer_sw_async_textures);
+                    if (swAsyncTex != null) {
+                        swAsyncTex.setChecked(prefs.getBoolean("async_texture_loading", true));
+                    }
+
+                    com.google.android.material.materialswitch.MaterialSwitch swPrecache = header.findViewById(R.id.drawer_sw_precache_textures);
+                    if (swPrecache != null) {
+                        swPrecache.setChecked(prefs.getBoolean("precache_textures", false));
+                    }
+                }
             }
-            in.close();
-        } catch (Exception ignored) { }
-        return null;
-    }
-
-    private static String findSerialInString(CharSequence cs) {
-        // Match common forms: SLUS_203.12, SLPM_650.51, SCES_123.45 etc.
-        java.util.regex.Matcher m = java.util.regex.Pattern
-                .compile("([A-Z]{4,5})[_-]([0-9]{3})\\.([0-9]{2})")
-                .matcher(cs);
-        if (m.find()) {
-            String prefix = m.group(1);
-            String part1 = m.group(2);
-            String part2 = m.group(3);
-            return prefix + "-" + part1 + part2; // SLUS-20312
-        }
-        return null;
-    }
-
-    private static String normalizeSerial(String serial) {
-        if (serial == null) return null;
-        String s = serial.toUpperCase(Locale.ROOT).replace('_', '-');
-        // If form like XXXX-123.45 -> XXXX-12345
-        s = s.replaceAll("([A-Z]{4,5})-([0-9]{3})\\.([0-9]{2})", "$1-$2$3");
-        return s;
-    }
-
-    private void showGameSettings(String gameTitle, String gameUri) {
-        // Prefer native extraction so CHDs work
-        String gameSerial = null;
-        try { gameSerial = NativeApp.getGameSerialSafe(gameUri); } catch (Throwable ignored) {}
-        if (gameSerial == null || gameSerial.isEmpty()) {
-            gameSerial = extractSerialFromUri(gameUri);
-        }
-        if (gameSerial == null || gameSerial.isEmpty()) {
-            gameSerial = buildSerialFromUri(gameUri);
-        }
-        gameSerial = normalizeSerial(gameSerial);
-
-        // CRC (native if available)
-        String gameCrc = null;
-        try { gameCrc = NativeApp.getGameCrc(gameUri); } catch (Throwable ignored) {}
-        if (gameCrc == null || gameCrc.isEmpty()) {
-            gameCrc = String.format("%08X", Math.abs(gameUri.hashCode()));
-        }
-
-        // Debug logging
-        android.util.Log.d("GameSettings", "Opening game settings for: " + gameTitle);
-        android.util.Log.d("GameSettings", "URI: " + gameUri);
-        android.util.Log.d("GameSettings", "Extracted Serial: " + gameSerial);
-        android.util.Log.d("GameSettings", "Generated CRC: " + gameCrc);
-
-        GameSettingsDialogFragment dialog = GameSettingsDialogFragment.newInstance(
-            gameTitle, gameUri, gameSerial, gameCrc);
-        dialog.show(getParentFragmentManager(), "game_settings");
+        } catch (Throwable ignored) {}
     }
 }
+
+

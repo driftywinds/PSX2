@@ -159,6 +159,7 @@ public class NativeApp {
 
 	public static native void pause();
 	public static native void resume();
+	public static native boolean isPaused();
 	public static native void shutdown();
 
 	public static native boolean saveStateToSlot(int slot);

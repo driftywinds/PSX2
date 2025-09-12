@@ -15,11 +15,13 @@
         <!-- Game Title -->
         <TextView
             android:id="@+id/tv_game_title"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Game Title"
             android:textStyle="bold"
             android:textSize="18sp"
+            android:textColor="@android:color/white"
+            android:gravity="center"
             android:layout_marginBottom="4dp"/>
 
         <!-- Subtitle -->
@@ -28,7 +30,7 @@
             android:layout_height="wrap_content"
             android:text="Per-Game Settings (Long-press from game list)"
             android:textSize="12sp"
-            android:textColor="#666666"
+            android:textColor="@color/md_theme_tertiaryFixedDim"
             android:layout_marginBottom="4dp"/>
 
         <!-- Game Serial/CRC -->
@@ -38,7 +40,7 @@
             android:layout_height="wrap_content"
             android:text="Serial: SLUS-12345 | CRC: 12345678"
             android:textSize="12sp"
-            android:textColor="#888888"
+            android:textColor="@color/md_theme_tertiaryFixedDim"
             android:layout_marginBottom="16dp"/>
 
         <TextView
@@ -46,7 +48,7 @@
             android:layout_height="wrap_content"
             android:text="These settings will override global settings for this game only."
             android:textSize="14sp"
-            android:textColor="#666666"
+            android:textColor="@color/md_theme_tertiaryFixedDim"
             android:layout_marginBottom="8dp"/>
 
 
@@ -58,13 +60,29 @@
             android:text="Graphics"
             android:textStyle="bold"
             android:textSize="16sp"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="8dp"/>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Aspect Ratio"
+            android:textSize="14sp"
+            android:textColor="@color/brand_primary"
+            android:paddingBottom="4dp"/>
+
+        <Spinner
+            android:id="@+id/sp_aspect_ratio"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"/>
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Blending Accuracy"
             android:textSize="14sp"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="4dp"/>
 
         <Spinner
@@ -78,6 +96,7 @@
             android:layout_height="wrap_content"
             android:text="Renderer"
             android:textSize="14sp"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="4dp"/>
 
         <Spinner
@@ -91,6 +110,7 @@
             android:layout_height="wrap_content"
             android:text="Resolution"
             android:textSize="14sp"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="4dp"/>
 
         <Spinner
@@ -106,6 +126,7 @@
             android:text="Game Patches"
             android:textStyle="bold"
             android:textSize="16sp"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="8dp"/>
 
         <com.google.android.material.materialswitch.MaterialSwitch
@@ -113,6 +134,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Widescreen Patches"
+            android:textColor="@android:color/white"
             style="@style/Widget.Material3.CompoundButton.MaterialSwitch"
             android:layout_marginBottom="8dp"/>
 
@@ -121,6 +143,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="No Interlacing Patches"
+            android:textColor="@android:color/white"
             style="@style/Widget.Material3.CompoundButton.MaterialSwitch"
             android:layout_marginBottom="8dp"/>
 
@@ -139,6 +162,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Enable Cheats"
+            android:textColor="@android:color/white"
             style="@style/Widget.Material3.CompoundButton.MaterialSwitch"
             android:layout_marginBottom="16dp"/>
 
@@ -148,6 +172,7 @@
             android:layout_height="wrap_content"
             android:text="Texture Packs"
             android:textSize="14sp"
+            android:textColor="@color/brand_primary"
             android:paddingBottom="4dp"/>
 
         <com.google.android.material.materialswitch.MaterialSwitch
@@ -155,6 +180,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Load Texture Replacements"
+            android:textColor="@android:color/white"
             style="@style/Widget.Material3.CompoundButton.MaterialSwitch"
             android:layout_marginBottom="8dp"/>
 
@@ -163,6 +189,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Async Texture Loading"
+            android:textColor="@android:color/white"
             style="@style/Widget.Material3.CompoundButton.MaterialSwitch"
             android:layout_marginBottom="16dp"/>
 

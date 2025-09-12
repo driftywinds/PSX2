@@ -56,12 +56,16 @@ public class SetupWizardDialogFragment extends DialogFragment {
         int pad = (int)(24 * getResources().getDisplayMetrics().density);
         root.setPadding(pad, pad, pad, pad);
         root.setLayoutParams(new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // Use theme background
+        root.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.md_theme_surface));
 
         titleView = new TextView(requireContext());
         titleView.setText("Welcome! Let's set up PSX2");
-        titleView.setTextSize(22f);
+        titleView.setTextSize(26f);
         titleView.setGravity(Gravity.CENTER_HORIZONTAL);
         titleView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+        titleView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_tertiaryFixedDim));
+        titleView.setTypeface(titleView.getTypeface(), android.graphics.Typeface.BOLD);
         root.addView(titleView);
 
         // Subtitle removed; using inline hint near the Done button instead.
@@ -144,7 +148,8 @@ public class SetupWizardDialogFragment extends DialogFragment {
         hintView.setTextSize(14f);
         hintView.setGravity(Gravity.CENTER_HORIZONTAL);
         hintView.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-        hintView.setAlpha(0.8f);
+        hintView.setTextColor(ContextCompat.getColor(requireContext(), R.color.brand_primary));
+        hintView.setAlpha(0.9f);
         LinearLayout.LayoutParams hintLp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         hintLp.topMargin = (int)(8 * getResources().getDisplayMetrics().density);
         hintView.setLayoutParams(hintLp);
@@ -199,11 +204,37 @@ public class SetupWizardDialogFragment extends DialogFragment {
         btnGames.setIcon(step2 ? ContextCompat.getDrawable(requireContext(), R.drawable.check_circle_24px) : null);
         btnBios.setIcon(step3 ? ContextCompat.getDrawable(requireContext(), R.drawable.check_circle_24px) : null);
 
+        // Add theme accent to completed buttons
+        int themeAccent = ContextCompat.getColor(requireContext(), R.color.md_theme_tertiary);
+        int defaultColor = ContextCompat.getColor(requireContext(), R.color.md_theme_onSurface);
+        
+        btnData.setIconTint(step1 ? android.content.res.ColorStateList.valueOf(themeAccent) : null);
+        btnGames.setIconTint(step2 ? android.content.res.ColorStateList.valueOf(themeAccent) : null);
+        btnBios.setIconTint(step3 ? android.content.res.ColorStateList.valueOf(themeAccent) : null);
+
         btnGames.setEnabled(step1);
         btnBios.setEnabled(step1 && step2);
         boolean doneEnabled = (step1 && step2 && step3);
         btnDone.setEnabled(doneEnabled);
-        if (hintView != null) hintView.setVisibility(doneEnabled ? View.GONE : View.VISIBLE);
+        
+        // Style the Done button when ready
+        if (doneEnabled) {
+            btnDone.setBackgroundTintList(android.content.res.ColorStateList.valueOf(themeAccent));
+            btnDone.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_onTertiary));
+            if (hintView != null) {
+                hintView.setText("🎉 Ready to go! Tap Done to start.");
+                hintView.setTextColor(ContextCompat.getColor(requireContext(), R.color.md_theme_tertiaryFixedDim));
+            }
+        } else {
+            btnDone.setBackgroundTintList(null);
+            btnDone.setTextColor(defaultColor);
+            if (hintView != null) {
+                hintView.setText("Complete all steps to finish.");
+                hintView.setTextColor(ContextCompat.getColor(requireContext(), R.color.brand_primary));
+            }
+        }
+        
+        if (hintView != null) hintView.setVisibility(View.VISIBLE);
 
     }
 }
