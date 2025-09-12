@@ -593,6 +593,14 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                             } catch (Throwable ignored) {}
                         });
                     }
+                    View btnAbout = header.findViewById(R.id.drawer_btn_about);
+                    if (btnAbout != null) {
+                        btnAbout.setOnClickListener(v -> {
+                            try {
+                                showAboutDialog();
+                            } catch (Throwable ignored) {}
+                        });
+                    }
 
                     // Setup drawer settings controls to mirror quick actions
                     setupDrawerSettings(header);
@@ -2077,7 +2085,37 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         updatePausePlayButton();
     }
 
+    private void showAboutDialog() {
+        String aboutMessage = "PSX2 - PlayStation 2 Emulator for Android\n\n" +
+                "This is an Android port of PCSX2, the renowned PlayStation 2 emulator.\n\n" +
+                "Based on:\n" +
+                "• PCSX2: https://github.com/PCSX2/pcsx2\n" +
+                "• PCSX2_ARM64: https://github.com/pontos2024/PCSX2_ARM64\n\n" +
+                "Free Version: Follow the build instructions in the repository to compile from source.\n" +
+                "Paid Version: Get convenient automatic updates through the Play Store.\n\n" +
+                "Important:\n" +
+                "• No games or BIOS files are included\n" +
+                "• You must own original PlayStation 2 games and console\n" +
+                "• This emulator is for educational and preservation purposes\n\n" +
+                "Licensed under GNU General Public License v3.0\n" +
+                "View full license: https://github.com/YOUR_USERNAME/PSX2-Android/blob/main/LICENSE";
 
-
+        new MaterialAlertDialogBuilder(this,
+                com.google.android.material.R.style.ThemeOverlay_Material3_MaterialAlertDialog)
+                .setTitle("About PSX2")
+                .setMessage(aboutMessage)
+                .setPositiveButton("OK", null)
+                .setNeutralButton("View License", (dialog, which) -> {
+                    // Open LICENSE file or GitHub link
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setData(Uri.parse("https://github.com/YOUR_USERNAME/PSX2-Android/blob/main/LICENSE"));
+                    try {
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Toast.makeText(this, "Could not open license link", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .show();
+    }
 
 }

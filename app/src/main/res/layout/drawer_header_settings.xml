@@ -286,6 +286,30 @@
             android:textAllCaps="false"
             android:layout_marginBottom="8dp"/>
 
+        <!-- About Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="About"
+            android:textStyle="bold"
+            android:textColor="@color/brand_primary"
+            android:paddingBottom="8dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/drawer_btn_about"
+            style="@style/Widget.Material3Expressive.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="About PSX2"
+            android:textColor="@android:color/white"
+            android:textAllCaps="false"
+            app:icon="@drawable/info_24px"
+            app:iconTint="@color/brand_primary"
+            app:iconGravity="textStart"
+            app:iconPadding="8dp"
+            app:iconSize="20dp"
+            android:layout_marginBottom="16dp"/>
+
     </LinearLayout>
 
 </ScrollView>
