@@ -99,6 +99,21 @@ public class GamesCoverDialogFragment extends DialogFragment {
         if (rv != null) applyCoverflowTransforms(rv);
     }
 
+    @Override
+    public void onConfigurationChanged(@NonNull android.content.res.Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        
+        // The layout file is cached when dialog is created, so we need to recreate the dialog
+        // to get the correct layout for the new orientation
+        dismiss();
+        
+        // Recreate the dialog with the correct layout for new orientation
+        if (getParentFragmentManager() != null) {
+            GamesCoverDialogFragment newDialog = GamesCoverDialogFragment.newInstance(origTitles, origUris);
+            newDialog.show(getParentFragmentManager(), getTag());
+        }
+    }
+
     @NonNull
     @Override
     public Dialog onCreateDialog(@Nullable Bundle savedInstanceState) {
@@ -290,10 +305,15 @@ public class GamesCoverDialogFragment extends DialogFragment {
             rv.post(() -> {
                 if (!isAdded()) return;
                 boolean landscape = getResources().getConfiguration().orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE;
+                
+                // Recalculate padding based on current orientation - this was the issue!
+                float density = getResources().getDisplayMetrics().density;
+                int currentSidePad = (int) (48 * density);
+                int currentVertPad = (int) ((landscape ? 12 : 24) * density);
+                
                 int titleDp = 36;
                 int extraDp = 16;
-                float density = getResources().getDisplayMetrics().density;
-                int reservedH = (int) ((titleDp + extraDp) * density) + (vertPad * 2);
+                int reservedH = (int) ((titleDp + extraDp) * density) + (currentVertPad * 2);
                 int availableH = Math.max(0, rvH - reservedH);
                 float ratio = 567f / 878f;
                 int widthFromHeight = (int) (availableH * ratio);
@@ -301,15 +321,16 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 int itemWidth = Math.max(160, Math.min(widthFromHeight, widthFromWidth));
                 lastItemWidthPx = itemWidth;
                 adapter.setItemWidthPx(itemWidth);
+                
                 // Center vertically in portrait by adjusting top/bottom padding
                 if (!landscape) {
                     int imageH = (int) (itemWidth / (567f / 878f));
                     int titlePx = (int) ((titleDp + extraDp) * density);
                     int contentH = imageH + titlePx;
-                    int desiredPad = Math.max(vertPad, Math.max(0, (rvH - contentH) / 2));
-                    rv.setPadding(sidePad, desiredPad, sidePad, desiredPad);
+                    int desiredPad = Math.max(currentVertPad, Math.max(0, (rvH - contentH) / 2));
+                    rv.setPadding(currentSidePad, desiredPad, currentSidePad, desiredPad);
                 } else {
-                    rv.setPadding(sidePad, vertPad, sidePad, vertPad);
+                    rv.setPadding(currentSidePad, currentVertPad, currentSidePad, currentVertPad);
                 }
                 // If user is scrolling, defer resnap until idle to avoid fighting gesture
                 if (rv.getScrollState() == RecyclerView.SCROLL_STATE_IDLE) {
@@ -972,6 +993,8 @@ public class GamesCoverDialogFragment extends DialogFragment {
             }
         } catch (Throwable ignored) {}
     }
+
+
 }
 
 
