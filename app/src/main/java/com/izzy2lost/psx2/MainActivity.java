@@ -2085,7 +2085,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         updatePausePlayButton();
     }
 
-    private void showAboutDialog() {
+    public void showAboutDialog() {
         String aboutMessage = "PSX2 - PlayStation 2 Emulator for Android\n\n" +
                 "This is an Android port of PCSX2, the renowned PlayStation 2 emulator.\n\n" +
                 "Based on:\n" +
