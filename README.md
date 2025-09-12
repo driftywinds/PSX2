@@ -57,7 +57,7 @@ For users who prefer to build from source, follow the build instructions below.
 
    ```bash
    git clone https://github.com/izzy2lost/PSX2.git
-   cd PSX2-Android
+   cd PSX2
    ```
 
 2. **Open in Android Studio:**
