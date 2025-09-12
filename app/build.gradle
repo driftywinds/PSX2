@@ -12,7 +12,7 @@ android {
         minSdk 26
         targetSdk 36
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
         // APK
         setProperty("archivesBaseName","PSX2_${versionCode}_${new Date().format('yyyyMMddHHmm')}")
 
@@ -22,39 +22,26 @@ android {
                 arguments(
                         '-DANDROID=true',
                         '-DCMAKE_BUILD_TYPE=Release',
-                        '-DANDROID_STL=c++_static'
+                        '-DANDROID_STL=c++_static',
+                        '-DPCSX2_PROFILER=OFF'
                 )
-                // arguments '-DANDROID=true','-DCMAKE_BUILD_TYPE=Debug','-DANDROID_STL=c++_static'
             }
         }
         ndk {
             //noinspection ChromeOsAbiSupport
             abiFilters 'arm64-v8a'
         }
-        // Placeholder to toggle profileable per buildType (for AGI)
-        manifestPlaceholders = [
-                profileable: "false"
-        ]
+
     }
 
     buildTypes {
         release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             ndk {
-                // Keep symbol table for crash triage while testing
                 debugSymbolLevel 'SYMBOL_TABLE'
             }
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-        }
-        // Build for profiling with Android GPU Inspector
-        benchmark {
-            // Release-like build, not debuggable, but profileable
-            initWith release
-            debuggable false
-            // Use debug keystore to simplify installs
-            signingConfig signingConfigs.debug
-            // Turn on profileable in manifest via placeholder
-            manifestPlaceholders = [ profileable: "true" ]
         }
     }
     // Relax lint for test release builds
