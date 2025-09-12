@@ -56,7 +56,7 @@ For users who prefer to build from source, follow the build instructions below.
 1. **Clone the repository:**
 
    ```bash
-   git clone https://github.com/yourusername/PSX2-Android.git
+   git clone https://github.com/izzy2lost/PSX2.git
    cd PSX2-Android
    ```
 
@@ -175,7 +175,7 @@ We welcome contributions! Please read our contributing guidelines and submit pul
 
 ### Getting Help
 
-- Check the [Issues](https://github.com/yourusername/PSX2-Android/issues) page for known problems
+- Check the [Issues](https://github.com/izzy2lost/PSX2/issues) page for known problems
 - Search existing issues before creating new ones
 - Provide device information and logs when reporting bugs
 
