@@ -236,20 +236,32 @@ public class QuickActionsDialogFragment extends DialogFragment {
         if (btnExitGame != null) {
             btnExitGame.setOnClickListener(v -> {
                 try {
-                    // Pause the game first
-                    if (requireActivity() instanceof MainActivity) {
-                        ((MainActivity) requireActivity()).togglePauseState();
+                    // Capture a stable Activity reference before dismissing the dialog
+                    final android.app.Activity activity = getActivity();
+
+                    // Pause the game first (toggle like the drawer action)
+                    if (activity instanceof MainActivity) {
+                        ((MainActivity) activity).togglePauseState();
                     } else {
                         boolean paused = NativeApp.isPaused();
                         if (!paused) NativeApp.pause();
                     }
+
                     // Close this dialog
                     dismissAllowingStateLoss();
-                    // Open games dialog after a short delay
-                    if (requireActivity() instanceof MainActivity) {
-                        requireActivity().findViewById(android.R.id.content).postDelayed(() -> {
-                            ((MainActivity) requireActivity()).openGamesDialog();
-                        }, 300);
+
+                    // Open games dialog after a short delay, using the captured Activity
+                    if (activity instanceof MainActivity) {
+                        android.view.View root = activity.findViewById(android.R.id.content);
+                        if (root != null) {
+                            root.postDelayed(() -> {
+                                try {
+                                    if (!activity.isFinishing()) {
+                                        ((MainActivity) activity).openGamesDialog();
+                                    }
+                                } catch (Throwable ignored) {}
+                            }, 300);
+                        }
                     }
                 } catch (Throwable ignored) {}
             });
