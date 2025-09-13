@@ -466,6 +466,9 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             f.setCancelable(false);
             f.show(getSupportFragmentManager(), "setup_wizard");
         }
+
+        // Setup right drawer quick actions
+        setupRightDrawerActions();
     }
 
     public void setSetupWizardActive(boolean active) {
@@ -1925,7 +1928,34 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 if (header != null) {
                     SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
                     
-                    // Refresh switch states only (spinners are set up once in setupDrawerSettings)
+                    // Refresh spinner values to reflect current settings
+                    Spinner spAspect = header.findViewById(R.id.drawer_sp_aspect_ratio);
+                    if (spAspect != null && spAspect.getAdapter() != null) {
+                        int savedAspect = prefs.getInt("aspect_ratio", 1);
+                        ArrayAdapter<?> aspectAdapter = (ArrayAdapter<?>) spAspect.getAdapter();
+                        if (savedAspect >= 0 && savedAspect < aspectAdapter.getCount()) {
+                            spAspect.setSelection(savedAspect);
+                        }
+                    }
+
+                    Spinner spScale = header.findViewById(R.id.drawer_sp_scale);
+                    if (spScale != null && spScale.getAdapter() != null) {
+                        float savedScale = prefs.getFloat("upscale_multiplier", 1.0f);
+                        ArrayAdapter<?> scaleAdapter = (ArrayAdapter<?>) spScale.getAdapter();
+                        int scaleIndex = Math.max(0, Math.min(scaleAdapter.getCount() - 1, Math.round(savedScale) - 1));
+                        spScale.setSelection(scaleIndex);
+                    }
+
+                    Spinner spBlending = header.findViewById(R.id.drawer_sp_blending_accuracy);
+                    if (spBlending != null && spBlending.getAdapter() != null) {
+                        int savedBlend = prefs.getInt("blending_accuracy", 1);
+                        ArrayAdapter<?> blendAdapter = (ArrayAdapter<?>) spBlending.getAdapter();
+                        if (savedBlend >= 0 && savedBlend < blendAdapter.getCount()) {
+                            spBlending.setSelection(savedBlend);
+                        }
+                    }
+                    
+                    // Refresh switch states
                     com.google.android.material.materialswitch.MaterialSwitch swWide = header.findViewById(R.id.drawer_sw_widescreen);
                     if (swWide != null) {
                         swWide.setChecked(prefs.getBoolean("widescreen_patches", true));
@@ -2117,6 +2147,103 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                     }
                 })
                 .show();
+    }
+
+    private void setupRightDrawerActions() {
+        try {
+            View rightDrawer = findViewById(R.id.end_drawer);
+            if (rightDrawer != null) {
+                // Games button
+                View btnGames = rightDrawer.findViewById(R.id.right_drawer_btn_games);
+                if (btnGames != null) {
+                    btnGames.setOnClickListener(v -> {
+                        try {
+                            // Close right drawer first
+                            DrawerLayout drawer = findViewById(R.id.drawer_layout);
+                            if (drawer != null) drawer.closeDrawer(androidx.core.view.GravityCompat.END);
+                            // Open games dialog
+                            openGamesDialog();
+                        } catch (Throwable ignored) {}
+                    });
+                }
+
+                // Saves button
+                View btnSaves = rightDrawer.findViewById(R.id.right_drawer_btn_saves);
+                if (btnSaves != null) {
+                    btnSaves.setOnClickListener(v -> {
+                        try {
+                            // Close right drawer first
+                            DrawerLayout drawer = findViewById(R.id.drawer_layout);
+                            if (drawer != null) drawer.closeDrawer(androidx.core.view.GravityCompat.END);
+                            // Open saves dialog
+                            SavesDialogFragment dialog = new SavesDialogFragment();
+                            dialog.show(getSupportFragmentManager(), "saves_dialog");
+                        } catch (Throwable ignored) {}
+                    });
+                }
+
+                // Exit Game button (pause + open games)
+                View btnExitGame = rightDrawer.findViewById(R.id.right_drawer_btn_exit_game);
+                if (btnExitGame != null) {
+                    btnExitGame.setOnClickListener(v -> {
+                        try {
+                            // Close right drawer first
+                            DrawerLayout drawer = findViewById(R.id.drawer_layout);
+                            if (drawer != null) drawer.closeDrawer(androidx.core.view.GravityCompat.END);
+                            // Pause the game first
+                            togglePauseState();
+                            // Then open games dialog after a short delay
+                            findViewById(android.R.id.content).postDelayed(() -> {
+                                openGamesDialog();
+                            }, 300);
+                        } catch (Throwable ignored) {}
+                    });
+                }
+
+                // Restart Game button
+                View btnRestartGame = rightDrawer.findViewById(R.id.right_drawer_btn_restart_game);
+                if (btnRestartGame != null) {
+                    btnRestartGame.setOnClickListener(v -> {
+                        try {
+                            // Close right drawer first
+                            DrawerLayout drawer = findViewById(R.id.drawer_layout);
+                            if (drawer != null) drawer.closeDrawer(androidx.core.view.GravityCompat.END);
+                            // Show confirmation dialog
+                            new MaterialAlertDialogBuilder(this)
+                                    .setTitle("Restart Game")
+                                    .setMessage("Restart the current game?")
+                                    .setNegativeButton("Cancel", null)
+                                    .setPositiveButton("Restart", (d,w) -> rebootEmu())
+                                    .show();
+                        } catch (Throwable ignored) {}
+                    });
+                }
+
+                // Exit App button
+                View btnExitApp = rightDrawer.findViewById(R.id.right_drawer_btn_exit_app);
+                if (btnExitApp != null) {
+                    btnExitApp.setOnClickListener(v -> {
+                        try {
+                            // Close right drawer first
+                            DrawerLayout drawer = findViewById(R.id.drawer_layout);
+                            if (drawer != null) drawer.closeDrawer(androidx.core.view.GravityCompat.END);
+                            // Show confirmation dialog
+                            new MaterialAlertDialogBuilder(this)
+                                    .setTitle("Exit App")
+                                    .setMessage("Quit PSX2?")
+                                    .setNegativeButton("Cancel", null)
+                                    .setPositiveButton("Quit", (d,w) -> { 
+                                        try { NativeApp.shutdown(); } catch (Throwable ignored) {} 
+                                        finishAffinity(); 
+                                        finishAndRemoveTask(); 
+                                        System.exit(0); 
+                                    })
+                                    .show();
+                        } catch (Throwable ignored) {}
+                    });
+                }
+            }
+        } catch (Throwable ignored) {}
     }
 
 }

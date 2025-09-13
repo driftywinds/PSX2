@@ -972,7 +972,34 @@ public class GamesCoverDialogFragment extends DialogFragment {
                 if (header != null) {
                     android.content.SharedPreferences prefs = requireContext().getSharedPreferences("app_prefs", Context.MODE_PRIVATE);
                     
-                    // Refresh switch states only (spinners are set up once in setupDialogDrawerSettings)
+                    // Refresh spinner values to reflect current settings
+                    android.widget.Spinner spAspect = header.findViewById(R.id.drawer_sp_aspect_ratio);
+                    if (spAspect != null && spAspect.getAdapter() != null) {
+                        int savedAspect = prefs.getInt("aspect_ratio", 1);
+                        android.widget.ArrayAdapter<?> aspectAdapter = (android.widget.ArrayAdapter<?>) spAspect.getAdapter();
+                        if (savedAspect >= 0 && savedAspect < aspectAdapter.getCount()) {
+                            spAspect.setSelection(savedAspect);
+                        }
+                    }
+
+                    android.widget.Spinner spScale = header.findViewById(R.id.drawer_sp_scale);
+                    if (spScale != null && spScale.getAdapter() != null) {
+                        float savedScale = prefs.getFloat("upscale_multiplier", 1.0f);
+                        android.widget.ArrayAdapter<?> scaleAdapter = (android.widget.ArrayAdapter<?>) spScale.getAdapter();
+                        int scaleIndex = Math.max(0, Math.min(scaleAdapter.getCount() - 1, Math.round(savedScale) - 1));
+                        spScale.setSelection(scaleIndex);
+                    }
+
+                    android.widget.Spinner spBlending = header.findViewById(R.id.drawer_sp_blending_accuracy);
+                    if (spBlending != null && spBlending.getAdapter() != null) {
+                        int savedBlend = prefs.getInt("blending_accuracy", 1);
+                        android.widget.ArrayAdapter<?> blendAdapter = (android.widget.ArrayAdapter<?>) spBlending.getAdapter();
+                        if (savedBlend >= 0 && savedBlend < blendAdapter.getCount()) {
+                            spBlending.setSelection(savedBlend);
+                        }
+                    }
+                    
+                    // Refresh switch states
                     com.google.android.material.materialswitch.MaterialSwitch swWide = header.findViewById(R.id.drawer_sw_widescreen);
                     if (swWide != null) {
                         swWide.setChecked(prefs.getBoolean("widescreen_patches", true));

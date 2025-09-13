@@ -33,8 +33,10 @@ public class QuickActionsDialogFragment extends DialogFragment {
         FloatingActionButton btnPausePlay = view.findViewById(R.id.btn_quick_pause_play);
         MaterialButton btnGames = view.findViewById(R.id.btn_quick_games);
         MaterialButton btnSaves = view.findViewById(R.id.btn_quick_saves);
+        MaterialButton btnExitGame = view.findViewById(R.id.btn_quick_exit_game);
         MaterialButton btnCancel = view.findViewById(R.id.btn_cancel);
         Spinner spAspect = view.findViewById(R.id.qa_sp_aspect_ratio);
+        Spinner spResolution = view.findViewById(R.id.qa_sp_resolution_scale);
         Spinner spBlending = view.findViewById(R.id.qa_sp_blending_accuracy);
         MaterialSwitch swWide = view.findViewById(R.id.qa_sw_widescreen);
         MaterialSwitch swNoInt = view.findViewById(R.id.qa_sw_no_interlacing);
@@ -133,6 +135,27 @@ public class QuickActionsDialogFragment extends DialogFragment {
             });
         }
 
+        // Resolution Scale spinner
+        if (spResolution != null) {
+            ArrayAdapter<CharSequence> scaleAdapter = ArrayAdapter.createFromResource(requireContext(),
+                    R.array.scale_entries, android.R.layout.simple_spinner_item);
+            scaleAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            spResolution.setAdapter(scaleAdapter);
+            float savedScale = requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                    .getFloat("upscale_multiplier", 1.0f);
+            int scaleIndex = Math.max(0, Math.min(scaleAdapter.getCount() - 1, Math.round(savedScale) - 1));
+            spResolution.setSelection(scaleIndex);
+            spResolution.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                @Override public void onItemSelected(android.widget.AdapterView<?> parent, View view1, int position, long id) {
+                    float scale = Math.max(1, Math.min(8, position + 1));
+                    requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                            .edit().putFloat("upscale_multiplier", scale).apply();
+                    try { NativeApp.renderUpscalemultiplier(scale); } catch (Throwable ignored) {}
+                }
+                @Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+            });
+        }
+
         // Blending Accuracy spinner
         if (spBlending != null) {
             ArrayAdapter<CharSequence> blendAdapter = ArrayAdapter.createFromResource(requireContext(),
@@ -206,6 +229,29 @@ public class QuickActionsDialogFragment extends DialogFragment {
             btnSaves.setOnClickListener(v -> {
                 try { new SavesDialogFragment().show(getParentFragmentManager(), "saves_dialog"); } catch (Throwable ignored) {}
                 dismissAllowingStateLoss();
+            });
+        }
+
+        // Exit Game: pause game and open games dialog
+        if (btnExitGame != null) {
+            btnExitGame.setOnClickListener(v -> {
+                try {
+                    // Pause the game first
+                    if (requireActivity() instanceof MainActivity) {
+                        ((MainActivity) requireActivity()).togglePauseState();
+                    } else {
+                        boolean paused = NativeApp.isPaused();
+                        if (!paused) NativeApp.pause();
+                    }
+                    // Close this dialog
+                    dismissAllowingStateLoss();
+                    // Open games dialog after a short delay
+                    if (requireActivity() instanceof MainActivity) {
+                        requireActivity().findViewById(android.R.id.content).postDelayed(() -> {
+                            ((MainActivity) requireActivity()).openGamesDialog();
+                        }, 300);
+                    }
+                } catch (Throwable ignored) {}
             });
         }
 

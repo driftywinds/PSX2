@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?attr/colorSurface"
+    android:paddingTop="32dp">
+
+    <!-- Header -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Quick Actions"
+        android:textStyle="bold"
+        android:textSize="20sp"
+        android:textColor="@color/brand_primary"
+        android:gravity="center"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:paddingBottom="24dp" />
+
+    <!-- Games -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/right_drawer_btn_games"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:text="GAMES"
+        android:textColor="@android:color/white"
+        android:textAllCaps="true"
+        android:textSize="16sp"
+        android:gravity="start|center_vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        app:icon="@drawable/stadia_controller_24px"
+        app:iconTint="@color/brand_primary"
+        app:iconGravity="textStart"
+        app:iconPadding="16dp"
+        app:iconSize="24dp"
+        app:rippleColor="@color/brand_primary" />
+
+    <!-- Saves -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/right_drawer_btn_saves"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:text="SAVES"
+        android:textColor="@android:color/white"
+        android:textAllCaps="true"
+        android:textSize="16sp"
+        android:gravity="start|center_vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        app:icon="@drawable/save_24px"
+        app:iconTint="@color/brand_primary"
+        app:iconGravity="textStart"
+        app:iconPadding="16dp"
+        app:iconSize="24dp"
+        app:rippleColor="@color/brand_primary" />
+
+    <!-- Exit Game -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/right_drawer_btn_exit_game"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:text="EXIT GAME"
+        android:textColor="@android:color/white"
+        android:textAllCaps="true"
+        android:textSize="16sp"
+        android:gravity="start|center_vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        app:icon="@drawable/exit_to_app_24px"
+        app:iconTint="@color/brand_primary"
+        app:iconGravity="textStart"
+        app:iconPadding="16dp"
+        app:iconSize="24dp"
+        app:rippleColor="@color/brand_primary" />
+
+    <!-- Restart Game -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/right_drawer_btn_restart_game"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:text="RESTART GAME"
+        android:textColor="@android:color/white"
+        android:textAllCaps="true"
+        android:textSize="16sp"
+        android:gravity="start|center_vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        app:icon="@drawable/ic_reboot"
+        app:iconTint="@color/brand_primary"
+        app:iconGravity="textStart"
+        app:iconPadding="16dp"
+        app:iconSize="24dp"
+        app:rippleColor="@color/brand_primary" />
+
+    <!-- Exit App -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/right_drawer_btn_exit_app"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="8dp"
+        android:text="EXIT APP"
+        android:textColor="@android:color/white"
+        android:textAllCaps="true"
+        android:textSize="16sp"
+        android:gravity="start|center_vertical"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp"
+        app:icon="@drawable/exit_to_app_24px"
+        app:iconTint="@android:color/holo_red_light"
+        app:iconGravity="textStart"
+        app:iconPadding="16dp"
+        app:iconSize="24dp"
+        app:rippleColor="@android:color/holo_red_light" />
+
+    <!-- Spacer to push content to top -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+</LinearLayout>

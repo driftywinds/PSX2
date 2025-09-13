@@ -438,10 +438,11 @@
         app:itemTextColor="@color/md_theme_onSurface"
         app:headerLayout="@layout/drawer_header_settings" />
 
-    <!-- Right drawer (empty content for future use) -->
-    <FrameLayout
+    <!-- Right drawer (Quick Actions) -->
+    <include
         android:id="@+id/end_drawer"
-        android:layout_width="320dp"
+        layout="@layout/drawer_right_quick_actions"
+        android:layout_width="280dp"
         android:layout_height="match_parent"
         android:layout_gravity="end" />
 

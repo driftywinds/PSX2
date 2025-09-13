@@ -106,7 +106,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_marginBottom="16dp">
+        android:layout_marginBottom="8dp">
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btn_quick_games"
@@ -139,6 +139,20 @@
             android:drawablePadding="8dp" />
     </LinearLayout>
 
+    <!-- Row 3.5: Exit Game -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btn_quick_exit_game"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="16dp"
+        android:text="EXIT GAME"
+        android:textColor="@android:color/white"
+        android:textAllCaps="true"
+        android:drawableStart="@drawable/exit_to_app_24px"
+        android:drawableTint="@color/brand_primary"
+        android:drawablePadding="8dp" />
+
     <!-- Row 4: Aspect Ratio -->
     <TextView
         android:layout_width="wrap_content"
@@ -154,7 +168,22 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="8dp"/>
 
-    <!-- Row 5: Blending Accuracy -->
+    <!-- Row 5: Resolution Scale -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Resolution Scale"
+        android:textStyle="bold"
+        android:textColor="@color/brand_primary"
+        android:layout_marginBottom="4dp"/>
+
+    <Spinner
+        android:id="@+id/qa_sp_resolution_scale"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="8dp"/>
+
+    <!-- Row 6: Blending Accuracy -->
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
