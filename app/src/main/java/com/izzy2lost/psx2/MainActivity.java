@@ -2136,7 +2136,17 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 .setTitle("About PSX2")
                 .setMessage(aboutMessage)
                 .setPositiveButton("OK", null)
-                .setNeutralButton("View License", (dialog, which) -> {
+                .setNeutralButton("Privacy Policy", (dialog, which) -> {
+                    // Open Privacy Policy on GitHub Pages
+                    Intent intent = new Intent(Intent.ACTION_VIEW);
+                    intent.setData(Uri.parse("https://izzy2lost.github.io/PSX2/privacy-policy.html"));
+                    try {
+                        startActivity(intent);
+                    } catch (Exception e) {
+                        Toast.makeText(this, "Could not open privacy policy link", Toast.LENGTH_SHORT).show();
+                    }
+                })
+                .setNegativeButton("View License", (dialog, which) -> {
                     // Open LICENSE file or GitHub link
                     Intent intent = new Intent(Intent.ACTION_VIEW);
                     intent.setData(Uri.parse("https://github.com/izzy2lost/PSX2/blob/master/LICENSE"));
