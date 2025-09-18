@@ -708,8 +708,9 @@ bool GSDeviceOGL::CheckFeatures(bool& buggy_pbo)
 	if (!GLAD_GL_ARB_texture_barrier)
 	{
 		glTextureBarrier = ReplaceGL::TextureBarrier;
-		Host::AddOSDMessage(
-			"GL_ARB_texture_barrier is not supported, blending will not be accurate.", Host::OSD_ERROR_DURATION);
+		// OSD message disabled: GL_ARB_texture_barrier warning
+		// Host::AddOSDMessage(
+		// 	"GL_ARB_texture_barrier is not supported, blending will not be accurate.", Host::OSD_ERROR_DURATION);
 	}
 
 	if (!GLAD_GL_ARB_direct_state_access)
@@ -754,8 +755,9 @@ bool GSDeviceOGL::CheckFeatures(bool& buggy_pbo)
 		m_features.texture_barrier = m_features.framebuffer_fetch || GLAD_GL_ARB_texture_barrier;
 	if (!m_features.texture_barrier)
 	{
-		Host::AddOSDMessage(
-			"GL_ARB_texture_barrier is not supported, blending will not be accurate.", Host::OSD_ERROR_DURATION);
+		// OSD message disabled: GL_ARB_texture_barrier warning
+		// Host::AddOSDMessage(
+		// 	"GL_ARB_texture_barrier is not supported, blending will not be accurate.", Host::OSD_ERROR_DURATION);
 	}
 
 	m_features.provoking_vertex_last = true;
