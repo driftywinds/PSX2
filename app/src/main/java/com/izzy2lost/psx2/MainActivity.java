@@ -2231,6 +2231,20 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                     });
                 }
 
+                // Picture-in-Picture button
+                View btnPip = rightDrawer.findViewById(R.id.right_drawer_btn_pip);
+                if (btnPip != null) {
+                    btnPip.setOnClickListener(v -> {
+                        try {
+                            // Close right drawer first
+                            DrawerLayout drawer = findViewById(R.id.drawer_layout);
+                            if (drawer != null) drawer.closeDrawer(androidx.core.view.GravityCompat.END);
+                            // Enter Picture-in-Picture mode
+                            enterPictureInPictureMode();
+                        } catch (Throwable ignored) {}
+                    });
+                }
+
                 // Exit Game button (pause + open games)
                 View btnExitGame = rightDrawer.findViewById(R.id.right_drawer_btn_exit_game);
                 if (btnExitGame != null) {
