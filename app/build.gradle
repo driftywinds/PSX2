@@ -11,7 +11,7 @@ android {
         applicationId "com.izzy2lost.psx2"
         minSdk 26
         targetSdk 36
-        versionCode 4
+        versionCode 3
         versionName "1.0.1"
         // APK
         setProperty("archivesBaseName","PSX2_${versionCode}_${new Date().format('yyyyMMddHHmm')}")
@@ -67,7 +67,7 @@ android {
     }
 }
 
-task bumpVersion {
+tasks.register('bumpVersion') {
     doLast {
         def buildFile = file('build.gradle')
         def buildContent = buildFile.text
