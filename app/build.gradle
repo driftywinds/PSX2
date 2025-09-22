@@ -2,6 +2,29 @@ plugins {
     id 'com.android.application'
 }
 
+// Function to get and increment version code
+def getVersionCode() {
+    def versionFile = file('version.properties')
+    def versionCode = 3 // Starting version code
+    
+    if (versionFile.exists()) {
+        def props = new Properties()
+        props.load(new FileInputStream(versionFile))
+        versionCode = props['VERSION_CODE'] as int
+    }
+    
+    // Increment version code for AAB builds
+    if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('bundle') }) {
+        versionCode++
+        def props = new Properties()
+        props['VERSION_CODE'] = versionCode.toString()
+        props.store(versionFile.newWriter(), null)
+        println "Auto-incremented version code to: ${versionCode}"
+    }
+    
+    return versionCode
+}
+
 android {
     namespace 'com.izzy2lost.psx2'
     compileSdk 36
@@ -11,7 +34,7 @@ android {
         applicationId "com.izzy2lost.psx2"
         minSdk 26
         targetSdk 36
-        versionCode 2
+        versionCode getVersionCode()
         versionName "1.0.1"
         // APK
         setProperty("archivesBaseName","PSX2_${versionCode}_${new Date().format('yyyyMMddHHmm')}")
@@ -64,6 +87,32 @@ android {
             useLegacyPackaging = true
         }
         exclude 'META-INF/DEPENDENCIES'
+    }
+}
+
+// Manual version increment tasks
+task incrementVersion {
+    doLast {
+        def versionFile = file('version.properties')
+        def versionCode = 3
+        
+        if (versionFile.exists()) {
+            def props = new Properties()
+            props.load(new FileInputStream(versionFile))
+            versionCode = props['VERSION_CODE'] as int
+        }
+        
+        versionCode++
+        def props = new Properties()
+        props['VERSION_CODE'] = versionCode.toString()
+        props.store(versionFile.newWriter(), null)
+        println "Incremented version code to: ${versionCode}"
+    }
+}
+
+task showVersion {
+    doLast {
+        println "Current version code: ${getVersionCode()}"
     }
 }
 
