@@ -32,6 +32,12 @@ import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.util.TypedValue;
 import android.widget.Toast;
+import android.app.PictureInPictureParams;
+import android.util.Rational;
+import android.app.RemoteAction;
+import android.graphics.drawable.Icon;
+import android.app.PendingIntent;
+import android.content.pm.PackageManager;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
@@ -43,6 +49,10 @@ import androidx.core.content.ContextCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.core.view.GravityCompat;
 import androidx.activity.OnBackPressedCallback;
+import androidx.activity.EdgeToEdge;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.graphics.Insets;
 
 import com.google.android.material.button.MaterialButton;
 
@@ -218,8 +228,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Make immersive (hide status + navigation) and allow swipe to reveal temporarily
         Window w = getWindow();
         if (w == null) return;
-        // Request full screen window flags for additional assurance
-        w.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        
         // Allow drawing into display cutouts (notches) on API 28+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             WindowManager.LayoutParams lp = w.getAttributes();
@@ -227,23 +236,23 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
             w.setAttributes(lp);
         }
 
-        // Common flags for legacy immersive (works as belt-and-suspenders on newer API too)
-        final int legacyFlags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
-                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                | View.SYSTEM_UI_FLAG_FULLSCREEN
-                | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            // Tell Window to lay out edge-to-edge and hide all system bars
+            // Modern API for Android 11+ (API 30+)
             w.setDecorFitsSystemWindows(false);
             WindowInsetsController controller = w.getInsetsController();
             if (controller != null) {
                 controller.hide(WindowInsets.Type.systemBars());
                 controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
-            // Also apply legacy flags to decor; helps on 3-button nav devices
+        } else {
+            // Legacy API for Android 10 and below
+            final int legacyFlags = View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+                    | View.SYSTEM_UI_FLAG_FULLSCREEN
+                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+            
             View decor = w.getDecorView();
             decor.setSystemUiVisibility(legacyFlags);
             decor.setOnSystemUiVisibilityChangeListener(vis -> {
@@ -251,13 +260,20 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                     decor.setSystemUiVisibility(legacyFlags);
                 }
             });
-        } else {
-            View decor = w.getDecorView();
-            decor.setSystemUiVisibility(legacyFlags);
-            decor.setOnSystemUiVisibilityChangeListener(vis -> {
-                if ((vis & View.SYSTEM_UI_FLAG_FULLSCREEN) == 0) {
-                    decor.setSystemUiVisibility(legacyFlags);
-                }
+        }
+    }
+    
+    private void setupWindowInsets() {
+        View mainView = findViewById(R.id.drawer_layout); // Use the actual root layout ID
+        if (mainView != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(mainView, (v, windowInsets) -> {
+                Insets systemBars = windowInsets.getInsets(WindowInsetsCompat.Type.systemBars());
+                
+                // For a gaming app, we typically want to draw behind the system bars
+                // but ensure important UI elements are not obscured
+                v.setPadding(0, 0, 0, 0); // Draw edge-to-edge
+                
+                return windowInsets;
             });
         }
     }
@@ -398,11 +414,20 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        
+        // Enable edge-to-edge for Android 15+ compatibility
+        EdgeToEdge.enable(this);
+        
         // Hide action bar to improve immersive appearance
         if (getSupportActionBar() != null) {
             getSupportActionBar().hide();
         }
+        
         setContentView(R.layout.activity_main);
+        
+        // Handle window insets for edge-to-edge display
+        setupWindowInsets();
+        
         enableImmersiveMode();
 
         // Setup back button handler
@@ -469,6 +494,20 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
 
         // Setup right drawer quick actions
         setupRightDrawerActions();
+        
+        // Setup picture-in-picture support
+        addPictureInPictureSupport();
+    }
+    
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        // Automatically enter PiP mode when user presses home button during gameplay
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (hasSelectedGame() && isThread() && !isInPictureInPictureMode()) {
+                enterPictureInPictureMode();
+            }
+        }
     }
 
     public void setSetupWizardActive(boolean active) {
@@ -2254,6 +2293,169 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
                 }
             }
         } catch (Throwable ignored) {}
+    }
+
+    // Picture-in-Picture support methods
+    
+    public void enterPictureInPictureMode() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            if (getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)) {
+                if (hasSelectedGame() && isThread()) {
+                    try {
+                        PictureInPictureParams.Builder pipBuilder = new PictureInPictureParams.Builder()
+                                .setAspectRatio(new Rational(16, 9)) // 16:9 aspect ratio for gaming
+                                .setSourceRectHint(null); // Use entire activity
+                        
+                        // Add custom actions for PiP mode
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                            java.util.ArrayList<RemoteAction> actions = new java.util.ArrayList<>();
+                            
+                            // Play/Pause action
+                            Intent playPauseIntent = new Intent("TOGGLE_PAUSE");
+                            PendingIntent playPausePendingIntent = PendingIntent.getBroadcast(
+                                this, 0, playPauseIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                            
+                            boolean isPaused = false;
+                            try { isPaused = NativeApp.isPaused(); } catch (Throwable ignored) {}
+                            
+                            Icon playPauseIcon = Icon.createWithResource(this, 
+                                isPaused ? R.drawable.play_circle_24px : R.drawable.pause_circle_24px);
+                            RemoteAction playPauseAction = new RemoteAction(playPauseIcon, 
+                                isPaused ? "Resume" : "Pause", 
+                                isPaused ? "Resume Game" : "Pause Game", 
+                                playPausePendingIntent);
+                            actions.add(playPauseAction);
+                            
+                            pipBuilder.setActions(actions);
+                        }
+                        
+                        enterPictureInPictureMode(pipBuilder.build());
+                    } catch (Exception e) {
+                        Toast.makeText(this, "Picture-in-Picture not available", Toast.LENGTH_SHORT).show();
+                    }
+                } else {
+                    Toast.makeText(this, "Start a game to use Picture-in-Picture", Toast.LENGTH_SHORT).show();
+                }
+            } else {
+                Toast.makeText(this, "Picture-in-Picture not supported on this device", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+    
+    @Override
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
+        
+        if (isInPictureInPictureMode) {
+            // Hide UI elements that are not needed in PiP mode
+            hideUiForPiP();
+        } else {
+            // Restore UI when exiting PiP mode
+            showUiAfterPiP();
+        }
+    }
+    
+    private void hideUiForPiP() {
+        // Hide control buttons, drawers, etc. in PiP mode
+        View settingsBtn = findViewById(R.id.btn_settings);
+        if (settingsBtn != null) settingsBtn.setVisibility(View.GONE);
+        
+        View pauseBtn = findViewById(R.id.btn_pause_play);
+        if (pauseBtn != null) pauseBtn.setVisibility(View.GONE);
+        
+        View quickActions = findViewById(R.id.ll_quick_actions);
+        if (quickActions != null) quickActions.setVisibility(View.GONE);
+        
+        // Hide all gamepad controls
+        hideGamepadControls();
+    }
+    
+    private void showUiAfterPiP() {
+        // Restore UI elements when exiting PiP mode
+        View settingsBtn = findViewById(R.id.btn_settings);
+        if (settingsBtn != null) settingsBtn.setVisibility(View.VISIBLE);
+        
+        updatePausePlayButton(); // This will show/hide based on game state
+        
+        View quickActions = findViewById(R.id.ll_quick_actions);
+        if (quickActions != null) quickActions.setVisibility(View.VISIBLE);
+        
+        // Show gamepad controls based on preferences
+        updateUiForControllerPresence();
+    }
+    
+    private void hideGamepadControls() {
+        View joy = findViewById(R.id.ll_pad_joy);
+        if (joy != null) joy.setVisibility(View.GONE);
+        
+        View dpad = findViewById(R.id.ll_pad_dpad);
+        if (dpad != null) dpad.setVisibility(View.GONE);
+        
+        View rightButtons = findViewById(R.id.ll_pad_right_buttons);
+        if (rightButtons != null) rightButtons.setVisibility(View.GONE);
+        
+        View selectStart = findViewById(R.id.ll_pad_select_start);
+        if (selectStart != null) selectStart.setVisibility(View.GONE);
+    }
+    
+    // Add PiP button to quick actions or settings
+    public void addPictureInPictureSupport() {
+        // This method can be called to add a PiP button to your UI
+        // For now, users can enter PiP mode by pressing home button during gameplay
+        
+        // Register broadcast receiver for PiP actions
+        registerPiPBroadcastReceiver();
+    }
+    
+    private void registerPiPBroadcastReceiver() {
+        // Register receiver for PiP remote actions
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            android.content.BroadcastReceiver pipReceiver = new android.content.BroadcastReceiver() {
+                @Override
+                public void onReceive(android.content.Context context, Intent intent) {
+                    String action = intent.getAction();
+                    if ("TOGGLE_PAUSE".equals(action)) {
+                        togglePauseState();
+                        // Update PiP params with new play/pause state
+                        if (isInPictureInPictureMode()) {
+                            updatePictureInPictureParams();
+                        }
+                    }
+                }
+            };
+            
+            android.content.IntentFilter filter = new android.content.IntentFilter();
+            filter.addAction("TOGGLE_PAUSE");
+            registerReceiver(pipReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+        }
+    }
+    
+    private void updatePictureInPictureParams() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && isInPictureInPictureMode()) {
+            try {
+                boolean isPaused = NativeApp.isPaused();
+                
+                Intent playPauseIntent = new Intent("TOGGLE_PAUSE");
+                PendingIntent playPausePendingIntent = PendingIntent.getBroadcast(
+                    this, 0, playPauseIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+                
+                Icon playPauseIcon = Icon.createWithResource(this, 
+                    isPaused ? R.drawable.play_circle_24px : R.drawable.pause_circle_24px);
+                RemoteAction playPauseAction = new RemoteAction(playPauseIcon, 
+                    isPaused ? "Resume" : "Pause", 
+                    isPaused ? "Resume Game" : "Pause Game", 
+                    playPausePendingIntent);
+                
+                java.util.ArrayList<RemoteAction> actions = new java.util.ArrayList<>();
+                actions.add(playPauseAction);
+                
+                PictureInPictureParams params = new PictureInPictureParams.Builder()
+                        .setActions(actions)
+                        .build();
+                        
+                setPictureInPictureParams(params);
+            } catch (Exception ignored) {}
+        }
     }
 
 }

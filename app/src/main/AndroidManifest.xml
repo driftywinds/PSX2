@@ -45,11 +45,12 @@
 
         <meta-data android:name="android.max_aspect" android:value="2.4" />
 
-        <activity
+    <activity
             android:name=".MainActivity"
             android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|uiMode|screenSize|smallestScreenSize"
             android:launchMode="singleTask"
             android:enableOnBackInvokedCallback="true"
+            android:supportsPictureInPicture="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
