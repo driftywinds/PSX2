@@ -2,29 +2,6 @@ plugins {
     id 'com.android.application'
 }
 
-// Function to get and increment version code
-def getVersionCode() {
-    def versionFile = file('version.properties')
-    def versionCode = 3 // Starting version code
-    
-    if (versionFile.exists()) {
-        def props = new Properties()
-        props.load(new FileInputStream(versionFile))
-        versionCode = props['VERSION_CODE'] as int
-    }
-    
-    // Increment version code for AAB builds
-    if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('bundle') }) {
-        versionCode++
-        def props = new Properties()
-        props['VERSION_CODE'] = versionCode.toString()
-        props.store(versionFile.newWriter(), null)
-        println "Auto-incremented version code to: ${versionCode}"
-    }
-    
-    return versionCode
-}
-
 android {
     namespace 'com.izzy2lost.psx2'
     compileSdk 36
@@ -34,7 +11,7 @@ android {
         applicationId "com.izzy2lost.psx2"
         minSdk 26
         targetSdk 36
-        versionCode getVersionCode()
+        versionCode 4
         versionName "1.0.1"
         // APK
         setProperty("archivesBaseName","PSX2_${versionCode}_${new Date().format('yyyyMMddHHmm')}")
@@ -90,29 +67,20 @@ android {
     }
 }
 
-// Manual version increment tasks
-task incrementVersion {
+task bumpVersion {
     doLast {
-        def versionFile = file('version.properties')
-        def versionCode = 3
+        def buildFile = file('build.gradle')
+        def buildContent = buildFile.text
+        def versionPattern = /versionCode (\d+)/
+        def matcher = buildContent =~ versionPattern
         
-        if (versionFile.exists()) {
-            def props = new Properties()
-            props.load(new FileInputStream(versionFile))
-            versionCode = props['VERSION_CODE'] as int
+        if (matcher.find()) {
+            def currentVersion = Integer.parseInt(matcher[0][1])
+            def newVersion = currentVersion + 1
+            def newContent = buildContent.replaceFirst(versionPattern, "versionCode ${newVersion}")
+            buildFile.text = newContent
+            println "Version code bumped from ${currentVersion} to ${newVersion}"
         }
-        
-        versionCode++
-        def props = new Properties()
-        props['VERSION_CODE'] = versionCode.toString()
-        props.store(versionFile.newWriter(), null)
-        println "Incremented version code to: ${versionCode}"
-    }
-}
-
-task showVersion {
-    doLast {
-        println "Current version code: ${getVersionCode()}"
     }
 }
 
