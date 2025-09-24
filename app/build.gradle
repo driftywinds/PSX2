@@ -50,8 +50,9 @@ android {
         abortOnError false
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_17
-        targetCompatibility JavaVersion.VERSION_17
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
+        coreLibraryDesugaringEnabled true
     }
     externalNativeBuild {
         cmake {
@@ -85,6 +86,7 @@ tasks.register('bumpVersion') {
 }
 
 dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
     implementation 'androidx.appcompat:appcompat:1.7.1'
     implementation 'com.google.android.material:material:1.14.0-alpha04'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
@@ -95,3 +97,12 @@ dependencies {
     implementation 'com.github.bumptech.glide:glide:4.16.0'
     annotationProcessor 'com.github.bumptech.glide:compiler:4.16.0'
 }
+
+def javaToolchainService = project.extensions.getByType(org.gradle.jvm.toolchain.JavaToolchainService)
+
+tasks.withType(org.gradle.api.tasks.compile.JavaCompile).configureEach {
+    javaCompiler = javaToolchainService.compilerFor {
+        languageVersion = org.gradle.jvm.toolchain.JavaLanguageVersion.of(21)
+    }
+}
+
