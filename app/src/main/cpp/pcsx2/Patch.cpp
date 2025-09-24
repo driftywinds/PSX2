@@ -115,6 +115,7 @@ namespace Patch
 		std::optional<GSInterlaceMode> override_interlace_mode;
 		std::vector<PatchCommand> patches;
 		std::vector<DynamicPatch> dpatches;
+		bool default_enabled = false;
 	};
 
 	struct PatchTextTable
@@ -140,7 +141,7 @@ namespace Patch
 	static int PatchTableExecute(PatchGroup* group, const std::string_view lhs, const std::string_view rhs,
 		const std::span<const PatchTextTable>& Table);
 	static void LoadPatchLine(PatchGroup* group, const std::string_view line);
-	static u32 LoadPatchesFromString(PatchList* patch_list, const std::string& patch_file);
+	static u32 LoadPatchesFromString(PatchList* patch_list, const std::string& patch_file, bool default_enabled = false);
 	static bool OpenPatchesZip();
 	static std::string GetPnachTemplate(
 		const std::string_view serial, u32 crc, bool include_serial, bool add_wildcard, bool all_crcs);
@@ -181,6 +182,7 @@ namespace Patch
 	static ActivePatchList s_active_patches;
 	static std::vector<DynamicPatch> s_active_gamedb_dynamic_patches;
 	static std::vector<DynamicPatch> s_active_pnach_dynamic_patches;
+	static EnablePatchList s_disabled_patches;
 	static EnablePatchList s_enabled_cheats;
 	static EnablePatchList s_enabled_patches;
 	static EnablePatchList s_just_enabled_cheats;
@@ -248,12 +250,13 @@ void Patch::LoadPatchLine(PatchGroup* group, const std::string_view line)
 	PatchTableExecute(group, key, value, s_patch_commands);
 }
 
-u32 Patch::LoadPatchesFromString(PatchList* patch_list, const std::string& patch_file)
+u32 Patch::LoadPatchesFromString(PatchList* patch_list, const std::string& patch_file, bool default_enabled)
 {
 	const size_t before = patch_list->size();
 
 	PatchGroup current_patch_group;
-	const auto add_current_patch = [patch_list, &current_patch_group]() {
+	current_patch_group.default_enabled = default_enabled;
+	const auto add_current_patch = [patch_list, &current_patch_group, default_enabled]() {
 		if (!current_patch_group.patches.empty())
 		{
 			// Ungrouped/legacy patches should merge with other ungrouped patches.
@@ -266,6 +269,9 @@ u32 Patch::LoadPatchesFromString(PatchList* patch_list, const std::string& patch
 					Console.WriteLn(Color_Gray, fmt::format(
 						"Patch: Merging {} new patch commands into ungrouped list.", current_patch_group.patches.size()));
 
+					if (default_enabled)
+						ungrouped_patch->default_enabled = true;
+
 					ungrouped_patch->patches.reserve(ungrouped_patch->patches.size() + current_patch_group.patches.size());
 					for (PatchCommand& cmd : current_patch_group.patches)
 						ungrouped_patch->patches.push_back(std::move(cmd));
@@ -273,6 +279,7 @@ u32 Patch::LoadPatchesFromString(PatchList* patch_list, const std::string& patch
 				else
 				{
 					// Always add ungrouped patches, no sense to compare empty names.
+					current_patch_group.default_enabled = default_enabled;
 					patch_list->push_back(std::move(current_patch_group));
 				}
 
@@ -316,6 +323,7 @@ u32 Patch::LoadPatchesFromString(PatchList* patch_list, const std::string& patch
 			{
 				add_current_patch();
 				current_patch_group = {};
+				current_patch_group.default_enabled = default_enabled;
 			}
 
 			current_patch_group.name = line.substr(1, line.length() - 2);
@@ -333,6 +341,7 @@ u32 Patch::LoadPatchesFromString(PatchList* patch_list, const std::string& patch
 
 	return static_cast<u32>(patch_list->size() - before);
 }
+
 
 bool Patch::OpenPatchesZip()
 {
@@ -432,7 +441,7 @@ void Patch::EnumeratePnachFiles(const std::string_view serial, u32 crc, bool che
 					Console.WriteLn(fmt::format("Patch: Disabling any bundled '{}' patches due to unlabeled patch being loaded. (To avoid conflicts)", PATCHES_ZIP_NAME));
 				}
 
-				f(std::move(file), std::move(contents.value()));
+				f(std::move(file), std::move(contents.value()), false);
 			}
 		}
 	}
@@ -450,7 +459,7 @@ void Patch::EnumeratePnachFiles(const std::string_view serial, u32 crc, bool che
 		pnach_data = ReadFileInZipToString(s_patches_zip, zip_filename.c_str());
 	}
 	if (pnach_data.has_value())
-		f(std::move(zip_filename), std::move(pnach_data.value()));
+		f(std::move(zip_filename), std::move(pnach_data.value()), true);
 }
 
 bool Patch::PatchStringHasUnlabelledPatch(const std::string& pnach_data)
@@ -573,7 +582,7 @@ Patch::PatchInfoList Patch::GetPatchInfo(const std::string_view serial, u32 crc,
 		*num_unlabelled_patches = 0;
 
 	EnumeratePnachFiles(serial, crc, cheats, showAllCRCS,
-		[&ret, num_unlabelled_patches](const std::string& filename, const std::string& pnach_data) {
+		[&ret, num_unlabelled_patches](const std::string& filename, const std::string& pnach_data, bool /*from_zip*/) {
 			ExtractPatchInfo(&ret, pnach_data, num_unlabelled_patches);
 		});
 
@@ -595,6 +604,7 @@ void Patch::ReloadEnabledLists()
 
 	const EnablePatchList prev_enabled_patches = std::exchange(s_enabled_patches, Host::GetStringListSetting(PATCHES_CONFIG_SECTION, PATCH_ENABLE_CONFIG_KEY));
 	const EnablePatchList disabled_patches = Host::GetStringListSetting(PATCHES_CONFIG_SECTION, PATCH_DISABLE_CONFIG_KEY);
+	s_disabled_patches = disabled_patches;
 
 	// Name based matching for widescreen/NI settings.
 	if (EmuConfig.EnableWideScreenPatches)
@@ -652,12 +662,19 @@ u32 Patch::EnablePatches(const PatchList& patches, const EnablePatchList& enable
 	for (const PatchGroup& p : patches)
 	{
 		// For compatibility, we auto enable anything that's not labelled.
-		// Also for gamedb patches.
-		if (!p.name.empty() && std::find(enable_list.begin(), enable_list.end(), p.name) == enable_list.end())
-			continue;
+		// Also enable GameDB patches and bundled patches by default unless the user explicitly disables them.
+		if (!p.name.empty())
+		{
+			if (std::find(s_disabled_patches.begin(), s_disabled_patches.end(), p.name) != s_disabled_patches.end())
+				continue;
+
+			const bool explicitly_enabled = std::find(enable_list.begin(), enable_list.end(), p.name) != enable_list.end();
+			if (!p.default_enabled && !explicitly_enabled)
+				continue;
+		}
 
 		Console.WriteLn(Color_Green, fmt::format("Enabled patch: {}",
-										 p.name.empty() ? std::string_view("<unknown>") : std::string_view(p.name)));
+							 p.name.empty() ? std::string_view("<unknown>") : std::string_view(p.name)));
 
 		const bool apply_immediately = std::find(enable_immediately_list.begin(), enable_immediately_list.end(), p.name) != enable_immediately_list.end();
 		for (const PatchCommand& ip : p.patches)
@@ -698,6 +715,8 @@ u32 Patch::EnablePatches(const PatchList& patches, const EnablePatchList& enable
 	return count;
 }
 
+
+
 void Patch::ReloadPatches(const std::string& serial, u32 crc, bool reload_files, bool reload_enabled_list, bool verbose,
 	bool verbose_if_changed)
 {
@@ -714,7 +733,7 @@ void Patch::ReloadPatches(const std::string& serial, u32 crc, bool reload_files,
 			const std::string* patches = game->findPatch(crc);
 			if (patches)
 			{
-				const u32 patch_count = LoadPatchesFromString(&s_gamedb_patches, *patches);
+				const u32 patch_count = LoadPatchesFromString(&s_gamedb_patches, *patches, true);
 				if (patch_count > 0)
 					Console.WriteLn(Color_Green, fmt::format("Found {} game patches in GameDB.", patch_count));
 			}
@@ -724,16 +743,16 @@ void Patch::ReloadPatches(const std::string& serial, u32 crc, bool reload_files,
 
 		s_game_patches.clear();
 		EnumeratePnachFiles(
-			serial, s_patches_crc, false, false, [](const std::string& filename, const std::string& pnach_data) {
-				const u32 patch_count = LoadPatchesFromString(&s_game_patches, pnach_data);
+			serial, s_patches_crc, false, false, [](const std::string& filename, const std::string& pnach_data, bool from_zip) {
+				const u32 patch_count = LoadPatchesFromString(&s_game_patches, pnach_data, from_zip);
 				if (patch_count > 0)
 					Console.WriteLn(Color_Green, fmt::format("Found {} game patches in {}.", patch_count, filename));
 			});
 
 		s_cheat_patches.clear();
 		EnumeratePnachFiles(
-			serial, s_patches_crc, true, false, [](const std::string& filename, const std::string& pnach_data) {
-				const u32 patch_count = LoadPatchesFromString(&s_cheat_patches, pnach_data);
+			serial, s_patches_crc, true, false, [](const std::string& filename, const std::string& pnach_data, bool from_zip) {
+				const u32 patch_count = LoadPatchesFromString(&s_cheat_patches, pnach_data, from_zip);
 				if (patch_count > 0)
 					Console.WriteLn(Color_Green, fmt::format("Found {} cheats in {}.", patch_count, filename));
 			});
@@ -856,6 +875,7 @@ void Patch::UnloadPatches()
 	s_active_gamedb_dynamic_patches = {};
 	s_enabled_patches = {};
 	s_enabled_cheats = {};
+	s_disabled_patches = {};
 	decltype(s_cheat_patches)().swap(s_cheat_patches);
 	decltype(s_game_patches)().swap(s_game_patches);
 	decltype(s_gamedb_patches)().swap(s_gamedb_patches);
