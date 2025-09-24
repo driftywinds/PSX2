@@ -729,8 +729,16 @@ void ImGuiManager::DrawOSDMessages(Common::Timer::Value current_time)
 	const float margin = std::ceil(10.0f * scale);
 	const float padding = std::ceil(8.0f * scale);
 	const float rounding = std::ceil(5.0f * scale);
-	const float max_width = s_window_width - (margin + padding) * 2.0f;
-	float position_x = GSConfig.OsdMessagesPos == OsdOverlayPos::TopRight ? GetWindowWidth() - margin : margin;
+#if defined(__ANDROID__)
+	// Shuffle left-aligned messages to clear the Android navigation drawer icon.
+	const float nav_drawer_inset = (GSConfig.OsdMessagesPos == OsdOverlayPos::TopLeft) ? std::ceil(56.0f * scale) : 0.0f;
+#else
+	const float nav_drawer_inset = 0.0f;
+#endif
+	const float left_margin = margin + nav_drawer_inset;
+	const float right_margin = margin;
+	const float max_width = std::max(32.0f, s_window_width - (left_margin + right_margin + padding * 2.0f));
+	float position_x = (GSConfig.OsdMessagesPos == OsdOverlayPos::TopRight) ? (GetWindowWidth() - right_margin) : left_margin;
 	float position_y = margin;
 
 	auto iter = s_osd_active_messages.begin();
