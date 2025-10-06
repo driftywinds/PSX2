@@ -1,6 +1,3 @@
-###### I need testers, because of Googles requirements. Please email me at izzynochill@gmail.com #######
-
-
 # PSX2 - PlayStation 2 Emulator for Android
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
