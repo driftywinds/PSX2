@@ -1,93 +1,100 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="24dp">
-
-    <ImageView
-        android:layout_width="48dp"
-        android:layout_height="48dp"
-        android:layout_gravity="center"
-        android:layout_marginBottom="16dp"
-        android:src="@drawable/stadia_controller_24px"
-        android:tint="?attr/colorPrimary" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Controller Quick Actions"
-        android:textSize="18sp"
-        android:textStyle="bold"
-        android:gravity="center"
-        android:layout_marginBottom="12dp"
-        android:textColor="?android:attr/textColorPrimary" />
-
-    <TextView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="When using a controller, press Select + Start together to open the Quick Actions menu for easy access to settings and features."
-        android:textSize="14sp"
-        android:gravity="center"
-        android:layout_marginBottom="16dp"
-        android:lineSpacingExtra="2dp"
-        android:textColor="?android:attr/textColorSecondary" />
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:layout_marginBottom="16dp"
-        android:background="?attr/colorSurfaceVariant"
-        android:padding="12dp"
-        android:layout_marginStart="8dp"
-        android:layout_marginEnd="8dp">
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <ImageView
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="center"
+            android:layout_marginBottom="16dp"
+            android:src="@drawable/stadia_controller_24px"
+            android:tint="?attr/colorPrimary" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="SELECT"
-            android:textSize="12sp"
+            android:text="Controller Quick Actions"
+            android:textSize="18sp"
             android:textStyle="bold"
-            android:background="?attr/colorPrimary"
-            android:textColor="?attr/colorOnPrimary"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            android:layout_marginEnd="8dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="+"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:layout_marginEnd="8dp"
+            android:gravity="center"
+            android:layout_marginBottom="12dp"
             android:textColor="?android:attr/textColorPrimary" />
 
         <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="START"
-            android:textSize="12sp"
-            android:textStyle="bold"
-            android:background="?attr/colorPrimary"
-            android:textColor="?attr/colorOnPrimary"
-            android:paddingStart="8dp"
-            android:paddingEnd="8dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp" />
+            android:text="When using a controller, press Select + Start together to open the Quick Actions menu for easy access to settings and features."
+            android:textSize="14sp"
+            android:gravity="center"
+            android:layout_marginBottom="16dp"
+            android:lineSpacingExtra="2dp"
+            android:textColor="?android:attr/textColorSecondary" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="16dp"
+            android:background="?attr/colorSurfaceVariant"
+            android:padding="12dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="8dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SELECT"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:background="?attr/colorPrimary"
+                android:textColor="?attr/colorOnPrimary"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:layout_marginEnd="8dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="+"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginEnd="8dp"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="START"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:background="?attr/colorPrimary"
+                android:textColor="?attr/colorOnPrimary"
+                android:paddingStart="8dp"
+                android:paddingEnd="8dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp" />
+
+        </LinearLayout>
+
+        <com.google.android.material.materialswitch.MaterialSwitch
+            android:id="@+id/sw_dont_show_again"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Don't show this tip again"
+            android:textSize="14sp" />
 
     </LinearLayout>
 
-    <com.google.android.material.materialswitch.MaterialSwitch
-        android:id="@+id/sw_dont_show_again"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="Don't show this tip again"
-        android:textSize="14sp" />
-
-</LinearLayout>
+</ScrollView>

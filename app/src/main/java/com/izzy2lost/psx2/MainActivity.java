@@ -87,6 +87,7 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
     private boolean controllerUiApplied = false;
     private AlertDialog mBiosPromptDialog = null;
     private boolean mControllerHintShowing = false;
+    private boolean mPreviousControllerState = false;
 
     private boolean isThread() {
         if (mEmulationThread != null) {
@@ -906,10 +907,12 @@ public class MainActivity extends AppCompatActivity implements GamesCoverDialogF
         // Hide on-screen touch controls when a physical controller is connected
         setControlsVisible(!hasController);
 
-        // Show controller hint when no controller is connected (only once)
-        if (!hasController) {
+        // Show controller hint when a controller is newly connected
+        if (hasController && !mPreviousControllerState) {
             showControllerHintIfNeeded();
         }
+        
+        mPreviousControllerState = hasController;
     }
 
     private int getCurrentRendererPref() {
