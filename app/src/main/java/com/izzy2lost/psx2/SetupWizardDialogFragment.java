@@ -40,7 +40,11 @@ public class SetupWizardDialogFragment extends DialogFragment {
         super.onResume();
         try { ((MainActivity) requireActivity()).setSetupWizardActive(true); } catch (Throwable ignored) {}
         // Refresh state (in case a step completed while this dialog was covered by a picker)
-        try { updateUi(); } catch (Throwable ignored) {}
+        try { 
+            updateUi();
+            // Auto-advance if all steps are complete
+            checkAndAutoAdvance();
+        } catch (Throwable ignored) {}
     }
 
     @Override
@@ -236,6 +240,27 @@ public class SetupWizardDialogFragment extends DialogFragment {
         
         if (hintView != null) hintView.setVisibility(View.VISIBLE);
 
+    }
+
+    private void checkAndAutoAdvance() {
+        if (isDataFolderPicked() && isGamesFolderPicked() && isBiosPresent()) {
+            // All steps complete, auto-advance
+            requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                    .edit().putBoolean("first_run_done", true).apply();
+            MainActivity a = null;
+            try { a = (MainActivity) requireActivity(); a.setSetupWizardActive(false); } catch (Throwable ignored) {}
+            dismissAllowingStateLoss();
+            if (a != null) {
+                // Open the games dialog just like the old GAMES button
+                final MainActivity act = a;
+                View decor = act.getWindow() != null ? act.getWindow().getDecorView() : null;
+                if (decor != null) {
+                    decor.postDelayed(act::openGamesDialog, 150);
+                } else {
+                    act.runOnUiThread(act::openGamesDialog);
+                }
+            }
+        }
     }
 }
 
