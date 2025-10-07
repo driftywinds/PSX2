@@ -35,6 +35,10 @@ PSX2 is an Android port of the renowned [PCSX2](https://github.com/PCSX2/pcsx2) 
 
 Download PSX2 directly from the Google Play Store for automatic updates and easy installation.
 
+<a href="https://play.google.com/store/apps/details?id=com.izzy2lost.psx2&pcampaignid=web_share">
+  <img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Get it on Google Play" height="80"/>
+</a>
+
 ### Option 2: Build from Source (Free)
 
 For users who prefer to build from source, follow the build instructions below.
