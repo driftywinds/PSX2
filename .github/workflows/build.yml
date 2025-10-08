@@ -47,24 +47,28 @@ jobs:
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/keystore.jks
       
-      - name: Create keystore.properties
-        if: github.event.inputs.build_type == 'release'
-        run: |
-          echo "storeFile=$GITHUB_WORKSPACE/keystore.jks" > keystore.properties
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> keystore.properties
-          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> keystore.properties
-          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> keystore.properties
-      
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       
-      - name: Build APK
+      - name: Build Release APK (Signed)
+        if: github.event.inputs.build_type == 'release'
         run: |
-          if [ "${{ github.event.inputs.build_type }}" = "release" ]; then
-            ./gradlew assembleRelease
-          else
-            ./gradlew assembleDebug
-          fi
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$GITHUB_WORKSPACE/keystore.jks \
+            -Pandroid.injected.signing.store.password="${{ secrets.KEYSTORE_PASSWORD }}" \
+            -Pandroid.injected.signing.key.alias="${{ secrets.KEY_ALIAS }}" \
+            -Pandroid.injected.signing.key.password="${{ secrets.KEY_PASSWORD }}"
+      
+      - name: Build Debug APK
+        if: github.event.inputs.build_type == 'debug'
+        run: ./gradlew assembleDebug
+      
+      - name: Verify APK Signature
+        if: github.event.inputs.build_type == 'release'
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          $ANDROID_HOME/build-tools/$(ls $ANDROID_HOME/build-tools | tail -n 1)/apksigner verify --print-certs "$APK_PATH"
+          echo "✓ APK is signed and verified"
       
       - name: Get APK path
         id: apk_path
@@ -99,4 +103,3 @@ jobs:
         if: always()
         run: |
           rm -f $GITHUB_WORKSPACE/keystore.jks
-          rm -f keystore.properties
