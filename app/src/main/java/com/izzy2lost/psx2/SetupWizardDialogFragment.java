@@ -244,21 +244,23 @@ public class SetupWizardDialogFragment extends DialogFragment {
 
     private void checkAndAutoAdvance() {
         if (isDataFolderPicked() && isGamesFolderPicked() && isBiosPresent()) {
-            // All steps complete, auto-advance
-            requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-                    .edit().putBoolean("first_run_done", true).apply();
-            MainActivity a = null;
-            try { a = (MainActivity) requireActivity(); a.setSetupWizardActive(false); } catch (Throwable ignored) {}
-            dismissAllowingStateLoss();
-            if (a != null) {
-                // Open the games dialog just like the old GAMES button
-                final MainActivity act = a;
-                View decor = act.getWindow() != null ? act.getWindow().getDecorView() : null;
-                if (decor != null) {
-                    decor.postDelayed(act::openGamesDialog, 150);
-                } else {
-                    act.runOnUiThread(act::openGamesDialog);
-                }
+            // All steps complete, auto-advance with delay to let BIOS processing finish
+            View decor = getDialog() != null && getDialog().getWindow() != null ? getDialog().getWindow().getDecorView() : null;
+            if (decor != null) {
+                decor.postDelayed(() -> {
+                    try {
+                        requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                                .edit().putBoolean("first_run_done", true).apply();
+                        MainActivity a = (MainActivity) requireActivity();
+                        a.setSetupWizardActive(false);
+                        dismissAllowingStateLoss();
+                        // Add extra delay before opening games dialog to avoid overload
+                        View mainDecor = a.getWindow() != null ? a.getWindow().getDecorView() : null;
+                        if (mainDecor != null) {
+                            mainDecor.postDelayed(a::openGamesDialog, 800);
+                        }
+                    } catch (Throwable ignored) {}
+                }, 500);
             }
         }
     }

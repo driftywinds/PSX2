@@ -22,3 +22,4 @@ build/
 /WARP.md
 *.aab
 *.properties
+release/
