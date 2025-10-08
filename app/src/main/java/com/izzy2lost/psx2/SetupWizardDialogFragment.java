@@ -26,6 +26,8 @@ public class SetupWizardDialogFragment extends DialogFragment {
     private MaterialButton btnDone;
     private TextView titleView;
     private TextView hintView;
+    private Runnable mPeriodicCheck;
+    private boolean mHasAutoAdvanced = false;
 
     @NonNull
     @Override
@@ -45,6 +47,15 @@ public class SetupWizardDialogFragment extends DialogFragment {
             // Auto-advance if all steps are complete
             checkAndAutoAdvance();
         } catch (Throwable ignored) {}
+        
+        // Start periodic checking for BIOS files (in case onResume doesn't catch the import)
+        startPeriodicCheck();
+    }
+    
+    @Override
+    public void onPause() {
+        super.onPause();
+        stopPeriodicCheck();
     }
 
     @Override
@@ -242,23 +253,69 @@ public class SetupWizardDialogFragment extends DialogFragment {
 
     }
 
-    private void checkAndAutoAdvance() {
-        if (isDataFolderPicked() && isGamesFolderPicked() && isBiosPresent()) {
-            // All steps complete, auto-advance
-            requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
-                    .edit().putBoolean("first_run_done", true).apply();
-            MainActivity a = null;
-            try { a = (MainActivity) requireActivity(); a.setSetupWizardActive(false); } catch (Throwable ignored) {}
-            dismissAllowingStateLoss();
-            if (a != null) {
-                // Open the games dialog just like the old GAMES button
-                final MainActivity act = a;
-                View decor = act.getWindow() != null ? act.getWindow().getDecorView() : null;
-                if (decor != null) {
-                    decor.postDelayed(act::openGamesDialog, 150);
-                } else {
-                    act.runOnUiThread(act::openGamesDialog);
+    private void startPeriodicCheck() {
+        stopPeriodicCheck();
+        View root = getView();
+        if (root != null) {
+            mPeriodicCheck = new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        if (isAdded() && !mHasAutoAdvanced) {
+                            updateUi();
+                            checkAndAutoAdvance();
+                            // Keep checking every 500ms until auto-advance happens
+                            if (getView() != null && !mHasAutoAdvanced) {
+                                getView().postDelayed(this, 500);
+                            }
+                        }
+                    } catch (Throwable ignored) {}
                 }
+            };
+            root.postDelayed(mPeriodicCheck, 500);
+        }
+    }
+    
+    private void stopPeriodicCheck() {
+        View root = getView();
+        if (root != null && mPeriodicCheck != null) {
+            root.removeCallbacks(mPeriodicCheck);
+        }
+        mPeriodicCheck = null;
+    }
+    
+    // Public method to manually refresh UI (can be called from MainActivity after BIOS import)
+    public void refreshUi() {
+        try {
+            updateUi();
+            checkAndAutoAdvance();
+        } catch (Throwable ignored) {}
+    }
+
+    private void checkAndAutoAdvance() {
+        if (mHasAutoAdvanced) return; // Prevent multiple auto-advances
+        
+        if (isDataFolderPicked() && isGamesFolderPicked() && isBiosPresent()) {
+            mHasAutoAdvanced = true;
+            stopPeriodicCheck();
+            
+            // All steps complete, auto-advance with delay to let BIOS processing finish
+            View decor = getDialog() != null && getDialog().getWindow() != null ? getDialog().getWindow().getDecorView() : null;
+            if (decor != null) {
+                decor.postDelayed(() -> {
+                    try {
+                        requireContext().getSharedPreferences("app_prefs", android.content.Context.MODE_PRIVATE)
+                                .edit().putBoolean("first_run_done", true).apply();
+                        MainActivity a = (MainActivity) requireActivity();
+                        a.setSetupWizardActive(false);
+                        dismissAllowingStateLoss();
+                        // Add extra delay before opening games dialog to avoid overload
+                        View mainDecor = a.getWindow() != null ? a.getWindow().getDecorView() : null;
+                        if (mainDecor != null) {
+                            mainDecor.postDelayed(a::openGamesDialog, 800);
+                        }
+                    } catch (Throwable ignored) {}
+                }, 500);
             }
         }
     }
